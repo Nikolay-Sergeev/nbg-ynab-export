@@ -4,12 +4,18 @@ import sys
 import csv
 
 # Constants
-REQUIRED_COLUMNS = ['Valeur', 'Περιγραφή', 'Ονοματεπώνυμο αντισυμβαλλόμενου', 'Ποσό συναλλαγής', 'Χρέωση / Πίστωση']
-DATE_COLUMN = 'Valeur'
-PAYEE_COLUMN = 'Περιγραφή'
-MEMO_COLUMN = 'Ονοματεπώνυμο αντισυμβαλλόμενου'
-AMOUNT_COLUMN = 'Ποσό συναλλαγής'
-DEBIT_CREDIT_COLUMN = 'Χρέωση / Πίστωση'
+REQUIRED_COLUMNS = [
+    'Valeur',  # Ημερομηνία αξίας
+    'Περιγραφή',  # Description
+    'Ονοματεπώνυμο αντισυμβαλλόμενου',  # Counterparty name
+    'Ποσό συναλλαγής',  # Transaction amount
+    'Χρέωση / Πίστωση'  # Debit / Credit
+]
+DATE_COLUMN = 'Valeur'  # Ημερομηνία αξίας
+PAYEE_COLUMN = 'Περιγραφή'  # Description
+MEMO_COLUMN = 'Ονοματεπώνυμο αντισυμβαλλόμενου'  # Counterparty name
+AMOUNT_COLUMN = 'Ποσό συναλλαγής'  # Transaction amount
+DEBIT_CREDIT_COLUMN = 'Χρέωση / Πίστωση'  # Debit / Credit
 
 
 def convert_amount(amount):
@@ -44,7 +50,7 @@ def convert_nbg_to_ynab(xlsx_file):
 
         # Convert amounts
         ynab_df['Amount'] = df[AMOUNT_COLUMN].apply(convert_amount)
-        ynab_df.loc[df[DEBIT_CREDIT_COLUMN] == 'Χρέωση', 'Amount'] *= -1
+        ynab_df.loc[df[DEBIT_CREDIT_COLUMN] == 'Χρέωση', 'Amount'] *= -1  # 'Χρέωση' means 'Debit'
         ynab_df['Amount'] = ynab_df['Amount'].round(2)
 
         # Save to CSV
