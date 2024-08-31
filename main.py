@@ -4,49 +4,51 @@ import sys
 import csv
 
 def convert_nbg_to_ynab(xlsx_file):
-    # Step 1: Read the XLSX file
-    df = pd.read_excel(xlsx_file)
+    try:
+        # Step 1: Read the XLSX file
+        df = pd.read_excel(xlsx_file)
 
-    # Step 2: Convert the columns to match the YNAB format
-    ynab_df = pd.DataFrame()
+        # Check for required columns
+        required_columns = ['Valeur', 'Περιγραφή', 'Ονοματεπώνυμο αντισυμβαλλόμενου', 'Ποσό συναλλαγής', 'Χρέωση / Πίστωση']
+        if not all(col in df.columns for col in required_columns):
+            raise ValueError(f"One or more required columns are missing in the XLSX file: {xlsx_file}")
 
-    # Convert "Valeur" to "Date" in YYYY-MM-DD format
-    ynab_df['Date'] = pd.to_datetime(df['Valeur'], format='%d.%m.%Y').dt.strftime('%Y-%m-%d')
+        # Step 2: Convert the columns to match the YNAB format
+        ynab_df = pd.DataFrame()
 
-    # "Περιγραφή" to "Payee"
-    ynab_df['Payee'] = df['Περιγραφή']
+        # Convert "Valeur" to "Date" in YYYY-MM-DD format
+        ynab_df['Date'] = pd.to_datetime(df['Valeur'], format='%d.%m.%Y').dt.strftime('%Y-%m-%d')
 
-    # "Ονοματεπώνυμο αντισυμβαλλόμενου" to "Memo"
-    ynab_df['Memo'] = df['Ονοματεπώνυμο αντισυμβαλλόμενου']
+        # "Περιγραφή" to "Payee"
+        ynab_df['Payee'] = df['Περιγραφή']
 
-    # "Ποσό συναλλαγής" to "Amount"
-    # Correctly handle the European decimal format (comma as a decimal separator)
-    ynab_df['Amount'] = df['Ποσό συναλλαγής'].apply(lambda x: float(str(x).replace(',', '.')))
+        # "Ονοματεπώνυμο αντισυμβαλλόμενου" to "Memo"
+        ynab_df['Memo'] = df['Ονοματεπώνυμο αντισυμβαλλόμενου']
 
-    # Amounts should be negative for expenses and positive for income
-    ynab_df['Amount'] = ynab_df['Amount'].apply(lambda x: x if df['Χρέωση / Πίστωση'].iloc[0] == 'Πίστωση' else -x)
+        # Convert amounts: negative for "Χρέωση" and positive for "Πίστωση"
+        ynab_df['Amount'] = df.apply(lambda row: float(str(row['Ποσό συναλλαγής']).replace(',', '.')) * (-1 if row['Χρέωση / Πίστωση'] == 'Χρέωση' else 1), axis=1)
 
-    # Step 3: Save to CSV in YNAB format
-    csv_file = os.path.splitext(xlsx_file)[0] + '.csv'
+        # Step 3: Save to CSV in YNAB format
+        csv_file = os.path.splitext(xlsx_file)[0] + '.csv'
 
-    # Save the YNAB DataFrame to a CSV file
-    ynab_df.to_csv(csv_file, index=False, quoting=csv.QUOTE_MINIMAL)
+        # Save the YNAB DataFrame to a CSV file
+        ynab_df.to_csv(csv_file, index=False, quoting=csv.QUOTE_MINIMAL)
 
-    print(f"Conversion complete. The CSV file is saved as: {csv_file}")
+        print(f"Conversion complete. The CSV file is saved as: {csv_file}")
 
+    except Exception as e:
+        print(f"An error occurred during conversion: {e}")
 
 if __name__ == "__main__":
-    # Check if the script was provided with the file path argument
     if len(sys.argv) < 2:
         print("Usage: python main.py <path_to_xlsx_file>")
         print("Example: python main.py /Users/user/Documents/file.xlsx")
     else:
-        # Get the file path from the command line arguments
         xlsx_file_path = sys.argv[1]
 
-        # Check if the file exists
         if not os.path.exists(xlsx_file_path):
             print(f"Error: The file '{xlsx_file_path}' does not exist.")
+        elif not xlsx_file_path.endswith(('.xlsx', '.xls')):
+            print(f"Error: The file '{xlsx_file_path}' is not a valid Excel file.")
         else:
-            # Run the conversion function
             convert_nbg_to_ynab(xlsx_file_path)
