@@ -3,13 +3,16 @@ import os
 import sys
 import csv
 
+
 def convert_nbg_to_ynab(xlsx_file):
     try:
         # Step 1: Read the XLSX file
         df = pd.read_excel(xlsx_file)
 
         # Check for required columns
-        required_columns = ['Valeur', 'Περιγραφή', 'Ονοματεπώνυμο αντισυμβαλλόμενου', 'Ποσό συναλλαγής', 'Χρέωση / Πίστωση']
+        required_columns = [
+            'Valeur', 'Περιγραφή', 'Ονοματεπώνυμο αντισυμβαλλόμενου', 'Ποσό συναλλαγής', 'Χρέωση / Πίστωση'
+        ]
         if not all(col in df.columns for col in required_columns):
             raise ValueError(f"One or more required columns are missing in the XLSX file: {xlsx_file}")
 
@@ -26,7 +29,10 @@ def convert_nbg_to_ynab(xlsx_file):
         ynab_df['Memo'] = df['Ονοματεπώνυμο αντισυμβαλλόμενου']
 
         # Convert amounts: negative for "Χρέωση" and positive for "Πίστωση"
-        ynab_df['Amount'] = df.apply(lambda row: float(str(row['Ποσό συναλλαγής']).replace(',', '.')) * (-1 if row['Χρέωση / Πίστωση'] == 'Χρέωση' else 1), axis=1)
+        ynab_df['Amount'] = df.apply(
+            lambda row: float(str(row['Ποσό συναλλαγής']).replace(',', '.')) *
+            (-1 if row['Χρέωση / Πίστωση'] == 'Χρέωση' else 1), axis=1
+        )
 
         # Step 3: Save to CSV in YNAB format
         csv_file = os.path.splitext(xlsx_file)[0] + '.csv'
@@ -38,6 +44,7 @@ def convert_nbg_to_ynab(xlsx_file):
 
     except Exception as e:
         print(f"An error occurred during conversion: {e}")
+
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
