@@ -7,6 +7,8 @@ This Python script converts transaction data from an XLSX file (in the format pr
 - **Date Formatting:** Converts dates from `dd.mm.yyyy` format to `yyyy-mm-dd`.
 - **Amount Conversion:** Handles European decimal format (comma as a decimal separator) and correctly signs amounts based on whether the transaction is a debit or credit.
 - **Custom Mapping:** Maps Greek column names to YNAB-friendly fields (e.g., `Περιγραφή` to `Payee`, `Ονοματεπώνυμο αντισυμβαλλόμενου` to `Memo`).
+- **Support for Account and Card Operations Exports:** The script now supports both Account Operations and Card Operations exports from NBG, automatically identifying the file type and processing it accordingly.
+- **Memo Field Cleanup:** Removes prefixes like "E-COMMERCE ΑΓΟΡΑ - " and "3D SECURE E-COMMERCE ΑΓΟΡΑ - " from the `Memo` field for a cleaner and more accurate description.
 
 ## Requirements
 
