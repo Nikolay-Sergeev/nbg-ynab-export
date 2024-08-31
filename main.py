@@ -28,6 +28,7 @@ CARD_DATE_COLUMN = 'Ημερομηνία/Ώρα Συναλλαγής'  # Date an
 CARD_PAYEE_COLUMN = 'Περιγραφή Κίνησης'  # Transaction description
 CARD_AMOUNT_COLUMN = 'Ποσό'  # Amount
 
+
 def convert_amount(amount):
     """
     Convert amount to float, handling both string and numeric inputs.
@@ -36,12 +37,14 @@ def convert_amount(amount):
         return float(amount.replace(',', '.'))
     return float(amount)
 
+
 def process_account_operations(df):
     """
     Process the Account Operations Export and convert it to YNAB format.
     """
     ynab_df = pd.DataFrame()
-    ynab_df['Date'] = pd.to_datetime(df[ACCOUNT_DATE_COLUMN], format='%d.%m.%Y', errors='coerce').dt.strftime('%Y-%m-%d')
+    ynab_df['Date'] = pd.to_datetime(df[ACCOUNT_DATE_COLUMN], format='%d.%m.%Y', errors='coerce').dt.strftime(
+        '%Y-%m-%d')
     ynab_df['Payee'] = df[ACCOUNT_PAYEE_COLUMN]
     ynab_df['Memo'] = df[ACCOUNT_MEMO_COLUMN]
 
@@ -52,12 +55,14 @@ def process_account_operations(df):
 
     return ynab_df
 
+
 def process_card_operations(df):
     """
     Process the Card Operations Export and convert it to YNAB format.
     """
     ynab_df = pd.DataFrame()
-    ynab_df['Date'] = pd.to_datetime(df[CARD_DATE_COLUMN].apply(lambda x: datetime.strptime(x.split()[0], '%d/%m/%Y')), errors='coerce').dt.strftime('%Y-%m-%d')
+    ynab_df['Date'] = pd.to_datetime(df[CARD_DATE_COLUMN].apply(lambda x: datetime.strptime(x.split()[0], '%d/%m/%Y')),
+                                     errors='coerce').dt.strftime('%Y-%m-%d')
     ynab_df['Payee'] = df[CARD_PAYEE_COLUMN]
     ynab_df['Memo'] = df[CARD_PAYEE_COLUMN].str.replace(
         r'^E-COMMERCE ΑΓΟΡΑ - |^3D SECURE E-COMMERCE ΑΓΟΡΑ - |^3D SECURE E-COMMERCE ΑΓΟΡΑ \(ΕΞΟΥΣΙΟΔΟΤΗΣΗ\) - |^ΑΓΟΡΑ - ',
@@ -70,6 +75,7 @@ def process_card_operations(df):
     ynab_df['Amount'] = ynab_df['Amount'].round(2)
 
     return ynab_df
+
 
 def convert_nbg_to_ynab(xlsx_file):
     """
@@ -87,7 +93,8 @@ def convert_nbg_to_ynab(xlsx_file):
         elif set(CARD_REQUIRED_COLUMNS).issubset(df.columns):
             ynab_df = process_card_operations(df)
         else:
-            raise ValueError("The provided Excel file does not match the required format for either Account or Card operations.")
+            raise ValueError(
+                "The provided Excel file does not match the required format for either Account or Card operations.")
 
         # Save to CSV
         csv_file = f"{os.path.splitext(xlsx_file)[0]}_ynab.csv"
@@ -102,6 +109,7 @@ def convert_nbg_to_ynab(xlsx_file):
         print(f"Error: {e}")
     except Exception as e:
         print(f"An unexpected error occurred: {str(e)}")
+
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
