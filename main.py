@@ -3,7 +3,6 @@ import os
 import sys
 import csv
 
-
 def convert_nbg_to_ynab(xlsx_file):
     # Step 1: Read the XLSX file
     df = pd.read_excel(xlsx_file)
@@ -40,7 +39,7 @@ if __name__ == "__main__":
     # Check if the script was provided with the file path argument
     if len(sys.argv) < 2:
         print("Usage: python main.py <path_to_xlsx_file>")
-        print("Example: python main.py /Users/nikolaysergeev/Documents/file.xlsx")
+        print("Example: python main.py /Users/user/Documents/file.xlsx")
     else:
         # Get the file path from the command line arguments
         xlsx_file_path = sys.argv[1]
