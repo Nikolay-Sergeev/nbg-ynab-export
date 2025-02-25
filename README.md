@@ -27,6 +27,10 @@ This Python script converts transaction data from National Bank of Greece (NBG) 
   - Optional: Provide previous YNAB export to exclude already imported transactions
   - Compares Date, Payee, and Amount to identify duplicates
   - Only exports new transactions
+- **Smart File Naming:**
+  - Uses date from input filename if available
+  - Falls back to current date if no date in filename
+  - Format: `{original_name}_{YYYY-MM-DD}_ynab.csv`
 
 ## Requirements
 
@@ -51,20 +55,21 @@ python main.py path/to/statement.xlsx [path/to/previous_ynab.csv]
 
 Examples:
 ```bash
-# Basic conversion
-python main.py Downloads/Finance/statement.xlsx
+# Basic conversion (uses date from filename or current date)
+python main.py Downloads/Finance/CardStatementExport.xlsx
+# Creates: CardStatementExport_2025-02-25_ynab.csv
+
+# Convert with date from filename
+python main.py Downloads/Finance/statementexport25-02-2025.xlsx
+# Creates: statementexport_2025-02-25_ynab.csv
 
 # Convert excluding transactions from previous export
-python main.py Downloads/Finance/statement.xlsx Downloads/Finance/statement_ynab.csv
+python main.py Downloads/Finance/CardStatementExport.xlsx Downloads/Finance/CardStatementExport_2025-02-16_ynab.csv
 ```
 
 The script will:
 1. Detect the statement type (account or card)
-2. Process the data accordingly
-3. Save a YNAB-compatible CSV with "_ynab" suffix
-
-Example:
-```bash
-python main.py Downloads/Finance/statement.xlsx
-# Creates: Downloads/Finance/statement_ynab.csv
-```
+2. Extract date from filename or use current date
+3. Process the data accordingly
+4. Exclude any transactions found in previous export (if provided)
+5. Save a YNAB-compatible CSV with date and "_ynab" suffix

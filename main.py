@@ -2,6 +2,7 @@ import pandas as pd
 import os
 import sys
 import csv
+import re  # Add this import
 import logging
 from datetime import datetime
 from typing import Union, List
@@ -192,13 +193,59 @@ def exclude_existing_transactions(new_df: pd.DataFrame, prev_df: pd.DataFrame) -
     
     return filtered_df
 
-def convert_nbg_to_ynab(xlsx_file: str, previous_ynab: str = None) -> None:
-    """Convert NBG Excel file to YNAB CSV format.
+def extract_date_from_filename(filename: str) -> str:
+    """Extract date from filename if present.
+    
+    Args:
+        filename: Name of the file to check
+        
+    Returns:
+        str: Date in YYYY-MM-DD format if found, empty string otherwise
+    """
+    import re
+    # Match patterns like "25-02-2025" or "2025-02-25"
+    patterns = [
+        r'(\d{2})-(\d{2})-(\d{4})',  # DD-MM-YYYY
+        r'(\d{4})-(\d{2})-(\d{2})'   # YYYY-MM-DD
+    ]
+    
+    for pattern in patterns:
+        match = re.search(pattern, filename)
+        if match:
+            groups = match.groups()
+            if len(groups[0]) == 4:  # YYYY-MM-DD format
+                return f"{groups[0]}-{groups[1]}-{groups[2]}"
+            else:  # DD-MM-YYYY format
+                return f"{groups[2]}-{groups[1]}-{groups[0]}"
+    return ""
+
+def generate_output_filename(xlsx_file: str) -> str:
+    """Generate output filename with appropriate date.
     
     Args:
         xlsx_file: Path to the input XLSX file
-        previous_ynab: Optional path to previous YNAB export CSV
+        
+    Returns:
+        str: Path to the output CSV file
     """
+    base_name = os.path.splitext(os.path.basename(xlsx_file))[0]
+    
+    # Try to extract date from filename
+    date_str = extract_date_from_filename(base_name)
+    if not date_str:
+        # If no date in filename, use current date
+        date_str = datetime.now().strftime('%Y-%m-%d')
+    
+    # Remove any existing date from base_name
+    base_name = re.sub(r'_?\d{2}-\d{2}-\d{4}', '', base_name)
+    
+    return os.path.join(
+        os.path.dirname(xlsx_file),
+        f"{base_name}_{date_str}_ynab.csv"
+    )
+
+def convert_nbg_to_ynab(xlsx_file: str, previous_ynab: str = None) -> None:
+    """Convert NBG Excel file to YNAB CSV format."""
     try:
         df = pd.read_excel(xlsx_file)
                 
@@ -221,7 +268,9 @@ def convert_nbg_to_ynab(xlsx_file: str, previous_ynab: str = None) -> None:
             prev_df = load_previous_transactions(previous_ynab)
             ynab_df = exclude_existing_transactions(ynab_df, prev_df)
             
-        csv_file = f"{os.path.splitext(xlsx_file)[0]}_ynab.csv"
+        # Replace the filename generation code with:
+        csv_file = generate_output_filename(xlsx_file)
+        
         ynab_df.to_csv(csv_file, index=False, quoting=csv.QUOTE_MINIMAL)
         logging.info(f"Conversion complete. The CSV file is saved as: {csv_file}")
 
