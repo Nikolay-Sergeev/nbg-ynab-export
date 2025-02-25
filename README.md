@@ -1,40 +1,58 @@
 # NBG to YNAB Converter
 
-This Python script converts transaction data from an XLSX file (in the format provided by National Bank of Greece) to a CSV file compatible with YNAB (You Need A Budget). The script processes the necessary columns and formats the data to ensure it aligns with YNAB's import requirements.
+This Python script converts transaction data from National Bank of Greece (NBG) XLSX files to YNAB-compatible CSV format. It supports both account statements and card statements.
 
 ## Features
 
-- **Date Formatting:** Converts dates from `dd.mm.yyyy` format to `yyyy-mm-dd`.
-- **Amount Conversion:** Handles European decimal format (comma as a decimal separator) and correctly signs amounts based on whether the transaction is a debit or credit.
-- **Custom Mapping:** Maps Greek column names to YNAB-friendly fields (e.g., `Περιγραφή` to `Payee`, `Ονοματεπώνυμο αντισυμβαλλόμενου` to `Memo`).
-- **Support for Account and Card Operations Exports:** The script now supports both Account Operations and Card Operations exports from NBG, automatically identifying the file type and processing it accordingly.
-- **Memo Field Cleanup:** Removes prefixes like "E-COMMERCE ΑΓΟΡΑ - " and "3D SECURE E-COMMERCE ΑΓΟΡΑ - " from the `Memo` field for a cleaner and more accurate description.
+- **Multiple Statement Types:** Supports both NBG Account Operations and Card Operations exports
+- **Date Handling:** 
+  - Account statements: Uses 'Valeur' (value date) instead of transaction date
+  - Card statements: Extracts date from datetime field
+- **Amount Processing:**
+  - Handles European number format (comma as decimal separator)
+  - Correctly signs amounts based on debit/credit indicators
+  - Rounds all amounts to 2 decimal places
+- **Description Cleanup:**
+  - Removes e-commerce prefixes:
+    - `E-COMMERCE ΑΓΟΡΑ - `
+    - `3D SECURE E-COMMERCE ΑΓΟΡΑ - `
+  - Removes text in parentheses
+  - Example: "3D SECURE E-COMMERCE ΑΓΟΡΑ - SPOTIFY" → "SPOTIFY"
+- **Error Handling:**
+  - Validates required columns
+  - Checks file format and existence
+  - Provides detailed error messages
+- **Logging:** Includes debug logging for troubleshooting
 
 ## Requirements
 
 - Python 3.6+
-- Pandas
+- pandas
 
 ## Installation
 
-1. **Clone the repository:**
-
-    ```bash
-    git clone https://github.com/Nikolay-Sergeev/nbg-to-ynab.git
-    cd nbg-to-ynab
-    ```
-
-2. **Install the required Python packages:**
-
-    You can install the necessary dependencies using pip:
-
-    ```bash
-    pip install pandas
-    ```
+```bash
+git clone https://github.com/Nikolay-Sergeev/nbg-to-ynab.git
+cd nbg-to-ynab
+pip install pandas
+```
 
 ## Usage
 
-To convert an NBG XLSX file to a YNAB-compatible CSV file:
+Convert an NBG statement to YNAB format:
 
 ```bash
-python main.py <path_to_xlsx_file>
+python main.py path/to/statement.xlsx
+```
+
+The script will:
+1. Detect the statement type (account or card)
+2. Process the data accordingly
+3. Save a YNAB-compatible CSV with "_ynab" suffix
+
+Example:
+```bash
+python main.py Downloads/Finance/statement.xlsx
+# Creates: Downloads/Finance/statement_ynab.csv
+```
+````
