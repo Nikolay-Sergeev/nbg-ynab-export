@@ -23,6 +23,10 @@ This Python script converts transaction data from National Bank of Greece (NBG) 
   - Checks file format and existence
   - Provides detailed error messages
 - **Logging:** Includes debug logging for troubleshooting
+- **Duplicate Prevention:**
+  - Optional: Provide previous YNAB export to exclude already imported transactions
+  - Compares Date, Payee, and Amount to identify duplicates
+  - Only exports new transactions
 
 ## Requirements
 
@@ -42,7 +46,16 @@ pip install pandas
 Convert an NBG statement to YNAB format:
 
 ```bash
-python main.py path/to/statement.xlsx
+python main.py path/to/statement.xlsx [path/to/previous_ynab.csv]
+```
+
+Examples:
+```bash
+# Basic conversion
+python main.py Downloads/Finance/statement.xlsx
+
+# Convert excluding transactions from previous export
+python main.py Downloads/Finance/statement.xlsx Downloads/Finance/statement_ynab.csv
 ```
 
 The script will:
@@ -55,4 +68,3 @@ Example:
 python main.py Downloads/Finance/statement.xlsx
 # Creates: Downloads/Finance/statement_ynab.csv
 ```
-````

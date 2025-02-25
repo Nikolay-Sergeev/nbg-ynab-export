@@ -147,11 +147,57 @@ def process_card_operations(df: pd.DataFrame) -> pd.DataFrame:
     except Exception as e:
         raise ValueError(f"Error processing card operations: {str(e)}")
 
-def convert_nbg_to_ynab(xlsx_file: str) -> None:
+def load_previous_transactions(csv_file: str) -> pd.DataFrame:
+    """Load previously exported transactions from YNAB CSV file.
+    
+    Args:
+        csv_file: Path to previous YNAB export CSV
+        
+    Returns:
+        pd.DataFrame: DataFrame with previous transactions
+    """
+    try:
+        return pd.read_csv(csv_file)
+    except Exception as e:
+        logging.warning(f"Could not load previous transactions: {str(e)}")
+        return pd.DataFrame(columns=['Date', 'Payee', 'Memo', 'Amount'])
+
+def exclude_existing_transactions(new_df: pd.DataFrame, prev_df: pd.DataFrame) -> pd.DataFrame:
+    """Remove transactions that already exist in previous export.
+    
+    Args:
+        new_df: DataFrame with new transactions
+        prev_df: DataFrame with previous transactions
+        
+    Returns:
+        pd.DataFrame: DataFrame with only new transactions
+    """
+    if prev_df.empty:
+        return new_df
+        
+    # Create a composite key for comparison
+    def get_key(df):
+        return df['Date'] + '|' + df['Payee'] + '|' + df['Amount'].astype(str)
+    
+    new_keys = get_key(new_df)
+    prev_keys = get_key(prev_df)
+    
+    # Keep only transactions that don't exist in previous export
+    mask = ~new_keys.isin(prev_keys)
+    filtered_df = new_df[mask].copy()
+    
+    excluded_count = len(new_df) - len(filtered_df)
+    if excluded_count > 0:
+        logging.info(f"Excluded {excluded_count} previously imported transactions")
+    
+    return filtered_df
+
+def convert_nbg_to_ynab(xlsx_file: str, previous_ynab: str = None) -> None:
     """Convert NBG Excel file to YNAB CSV format.
     
     Args:
         xlsx_file: Path to the input XLSX file
+        previous_ynab: Optional path to previous YNAB export CSV
     """
     try:
         df = pd.read_excel(xlsx_file)
@@ -170,6 +216,11 @@ def convert_nbg_to_ynab(xlsx_file: str) -> None:
         else:
             raise ValueError("File format does not match Account or Card operations format")
 
+        # After creating ynab_df but before saving:
+        if previous_ynab:
+            prev_df = load_previous_transactions(previous_ynab)
+            ynab_df = exclude_existing_transactions(ynab_df, prev_df)
+            
         csv_file = f"{os.path.splitext(xlsx_file)[0]}_ynab.csv"
         ynab_df.to_csv(csv_file, index=False, quoting=csv.QUOTE_MINIMAL)
         logging.info(f"Conversion complete. The CSV file is saved as: {csv_file}")
@@ -185,13 +236,14 @@ def convert_nbg_to_ynab(xlsx_file: str) -> None:
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        logging.error("Usage: python main.py <path_to_xlsx_file>")
-        logging.error("Example: python main.py /Users/user/Documents/file.xlsx")
+        logging.error("Usage: python main.py <path_to_xlsx_file> [path_to_previous_ynab.csv]")
         sys.exit(1)
-
+        
     xlsx_file_path = sys.argv[1]
+    previous_ynab_path = sys.argv[2] if len(sys.argv) > 2 else None
+    
     if not xlsx_file_path.endswith(('.xlsx', '.xls')):
         logging.error(f"Invalid file type: '{xlsx_file_path}'")
         sys.exit(1)
-    
-    convert_nbg_to_ynab(xlsx_file_path)
+        
+    convert_nbg_to_ynab(xlsx_file_path, previous_ynab_path)
