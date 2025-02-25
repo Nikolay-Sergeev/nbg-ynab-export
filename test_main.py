@@ -10,7 +10,10 @@ from main import (
     process_card_operations,
     process_account_operations,
     process_revolut_operations,  # Add this import
-    validate_dataframe
+    validate_dataframe,
+    validate_revolut_currency,  # Add this
+    REVOLUT_REQUIRED_COLUMNS,   # Add this
+    REVOLUT_CURRENCY_COLUMN     # Add this
 )
 
 class TestNBGToYNAB(unittest.TestCase):
@@ -72,12 +75,12 @@ class TestNBGToYNAB(unittest.TestCase):
         # Add Revolut test data
         self.revolut_data = pd.DataFrame({
             'Type': ['CARD_PAYMENT', 'CARD_PAYMENT', 'TRANSFER', 'TRANSFER'],
-            'Product': ['Current', 'Current', 'Current', 'Current'],
+            'Product': ['Current'] * 4,
             'Started Date': [
-                '2024-12-22 12:40:01', 
-                '2024-11-24 11:36:16',
-                '2024-11-27 15:16:00',
-                '2025-02-02 09:51:52'
+                '2024-12-22 12:40:01',  # Payment with fee
+                '2024-11-24 11:36:16',  # Another payment with fee
+                '2024-11-27 15:16:00',  # Incoming transfer
+                '2025-02-02 09:51:52'   # Another incoming transfer
             ],
             'Completed Date': [
                 '2024-12-23 06:06:09',
@@ -94,7 +97,16 @@ class TestNBGToYNAB(unittest.TestCase):
         })
 
     def test_convert_amount(self):
-        """Test amount conversion with different formats."""
+        """Test amount conversion with different formats.
+        
+        Test cases:
+        - Simple integer values
+        - Negative integers
+        - Decimal with comma (European format)
+        - Negative decimals
+        - Balance amounts
+        - Float inputs
+        """
         test_cases = [
             # Update test cases to match actual formats
             ("7", 7.0),              # Simple integer
@@ -149,6 +161,26 @@ class TestNBGToYNAB(unittest.TestCase):
         result = exclude_existing_transactions(new_df, prev_df)
         self.assertEqual(len(result), 1)
         self.assertEqual(result.iloc[0]['Payee'], 'NETFLIX')
+
+    def test_exclude_existing_complex(self):
+        """Test complex scenarios for excluding existing transactions."""
+        new_df = pd.DataFrame({
+            'Date': ['2025-02-25', '2025-02-25', '2025-02-26', '2025-02-24'],
+            'Payee': ['SPOTIFY', 'NETFLIX', 'NETFLIX', 'OLD'],
+            'Amount': [-7.99, -15.99, -15.99, -10.00]
+        })
+        prev_df = pd.DataFrame({
+            'Date': ['2025-02-24'],  # Only include old transaction
+            'Payee': ['OLD'],
+            'Amount': [-10.00]
+        })
+        
+        result = exclude_existing_transactions(new_df, prev_df)
+        
+        # Should keep all transactions after 2025-02-24
+        self.assertEqual(len(result), 3)
+        self.assertTrue(all(pd.to_datetime(result['Date']) > pd.to_datetime('2025-02-24')))
+        self.assertTrue('OLD' not in result['Payee'].values)
 
     def test_process_card_operations(self):
         """Test card operations processing."""
@@ -238,6 +270,49 @@ class TestNBGToYNAB(unittest.TestCase):
         # Check that reverted transaction was filtered out
         self.assertEqual(len(result), len(self.revolut_data))
         self.assertFalse(any(result['Payee'] == 'Uber'))
+
+    def test_validate_revolut_currency(self):
+        """Test Revolut currency validation.
+        
+        Test cases:
+        - Valid: All EUR transactions
+        - Invalid: Contains non-EUR transaction
+        """
+        # Valid case - all EUR
+        validate_revolut_currency(self.revolut_data)
+        
+        # Invalid case - mixed currencies
+        invalid_data = self.revolut_data.copy()
+        invalid_data.loc[len(invalid_data)] = [
+            'CARD_PAYMENT', 'Current', '2024-11-08 09:32:33', '',
+            'Foreign Payment', '-21.36', '0.00', 'USD', 'COMPLETED', ''
+        ]
+        
+        with self.assertRaises(ValueError):
+            validate_revolut_currency(invalid_data)
+
+    def test_empty_file_handling(self):
+        """Test handling of empty input files.
+        
+        Test cases:
+        - Completely empty DataFrame (no columns, no data)
+        - DataFrame with required columns but no data
+        - DataFrame with missing required columns
+        """
+        # Case 1: Completely empty DataFrame
+        empty_df = pd.DataFrame()
+        with self.assertRaisesRegex(ValueError, "Empty DataFrame provided"):
+            validate_dataframe(empty_df, REVOLUT_REQUIRED_COLUMNS)
+        
+        # Case 2: DataFrame with required columns but no data
+        df_no_data = pd.DataFrame(columns=REVOLUT_REQUIRED_COLUMNS)
+        with self.assertRaisesRegex(ValueError, "DataFrame contains no data"):
+            validate_dataframe(df_no_data, REVOLUT_REQUIRED_COLUMNS)
+        
+        # Case 3: DataFrame with missing required columns
+        df_missing_cols = pd.DataFrame({'Type': ['CARD_PAYMENT']})
+        with self.assertRaisesRegex(ValueError, "Missing required columns"):
+            validate_dataframe(df_missing_cols, REVOLUT_REQUIRED_COLUMNS)
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

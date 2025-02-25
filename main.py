@@ -7,10 +7,18 @@ import logging
 from datetime import datetime
 from typing import Union, List
 
+# Configuration
+LOGGING_FORMAT = '%(asctime)s - %(levelname)s - %(message)s'
+LOGGING_LEVEL = logging.INFO
+
+# File formats
+SUPPORTED_EXTENSIONS = ('.xlsx', '.xls', '.csv')
+OUTPUT_FORMAT = 'csv'
+
 # Set up logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
+    level=LOGGING_LEVEL,
+    format=LOGGING_FORMAT
 )
 
 # Date format constants
@@ -73,18 +81,27 @@ ECOMMERCE_CLEANUP_PATTERN = r'E-COMMERCE ΑΓΟΡΑ - '
 SECURE_ECOMMERCE_CLEANUP_PATTERN = r'3D SECURE E-COMMERCE ΑΓΟΡΑ - '
 
 def validate_dataframe(df: pd.DataFrame, required_columns: List[str]) -> None:
-    """Validate that DataFrame contains all required columns.
+    """Validate that DataFrame contains all required columns and has data.
     
     Args:
         df: DataFrame to validate
         required_columns: List of required column names
         
     Raises:
-        ValueError: If any required columns are missing
+        ValueError: If DataFrame is empty, has no data, or missing columns
     """
+    # Check if DataFrame is completely empty (no columns)
+    if df.empty and len(df.columns) == 0:
+        raise ValueError("Empty DataFrame provided")
+    
+    # Check if DataFrame has required columns
     missing_columns = set(required_columns) - set(df.columns)
-    if (missing_columns):
+    if missing_columns:
         raise ValueError(f"Missing required columns: {', '.join(missing_columns)}")
+        
+    # Check if DataFrame has data
+    if len(df) == 0:
+        raise ValueError("DataFrame contains no data")
 
 def convert_amount(amount: Union[str, float, int]) -> float:
     """Convert amount to float, handling both string and numeric inputs.
@@ -167,6 +184,19 @@ def process_card_operations(df: pd.DataFrame) -> pd.DataFrame:
     except Exception as e:
         raise ValueError(f"Error processing card operations: {str(e)}")
 
+def validate_revolut_currency(df: pd.DataFrame) -> None:
+    """Validate that all transactions are in EUR.
+    
+    Args:
+        df: DataFrame with Revolut transactions
+        
+    Raises:
+        ValueError: If non-EUR transactions are found
+    """
+    non_eur = df[df[REVOLUT_CURRENCY_COLUMN] != 'EUR']
+    if not non_eur.empty:
+        raise ValueError("Non-EUR transactions found. Only EUR is supported.")
+
 def process_revolut_operations(df: pd.DataFrame) -> pd.DataFrame:
     """Process Revolut export and convert it to YNAB format.
     
@@ -180,6 +210,7 @@ def process_revolut_operations(df: pd.DataFrame) -> pd.DataFrame:
         ValueError: If processing fails
     """
     validate_dataframe(df, REVOLUT_REQUIRED_COLUMNS)
+    validate_revolut_currency(df)
     
     try:
         # Filter out non-completed transactions
@@ -233,35 +264,42 @@ def load_previous_transactions(csv_file: str) -> pd.DataFrame:
         return pd.DataFrame(columns=['Date', 'Payee', 'Memo', 'Amount'])
 
 def exclude_existing_transactions(new_df: pd.DataFrame, prev_df: pd.DataFrame) -> pd.DataFrame:
-    """Remove transactions that are older or equal to the latest transaction in previous export.
+    """Remove duplicate and older transactions.
     
     Args:
         new_df: DataFrame with new transactions
         prev_df: DataFrame with previous transactions
         
     Returns:
-        pd.DataFrame: DataFrame with only new transactions
+        pd.DataFrame: Filtered transactions
     """
     if prev_df.empty:
         return new_df
         
-    # Convert dates to datetime for comparison
+    # Convert dates once
+    new_df = new_df.copy()
     new_df['Date'] = pd.to_datetime(new_df['Date'])
     prev_df['Date'] = pd.to_datetime(prev_df['Date'])
     
-    # Find the latest date in previous transactions
+    # Find latest previous date
     latest_prev_date = prev_df['Date'].max()
     
-    # Keep only transactions newer than the latest previous transaction
-    mask_newer = new_df['Date'] > latest_prev_date
-    filtered_df = new_df[mask_newer].copy()
+    # Create composite key for matching
+    def create_key(df: pd.DataFrame) -> pd.Series:
+        return df['Date'].dt.strftime('%Y-%m-%d') + '_' + df['Payee'] + '_' + df['Amount'].astype(str)
     
-    # Convert dates back to string format
+    # Filter by date and duplicates
+    mask_newer = new_df['Date'] > latest_prev_date
+    new_keys = create_key(new_df)
+    prev_keys = create_key(prev_df)
+    mask_unique = ~new_keys.isin(prev_keys)
+    
+    filtered_df = new_df[mask_newer & mask_unique].copy()
     filtered_df['Date'] = filtered_df['Date'].dt.strftime(DATE_FORMAT_YNAB)
     
     excluded_count = len(new_df) - len(filtered_df)
     if excluded_count > 0:
-        logging.info(f"Excluded {excluded_count} transactions (older than or equal to {latest_prev_date.strftime(DATE_FORMAT_YNAB)})")
+        logging.info(f"Excluded {excluded_count} transactions (older or duplicate)")
     
     return filtered_df
 
@@ -318,12 +356,44 @@ def generate_output_filename(input_file: str, is_revolut: bool = False) -> str:
     
     return os.path.join(
         os.path.dirname(input_file),
-        f"{base_name}_{date_str}_ynab.csv"
+        f"{base_name}_{date_str}_ynab.{OUTPUT_FORMAT}"
     )
 
+def validate_input_file(file_path: str) -> None:
+    """Validate input file existence and format.
+    
+    Args:
+        file_path: Path to input file
+        
+    Raises:
+        FileNotFoundError: If file doesn't exist
+        ValueError: If file format is not supported
+    """
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"File not found: '{file_path}'")
+    
+    ext = os.path.splitext(file_path)[1].lower()
+    if ext not in SUPPORTED_EXTENSIONS:
+        raise ValueError(f"Unsupported file type: '{ext}' (must be {', '.join(SUPPORTED_EXTENSIONS)})")
+
 def convert_nbg_to_ynab(xlsx_file: str, previous_ynab: str = None) -> None:
-    """Convert bank export file to YNAB CSV format."""
+    """Convert bank export file to YNAB CSV format.
+    
+    Args:
+        xlsx_file: Path to the input file
+        previous_ynab: Optional path to previous YNAB export
+        
+    Returns:
+        None
+    
+    Raises:
+        FileNotFoundError: If input file doesn't exist
+        ValueError: If file format is not recognized
+        pd.errors.EmptyDataError: If file is empty
+    """
     try:
+        validate_input_file(xlsx_file)
+        
         # Try reading as Excel first
         try:
             df = pd.read_excel(xlsx_file)
@@ -369,6 +439,13 @@ def convert_nbg_to_ynab(xlsx_file: str, previous_ynab: str = None) -> None:
     except Exception as e:
         logging.error(f"Unexpected error: {str(e)}")
 
+def configure_logging() -> None:
+    """Configure logging format and level."""
+    logging.basicConfig(
+        level=LOGGING_LEVEL,
+        format=LOGGING_FORMAT
+    )
+
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         logging.error("Usage: python main.py <path_to_statement_file> [path_to_previous_ynab.csv]")
@@ -387,7 +464,7 @@ if __name__ == "__main__":
     
     # Check file extension
     file_ext = os.path.splitext(input_file_path)[1].lower()
-    if file_ext not in ('.xlsx', '.xls', '.csv'):
+    if file_ext not in SUPPORTED_EXTENSIONS:
         logging.error(f"Unsupported file type: '{file_ext}' (must be .xlsx, .xls, or .csv)")
         sys.exit(1)
         
