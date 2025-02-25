@@ -31,6 +31,15 @@ CARD_PAYEE_COLUMN = 'Περιγραφή Κίνησης'  # Changed from 'Descrip
 CARD_AMOUNT_COLUMN = 'Ποσό'  # Changed from 'Amount'
 CARD_DEBIT_CREDIT_COLUMN = 'Χ/Π'  # Added for Greek card statements
 
+# Add after existing column name constants
+REVOLUT_DATE_COLUMN = 'Started Date'
+REVOLUT_PAYEE_COLUMN = 'Description'
+REVOLUT_TYPE_COLUMN = 'Type'
+REVOLUT_AMOUNT_COLUMN = 'Amount'
+REVOLUT_FEE_COLUMN = 'Fee'
+REVOLUT_STATE_COLUMN = 'State'
+REVOLUT_CURRENCY_COLUMN = 'Currency'
+
 # Required columns for validation
 ACCOUNT_REQUIRED_COLUMNS = [
     'Valeur',  # Changed from 'Ημερομηνία'
@@ -44,6 +53,16 @@ CARD_REQUIRED_COLUMNS = [
     CARD_DATE_COLUMN,
     CARD_PAYEE_COLUMN,
     CARD_AMOUNT_COLUMN
+]
+
+# Add to required columns section
+REVOLUT_REQUIRED_COLUMNS = [
+    REVOLUT_DATE_COLUMN,
+    REVOLUT_PAYEE_COLUMN,
+    REVOLUT_TYPE_COLUMN,
+    REVOLUT_AMOUNT_COLUMN,
+    REVOLUT_FEE_COLUMN,
+    REVOLUT_STATE_COLUMN
 ]
 
 # Cleanup pattern for transaction descriptions
@@ -64,7 +83,7 @@ def validate_dataframe(df: pd.DataFrame, required_columns: List[str]) -> None:
         ValueError: If any required columns are missing
     """
     missing_columns = set(required_columns) - set(df.columns)
-    if missing_columns:
+    if (missing_columns):
         raise ValueError(f"Missing required columns: {', '.join(missing_columns)}")
 
 def convert_amount(amount: Union[str, float, int]) -> float:
@@ -148,6 +167,46 @@ def process_card_operations(df: pd.DataFrame) -> pd.DataFrame:
     except Exception as e:
         raise ValueError(f"Error processing card operations: {str(e)}")
 
+def process_revolut_operations(df: pd.DataFrame) -> pd.DataFrame:
+    """Process the Revolut Export and convert it to YNAB format."""
+    validate_dataframe(df, REVOLUT_REQUIRED_COLUMNS)
+    
+    try:
+        # Filter out non-completed transactions
+        df = df[df[REVOLUT_STATE_COLUMN] == 'COMPLETED']
+        
+        ynab_df = pd.DataFrame()
+        
+        # Convert date to YNAB format
+        ynab_df['Date'] = pd.to_datetime(
+            df[REVOLUT_DATE_COLUMN]
+        ).dt.strftime(DATE_FORMAT_YNAB)
+        
+        if ynab_df['Date'].isna().any():
+            raise ValueError(f"Invalid date format found in {REVOLUT_DATE_COLUMN}")
+        
+        # Set payee and memo
+        ynab_df['Payee'] = df[REVOLUT_PAYEE_COLUMN]
+        ynab_df['Memo'] = df[REVOLUT_TYPE_COLUMN]
+        
+        # Calculate total amount including fees
+        amounts = df[REVOLUT_AMOUNT_COLUMN].apply(convert_amount)
+        fees = df[REVOLUT_FEE_COLUMN].apply(convert_amount)
+        
+        # If amount is negative, add negative fee, otherwise add positive fee
+        ynab_df['Amount'] = amounts.where(
+            amounts >= 0,
+            amounts - fees  # For negative amounts, subtract fee to make it more negative
+        ).where(
+            amounts < 0,
+            amounts + fees  # For positive amounts, add fee normally
+        ).round(2)
+        
+        return ynab_df
+        
+    except Exception as e:
+        raise ValueError(f"Error processing Revolut operations: {str(e)}")
+
 def load_previous_transactions(csv_file: str) -> pd.DataFrame:
     """Load previously exported transactions from YNAB CSV file.
     
@@ -164,7 +223,7 @@ def load_previous_transactions(csv_file: str) -> pd.DataFrame:
         return pd.DataFrame(columns=['Date', 'Payee', 'Memo', 'Amount'])
 
 def exclude_existing_transactions(new_df: pd.DataFrame, prev_df: pd.DataFrame) -> pd.DataFrame:
-    """Remove transactions that already exist in previous export.
+    """Remove transactions that are older or equal to the latest transaction in previous export.
     
     Args:
         new_df: DataFrame with new transactions
@@ -176,20 +235,23 @@ def exclude_existing_transactions(new_df: pd.DataFrame, prev_df: pd.DataFrame) -
     if prev_df.empty:
         return new_df
         
-    # Create a composite key for comparison
-    def get_key(df):
-        return df['Date'] + '|' + df['Payee'] + '|' + df['Amount'].astype(str)
+    # Convert dates to datetime for comparison
+    new_df['Date'] = pd.to_datetime(new_df['Date'])
+    prev_df['Date'] = pd.to_datetime(prev_df['Date'])
     
-    new_keys = get_key(new_df)
-    prev_keys = get_key(prev_df)
+    # Find the latest date in previous transactions
+    latest_prev_date = prev_df['Date'].max()
     
-    # Keep only transactions that don't exist in previous export
-    mask = ~new_keys.isin(prev_keys)
-    filtered_df = new_df[mask].copy()
+    # Keep only transactions newer than the latest previous transaction
+    mask_newer = new_df['Date'] > latest_prev_date
+    filtered_df = new_df[mask_newer].copy()
+    
+    # Convert dates back to string format
+    filtered_df['Date'] = filtered_df['Date'].dt.strftime(DATE_FORMAT_YNAB)
     
     excluded_count = len(new_df) - len(filtered_df)
     if excluded_count > 0:
-        logging.info(f"Excluded {excluded_count} previously imported transactions")
+        logging.info(f"Excluded {excluded_count} transactions (older than or equal to {latest_prev_date.strftime(DATE_FORMAT_YNAB)})")
     
     return filtered_df
 
@@ -219,57 +281,71 @@ def extract_date_from_filename(filename: str) -> str:
                 return f"{groups[2]}-{groups[1]}-{groups[0]}"
     return ""
 
-def generate_output_filename(xlsx_file: str) -> str:
+def generate_output_filename(input_file: str, is_revolut: bool = False) -> str:
     """Generate output filename with appropriate date.
     
     Args:
-        xlsx_file: Path to the input XLSX file
+        input_file: Path to the input file
+        is_revolut: Whether the file is a Revolut export
         
     Returns:
         str: Path to the output CSV file
     """
-    base_name = os.path.splitext(os.path.basename(xlsx_file))[0]
+    base_name = os.path.splitext(os.path.basename(input_file))[0]
     
-    # Try to extract date from filename
-    date_str = extract_date_from_filename(base_name)
-    if not date_str:
-        # If no date in filename, use current date
+    # For Revolut exports, always use current date
+    if is_revolut:
         date_str = datetime.now().strftime('%Y-%m-%d')
+    else:
+        # Try to extract date from filename
+        date_str = extract_date_from_filename(base_name)
+        if not date_str:
+            # If no date in filename, use current date
+            date_str = datetime.now().strftime('%Y-%m-%d')
     
     # Remove any existing date from base_name
     base_name = re.sub(r'_?\d{2}-\d{2}-\d{4}', '', base_name)
     
     return os.path.join(
-        os.path.dirname(xlsx_file),
+        os.path.dirname(input_file),
         f"{base_name}_{date_str}_ynab.csv"
     )
 
 def convert_nbg_to_ynab(xlsx_file: str, previous_ynab: str = None) -> None:
-    """Convert NBG Excel file to YNAB CSV format."""
+    """Convert bank export file to YNAB CSV format."""
     try:
-        df = pd.read_excel(xlsx_file)
-                
+        # Try reading as Excel first
+        try:
+            df = pd.read_excel(xlsx_file)
+        except:
+            # If Excel read fails, try CSV
+            df = pd.read_csv(xlsx_file)
+        
         # Add debug logging
         logging.debug(f"Found columns in file: {list(df.columns)}")
-        logging.debug(f"Required account columns: {ACCOUNT_REQUIRED_COLUMNS}")
-        logging.debug(f"Required card columns: {CARD_REQUIRED_COLUMNS}")
-
-        if set(ACCOUNT_REQUIRED_COLUMNS).issubset(df.columns):
-            logging.info("Processing as account statement")
+        
+        # Determine file type and process accordingly
+        is_revolut = False
+        if set(REVOLUT_REQUIRED_COLUMNS).issubset(df.columns):
+            logging.info("Processing as Revolut statement")
+            ynab_df = process_revolut_operations(df)
+            is_revolut = True
+        elif set(ACCOUNT_REQUIRED_COLUMNS).issubset(df.columns):
+            logging.info("Processing as NBG account statement")
             ynab_df = process_account_operations(df)
         elif set(CARD_REQUIRED_COLUMNS).issubset(df.columns):
-            logging.info("Processing as card statement")
+            logging.info("Processing as NBG card statement")
             ynab_df = process_card_operations(df)
         else:
-            raise ValueError("File format does not match Account or Card operations format")
-
+            raise ValueError("File format not recognized")
+            
         # After creating ynab_df but before saving:
         if previous_ynab:
             prev_df = load_previous_transactions(previous_ynab)
             ynab_df = exclude_existing_transactions(ynab_df, prev_df)
             
-        # Replace the filename generation code with:
-        csv_file = generate_output_filename(xlsx_file)
+        # Generate output filename with file type info
+        csv_file = generate_output_filename(xlsx_file, is_revolut)
         
         ynab_df.to_csv(csv_file, index=False, quoting=csv.QUOTE_MINIMAL)
         logging.info(f"Conversion complete. The CSV file is saved as: {csv_file}")
@@ -285,14 +361,24 @@ def convert_nbg_to_ynab(xlsx_file: str, previous_ynab: str = None) -> None:
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        logging.error("Usage: python main.py <path_to_xlsx_file> [path_to_previous_ynab.csv]")
+        logging.error("Usage: python main.py <path_to_statement_file> [path_to_previous_ynab.csv]")
+        logging.error("Supported formats:")
+        logging.error("  - NBG statements: .xlsx, .xls")
+        logging.error("  - Revolut exports: .csv")
         sys.exit(1)
-        
-    xlsx_file_path = sys.argv[1]
+    
+    input_file_path = sys.argv[1]
     previous_ynab_path = sys.argv[2] if len(sys.argv) > 2 else None
     
-    if not xlsx_file_path.endswith(('.xlsx', '.xls')):
-        logging.error(f"Invalid file type: '{xlsx_file_path}'")
+    # Check if file exists
+    if not os.path.exists(input_file_path):
+        logging.error(f"File not found: '{input_file_path}'")
+        sys.exit(1)
+    
+    # Check file extension
+    file_ext = os.path.splitext(input_file_path)[1].lower()
+    if file_ext not in ('.xlsx', '.xls', '.csv'):
+        logging.error(f"Unsupported file type: '{file_ext}' (must be .xlsx, .xls, or .csv)")
         sys.exit(1)
         
-    convert_nbg_to_ynab(xlsx_file_path, previous_ynab_path)
+    convert_nbg_to_ynab(input_file_path, previous_ynab_path)
