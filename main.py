@@ -22,24 +22,24 @@ logging.basicConfig(
 )
 
 # Date format constants
-DATE_FORMAT_ACCOUNT = '%d/%m/%Y'  # Changed from '%d.%m.%Y' to match your file's format  # Changed from '%d.%m.%Y' to match your file's format
+DATE_FORMAT_ACCOUNT = '%d/%m/%Y'
 DATE_FORMAT_CARD = '%d/%m/%Y'
 DATE_FORMAT_YNAB = '%Y-%m-%d'
 
-# Column name constants
-ACCOUNT_DATE_COLUMN = 'Valeur'  # Changed from 'Ημερομηνία' to use Valeur as date source
-ACCOUNT_PAYEE_COLUMN = 'Ονοματεπώνυμο αντισυμβαλλόμενου'  # Changed from 'Δικαιούχος'μο αντισυμβαλλόμενου'  # Changed from 'Δικαιούχος'
-ACCOUNT_MEMO_COLUMN = 'Περιγραφή'  # Changed from 'Περιγραφή Συναλλαγής' from 'Περιγραφή Συναλλαγής'
-ACCOUNT_AMOUNT_COLUMN = 'Ποσό συναλλαγής'  # Changed from 'Ποσό'συναλλαγής'  # Changed from 'Ποσό'
-ACCOUNT_DEBIT_CREDIT_COLUMN = 'Χρέωση / Πίστωση'  # Added space around "/"η'  # Added space around "/"
+# Column name constants for account statements
+ACCOUNT_DATE_COLUMN = 'Valeur'
+ACCOUNT_PAYEE_COLUMN = 'Ονοματεπώνυμο αντισυμβαλλόμενου'
+ACCOUNT_MEMO_COLUMN = 'Περιγραφή'
+ACCOUNT_AMOUNT_COLUMN = 'Ποσό συναλλαγής'
+ACCOUNT_DEBIT_CREDIT_COLUMN = 'Χρέωση / Πίστωση'
 
 # Column name constants for card statements
-CARD_DATE_COLUMN = 'Ημερομηνία/Ώρα Συναλλαγής'  # Changed from 'Transaction Date'
-CARD_PAYEE_COLUMN = 'Περιγραφή Κίνησης'  # Changed from 'Description'
-CARD_AMOUNT_COLUMN = 'Ποσό'  # Changed from 'Amount'
-CARD_DEBIT_CREDIT_COLUMN = 'Χ/Π'  # Added for Greek card statements
+CARD_DATE_COLUMN = 'Ημερομηνία/Ώρα Συναλλαγής'
+CARD_PAYEE_COLUMN = 'Περιγραφή Κίνησης'
+CARD_AMOUNT_COLUMN = 'Ποσό'
+CARD_DEBIT_CREDIT_COLUMN = 'Χ/Π'
 
-# Add after existing column name constants
+# Column name constants for Revolut exports
 REVOLUT_DATE_COLUMN = 'Started Date'
 REVOLUT_PAYEE_COLUMN = 'Description'
 REVOLUT_TYPE_COLUMN = 'Type'
@@ -80,26 +80,26 @@ ECOMMERCE_CLEANUP_PATTERN = r'E-COMMERCE ΑΓΟΡΑ - '
 # Add new cleanup patterns after ECOMMERCE_CLEANUP_PATTERN
 SECURE_ECOMMERCE_CLEANUP_PATTERN = r'3D SECURE E-COMMERCE ΑΓΟΡΑ - '
 
+def normalize_column_name(column: str) -> str:
+    """Normalize column names by removing extra spaces and normalizing Unicode."""
+    return ' '.join(column.strip().split())
+
 def validate_dataframe(df: pd.DataFrame, required_columns: List[str]) -> None:
-    """Validate that DataFrame contains all required columns and has data.
-    
-    Args:
-        df: DataFrame to validate
-        required_columns: List of required column names
-        
-    Raises:
-        ValueError: If DataFrame is empty, has no data, or missing columns
-    """
-    # Check if DataFrame is completely empty (no columns)
+    """Validate DataFrame with normalized column names."""
     if df.empty and len(df.columns) == 0:
         raise ValueError("Empty DataFrame provided")
     
-    # Check if DataFrame has required columns
-    missing_columns = set(required_columns) - set(df.columns)
+    # Normalize both actual and required column names
+    actual_columns = {normalize_column_name(col) for col in df.columns}
+    required_norm = {normalize_column_name(col) for col in required_columns}
+    
+    missing_columns = required_norm - actual_columns
     if missing_columns:
-        raise ValueError(f"Missing required columns: {', '.join(missing_columns)}")
-        
-    # Check if DataFrame has data
+        raise ValueError(
+            f"Missing required columns: {', '.join(missing_columns)}\n"
+            f"Available columns: {', '.join(actual_columns)}"
+        )
+    
     if len(df) == 0:
         raise ValueError("DataFrame contains no data")
 
@@ -198,50 +198,28 @@ def validate_revolut_currency(df: pd.DataFrame) -> None:
         raise ValueError("Non-EUR transactions found. Only EUR is supported.")
 
 def process_revolut_operations(df: pd.DataFrame) -> pd.DataFrame:
-    """Process Revolut export and convert it to YNAB format.
-    
-    Args:
-        df: DataFrame with Revolut transactions
-        
-    Returns:
-        pd.DataFrame: Processed transactions in YNAB format
-        
-    Raises:
-        ValueError: If processing fails
-    """
+    """Process Revolut export and convert it to YNAB format."""
     validate_dataframe(df, REVOLUT_REQUIRED_COLUMNS)
     validate_revolut_currency(df)
     
     try:
-        # Filter out non-completed transactions
         df = df[df[REVOLUT_STATE_COLUMN] == 'COMPLETED']
-        
         ynab_df = pd.DataFrame()
         
-        # Convert date to YNAB format
-        ynab_df['Date'] = pd.to_datetime(
-            df[REVOLUT_DATE_COLUMN]
-        ).dt.strftime(DATE_FORMAT_YNAB)
+        ynab_df['Date'] = pd.to_datetime(df[REVOLUT_DATE_COLUMN]).dt.strftime(DATE_FORMAT_YNAB)
         
         if ynab_df['Date'].isna().any():
             raise ValueError(f"Invalid date format found in {REVOLUT_DATE_COLUMN}")
         
-        # Set payee and memo
         ynab_df['Payee'] = df[REVOLUT_PAYEE_COLUMN]
         ynab_df['Memo'] = df[REVOLUT_TYPE_COLUMN]
         
-        # Calculate total amount including fees
+        # Always treat fees as positive values that reduce the final amount
         amounts = df[REVOLUT_AMOUNT_COLUMN].apply(convert_amount)
-        fees = df[REVOLUT_FEE_COLUMN].apply(convert_amount)
+        fees = df[REVOLUT_FEE_COLUMN].apply(convert_amount).abs()  # Ensure fees are positive
         
-        # If amount is negative, subtract fee; if positive, add fee
-        ynab_df['Amount'] = amounts.where(
-            amounts >= 0,
-            amounts - fees  # For negative amounts, subtract fee
-        ).where(
-            amounts < 0,
-            amounts + fees  # For positive amounts, add fee
-        ).round(2)
+        # Fees always reduce the amount (make expenses more negative, income less positive)
+        ynab_df['Amount'] = (amounts - fees).round(2)
         
         return ynab_df
         
@@ -264,32 +242,25 @@ def load_previous_transactions(csv_file: str) -> pd.DataFrame:
         return pd.DataFrame(columns=['Date', 'Payee', 'Memo', 'Amount'])
 
 def exclude_existing_transactions(new_df: pd.DataFrame, prev_df: pd.DataFrame) -> pd.DataFrame:
-    """Remove duplicate and older transactions.
-    
-    Args:
-        new_df: DataFrame with new transactions
-        prev_df: DataFrame with previous transactions
-        
-    Returns:
-        pd.DataFrame: Filtered transactions
-    """
+    """Remove duplicate and older transactions."""
     if prev_df.empty:
         return new_df
         
-    # Convert dates once
     new_df = new_df.copy()
     new_df['Date'] = pd.to_datetime(new_df['Date'])
     prev_df['Date'] = pd.to_datetime(prev_df['Date'])
     
-    # Find latest previous date
     latest_prev_date = prev_df['Date'].max()
     
-    # Create composite key for matching
-    def create_key(df: pd.DataFrame) -> pd.Series:
-        return df['Date'].dt.strftime('%Y-%m-%d') + '_' + df['Payee'] + '_' + df['Amount'].astype(str)
+    # Allow same-day transactions if they're not duplicates
+    mask_newer = new_df['Date'] >= latest_prev_date
     
-    # Filter by date and duplicates
-    mask_newer = new_df['Date'] > latest_prev_date
+    # Create unique transaction identifier
+    def create_key(df: pd.DataFrame) -> pd.Series:
+        return (df['Date'].dt.strftime('%Y-%m-%d') + '_' + 
+                df['Payee'] + '_' + 
+                df['Amount'].astype(str))
+    
     new_keys = create_key(new_df)
     prev_keys = create_key(prev_df)
     mask_unique = ~new_keys.isin(prev_keys)
@@ -299,7 +270,7 @@ def exclude_existing_transactions(new_df: pd.DataFrame, prev_df: pd.DataFrame) -
     
     excluded_count = len(new_df) - len(filtered_df)
     if excluded_count > 0:
-        logging.info(f"Excluded {excluded_count} transactions (older or duplicate)")
+        logging.info(f"Excluded {excluded_count} duplicate or older transactions")
     
     return filtered_df
 
@@ -438,13 +409,6 @@ def convert_nbg_to_ynab(xlsx_file: str, previous_ynab: str = None) -> None:
         logging.error(f"Validation error: {str(e)}")
     except Exception as e:
         logging.error(f"Unexpected error: {str(e)}")
-
-def configure_logging() -> None:
-    """Configure logging format and level."""
-    logging.basicConfig(
-        level=LOGGING_LEVEL,
-        format=LOGGING_FORMAT
-    )
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:

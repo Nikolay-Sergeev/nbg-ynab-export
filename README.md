@@ -14,7 +14,7 @@ This Python script converts transaction data from National Bank of Greece (NBG) 
   - Revolut: Uses 'Started Date'
 - **Amount Processing:**
   - Handles European number format (NBG)
-  - Processes fees in Revolut transactions
+  - Processes fees in Revolut transactions (automatically deducts from amount)
   - Correctly signs amounts based on transaction type
   - Rounds all amounts to 2 decimal places
 - **Description Cleanup:**
@@ -42,8 +42,80 @@ This Python script converts transaction data from National Bank of Greece (NBG) 
 
 ## Installation
 
+1. Clone the repository:
 ```bash
 git clone https://github.com/Nikolay-Sergeev/nbg-to-ynab.git
 cd nbg-to-ynab
+```
+
+2. Create and activate a virtual environment:
+```bash
+# macOS/Linux
+python3 -m venv venv
+source venv/bin/activate
+
+# Windows
+python -m venv venv
+.\venv\Scripts\activate
+```
+
+3. Install dependencies:
+```bash
 pip install pandas
 ```
+
+## Usage
+
+### Basic Usage
+
+Convert a statement to YNAB format:
+```bash
+python main.py path/to/statement.[xlsx|csv]
+```
+
+### Advanced Usage
+
+Convert excluding previously imported transactions:
+```bash
+python main.py path/to/statement.[xlsx|csv] path/to/previous_ynab.csv
+```
+
+### Examples
+
+```bash
+# NBG Account Statement
+python main.py Downloads/Finance/statementexport25-02-2025.xlsx
+
+# NBG Card Statement
+python main.py Downloads/Finance/CardStatementExport.xlsx
+
+# Revolut Export
+python main.py Downloads/Finance/account-statement.csv
+
+# With Previous Transactions
+python main.py Downloads/Finance/new_statement.xlsx Downloads/Finance/previous_ynab.csv
+```
+
+### Supported File Types
+
+- NBG Account Statements: `.xlsx`, `.xls`
+- NBG Card Statements: `.xlsx`, `.xls`
+- Revolut Exports: `.csv`
+
+### Output
+
+The script generates a YNAB-compatible CSV file in the same directory as the input file:
+- NBG files: Uses date from filename or current date
+- Revolut files: Always uses current date
+- Format: `original_name_YYYY-MM-DD_ynab.csv`
+
+## Development
+
+Run tests:
+```bash
+python -m unittest test_main.py -v
+```
+
+## License
+
+MIT License - See LICENSE file for details
