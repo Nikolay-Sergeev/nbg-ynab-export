@@ -9,6 +9,7 @@ from main import (
     exclude_existing_transactions,
     process_card_operations,
     process_account_operations,
+    process_revolut_operations,  # Add this import
     validate_dataframe
 )
 
@@ -66,6 +67,30 @@ class TestNBGToYNAB(unittest.TestCase):
             'Ημερομηνία Συναλλαγής με χρεωστική κάρτα': ['16/02/2025', ''],
             'Ώρα Συναλλαγής με χρεωστική κάρτα': ['13:41', ''],
             'Χρεωστική Κάρτα': ['1234****5678', '']
+        })
+
+        # Add Revolut test data
+        self.revolut_data = pd.DataFrame({
+            'Type': ['CARD_PAYMENT', 'CARD_PAYMENT', 'TRANSFER', 'TRANSFER'],
+            'Product': ['Current', 'Current', 'Current', 'Current'],
+            'Started Date': [
+                '2024-12-22 12:40:01', 
+                '2024-11-24 11:36:16',
+                '2024-11-27 15:16:00',
+                '2025-02-02 09:51:52'
+            ],
+            'Completed Date': [
+                '2024-12-23 06:06:09',
+                '2024-11-24 17:21:49',
+                '2024-11-27 15:16:00',
+                '2025-02-02 09:51:53'
+            ],
+            'Description': ['OpenAI', 'Yandex Plus', 'From JOHN DOE', 'From JANE DOE'],
+            'Amount': ['-19.26', '-27.72', '8.00', '500.00'],
+            'Fee': ['0.19', '0.28', '0.00', '0.00'],
+            'Currency': ['EUR', 'EUR', 'EUR', 'EUR'],
+            'State': ['COMPLETED', 'COMPLETED', 'COMPLETED', 'COMPLETED'],
+            'Balance': ['314.64', '484.21', '492.21', '797.24']
         })
 
     def test_convert_amount(self):
@@ -167,6 +192,52 @@ class TestNBGToYNAB(unittest.TestCase):
         # Invalid case
         with self.assertRaises(ValueError):
             validate_dataframe(self.card_data, ['NonExistentColumn'])
+
+    def test_process_revolut_operations(self):
+        """Test Revolut operations processing."""
+        result = process_revolut_operations(self.revolut_data)
+        
+        # Test expense transaction with fee
+        self.assertEqual(result.iloc[0]['Date'], '2024-12-22')
+        self.assertEqual(result.iloc[0]['Payee'], 'OpenAI')
+        self.assertEqual(result.iloc[0]['Amount'], -19.45)  # -19.26 - 0.19
+        self.assertEqual(result.iloc[0]['Memo'], 'CARD_PAYMENT')
+        
+        # Test another expense with fee
+        self.assertEqual(result.iloc[1]['Date'], '2024-11-24')
+        self.assertEqual(result.iloc[1]['Payee'], 'Yandex Plus')
+        self.assertEqual(result.iloc[1]['Amount'], -28.00)  # -27.72 - 0.28
+        self.assertEqual(result.iloc[1]['Memo'], 'CARD_PAYMENT')
+        
+        # Test incoming transfer without fee
+        self.assertEqual(result.iloc[2]['Date'], '2024-11-27')
+        self.assertEqual(result.iloc[2]['Payee'], 'From JOHN DOE')
+        self.assertEqual(result.iloc[2]['Amount'], 8.00)
+        self.assertEqual(result.iloc[2]['Memo'], 'TRANSFER')
+        
+        # Test another incoming transfer without fee 
+        self.assertEqual(result.iloc[3]['Date'], '2025-02-02')
+        self.assertEqual(result.iloc[3]['Payee'], 'From JANE DOE')
+        self.assertEqual(result.iloc[3]['Amount'], 500.00)
+        self.assertEqual(result.iloc[3]['Memo'], 'TRANSFER')
+        
+        # Check columns
+        self.assertEqual(list(result.columns), ['Date', 'Payee', 'Memo', 'Amount'])
+
+    def test_revolut_filter_reverted(self):
+        """Test filtering out reverted Revolut transactions."""
+        # Add reverted transaction to test data
+        reverted_data = self.revolut_data.copy()
+        reverted_data.loc[len(reverted_data)] = [
+            'CARD_PAYMENT', 'Current', '2024-11-08 09:32:33', '',
+            'Uber', '-21.36', '0.00', 'EUR', 'REVERTED', ''
+        ]
+        
+        result = process_revolut_operations(reverted_data)
+        
+        # Check that reverted transaction was filtered out
+        self.assertEqual(len(result), len(self.revolut_data))
+        self.assertFalse(any(result['Payee'] == 'Uber'))
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

@@ -168,7 +168,17 @@ def process_card_operations(df: pd.DataFrame) -> pd.DataFrame:
         raise ValueError(f"Error processing card operations: {str(e)}")
 
 def process_revolut_operations(df: pd.DataFrame) -> pd.DataFrame:
-    """Process the Revolut Export and convert it to YNAB format."""
+    """Process Revolut export and convert it to YNAB format.
+    
+    Args:
+        df: DataFrame with Revolut transactions
+        
+    Returns:
+        pd.DataFrame: Processed transactions in YNAB format
+        
+    Raises:
+        ValueError: If processing fails
+    """
     validate_dataframe(df, REVOLUT_REQUIRED_COLUMNS)
     
     try:
@@ -193,13 +203,13 @@ def process_revolut_operations(df: pd.DataFrame) -> pd.DataFrame:
         amounts = df[REVOLUT_AMOUNT_COLUMN].apply(convert_amount)
         fees = df[REVOLUT_FEE_COLUMN].apply(convert_amount)
         
-        # If amount is negative, add negative fee, otherwise add positive fee
+        # If amount is negative, subtract fee; if positive, add fee
         ynab_df['Amount'] = amounts.where(
             amounts >= 0,
-            amounts - fees  # For negative amounts, subtract fee to make it more negative
+            amounts - fees  # For negative amounts, subtract fee
         ).where(
             amounts < 0,
-            amounts + fees  # For positive amounts, add fee normally
+            amounts + fees  # For positive amounts, add fee
         ).round(2)
         
         return ynab_df
@@ -382,3 +392,14 @@ if __name__ == "__main__":
         sys.exit(1)
         
     convert_nbg_to_ynab(input_file_path, previous_ynab_path)
+
+__all__ = [
+    'convert_amount',
+    'extract_date_from_filename',
+    'generate_output_filename',
+    'exclude_existing_transactions',
+    'process_card_operations',
+    'process_account_operations',
+    'process_revolut_operations',  # Add this
+    'validate_dataframe'
+]
