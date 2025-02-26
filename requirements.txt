@@ -1,0 +1,4 @@
+pandas
+flake8
+pytest
+# plus anything else you need
