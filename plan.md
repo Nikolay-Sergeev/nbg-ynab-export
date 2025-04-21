@@ -10,7 +10,7 @@
   - ~~Verify and potentially fix session cache implementation (`NBGYNABWizard.cached_ynab_transactions`).  # In Progress~~ (Completed 2025-04-25)
   - ~~Address potentially incorrect `get_selected_budget_account` in `TransactionsPage`.  # In Progress~~ (Completed 2025-04-26)
   - ~~Ensure hidden settings directory (`~/.nbg-ynab-export`) is created at startup.  # In Progress~~ (Completed 2025-04-27)
-  - Remove unused imports (e.g., `tempfile`).  # In Progress
+  - ~~Remove unused imports (e.g., `tempfile`).~~ (Completed 2025-04-21)
 - ~~**Error Handling & Logging**~~ (Completed 2025-04-28)
   - ~~Centralize logging configuration at the application entry point (`ui_wizard.py`'s main block).~~
   - ~~Centralize logging to a file for diagnostics (e.g., `~/.nbg-ynab-export/app.log`).~~
