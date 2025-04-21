@@ -347,7 +347,7 @@ def validate_input_file(file_path: str) -> None:
     if ext not in SUPPORTED_EXTENSIONS:
         raise ValueError(f"Unsupported file type: '{ext}' (must be {', '.join(SUPPORTED_EXTENSIONS)})")
 
-def convert_nbg_to_ynab(xlsx_file: str, previous_ynab: str = None) -> None:
+def convert_nbg_to_ynab(xlsx_file: str, previous_ynab: str = None) -> pd.DataFrame:
     """Convert bank export file to YNAB CSV format.
     
     Args:
@@ -355,7 +355,7 @@ def convert_nbg_to_ynab(xlsx_file: str, previous_ynab: str = None) -> None:
         previous_ynab: Optional path to previous YNAB export
         
     Returns:
-        None
+        pd.DataFrame: DataFrame with converted transactions
     
     Raises:
         FileNotFoundError: If input file doesn't exist
@@ -365,12 +365,22 @@ def convert_nbg_to_ynab(xlsx_file: str, previous_ynab: str = None) -> None:
     try:
         validate_input_file(xlsx_file)
         
-        # Try reading as Excel first
-        try:
-            df = pd.read_excel(xlsx_file)
-        except:
-            # If Excel read fails, try CSV
-            df = pd.read_csv(xlsx_file)
+        file_ext = os.path.splitext(xlsx_file)[1].lower()
+        df = None
+        if file_ext in ['.xlsx', '.xls']:
+            try:
+                df = pd.read_excel(xlsx_file)
+            except Exception as excel_err:
+                logging.error(f"Failed to read Excel file: {excel_err}")
+                raise ValueError(f"Could not read Excel file: {excel_err}")
+        elif file_ext == '.csv':
+            try:
+                df = pd.read_csv(xlsx_file)
+            except Exception as csv_err:
+                logging.error(f"Failed to read CSV file: {csv_err}")
+                raise ValueError(f"Could not read CSV file: {csv_err}")
+        else:
+            raise ValueError(f"Unsupported file extension: {file_ext}")
         
         # Add debug logging
         logging.debug(f"Found columns in file: {list(df.columns)}")
@@ -400,6 +410,7 @@ def convert_nbg_to_ynab(xlsx_file: str, previous_ynab: str = None) -> None:
         
         ynab_df.to_csv(csv_file, index=False, quoting=csv.QUOTE_MINIMAL)
         logging.info(f"Conversion complete. The CSV file is saved as: {csv_file}")
+        return ynab_df
 
     except FileNotFoundError:
         logging.error(f"File not found: '{xlsx_file}'")

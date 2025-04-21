@@ -1,0 +1,3 @@
+# Ignore encrypted settings and key
+settings.txt
+settings.key

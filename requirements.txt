@@ -1,4 +1,5 @@
 pandas
 flake8
 pytest
+openpyxl
 # plus anything else you need
