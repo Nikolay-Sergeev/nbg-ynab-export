@@ -5,7 +5,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtSvg import QSvgWidget, QSvgRenderer
 from PyQt5.QtGui import QIcon, QPixmap, QPainter
-from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtCore import Qt, QTimer, QThread, pyqtSignal
 import requests
 import pandas as pd
 from cryptography.fernet import Fernet
@@ -13,6 +13,15 @@ from services.ynab_client import YnabClient
 from services.conversion_service import ConversionService
 import logging
 from config import SETTINGS_DIR, SETTINGS_FILE, KEY_FILE
+
+# Configure logging to file and console
+log_file = os.path.join(SETTINGS_DIR, 'app.log')
+file_handler = logging.FileHandler(log_file)
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+file_handler.setFormatter(formatter)
+root_logger = logging.getLogger()
+root_logger.addHandler(file_handler)
+root_logger.setLevel(logging.INFO)
 
 def generate_key():
     key = Fernet.generate_key()
@@ -312,6 +321,16 @@ class TransactionsPage(QWizardPage):
         self.table.setHorizontalHeaderLabels(["Date", "Payee", "Amount", "Memo"])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.layout.addWidget(self.table)
+        # Cache indicator and refresh button
+        cache_layout = QHBoxLayout()
+        self.cache_label = QLabel("")
+        self.refresh_btn = QPushButton("Refresh Data")
+        self.refresh_btn.setToolTip("Clear cache and fetch latest transactions")
+        self.refresh_btn.clicked.connect(self.on_refresh_clicked)
+        cache_layout.addWidget(self.cache_label)
+        cache_layout.addStretch()
+        cache_layout.addWidget(self.refresh_btn)
+        self.layout.addLayout(cache_layout)
         self.setLayout(self.layout)
         self.fetched = False
         self.setMinimumSize(600, 250)
@@ -326,13 +345,20 @@ class TransactionsPage(QWizardPage):
         token = self.get_token_func()
         budget_id, account_id = self.get_budget_account_func()
         wizard = self.wizard()
+        # --- Session cache logic ---
+        use_cache = (
+            hasattr(wizard, 'cached_ynab_transactions') and wizard.cached_ynab_transactions is not None and
+            hasattr(wizard, 'cached_budget_id') and hasattr(wizard, 'cached_account_id') and
+            wizard.cached_budget_id == budget_id and wizard.cached_account_id == account_id
+        )
+        if use_cache:
+            transactions = wizard.cached_ynab_transactions
+            self.cache_label.setText("Using cached transactions")
+        else:
+            self.cache_label.setText("")
+        self.refresh_btn.setEnabled(use_cache)
+        # -------------------------
         try:
-            # --- Session cache logic ---
-            use_cache = (
-                hasattr(wizard, 'cached_ynab_transactions') and wizard.cached_ynab_transactions is not None and
-                hasattr(wizard, 'cached_budget_id') and hasattr(wizard, 'cached_account_id') and
-                wizard.cached_budget_id == budget_id and wizard.cached_account_id == account_id
-            )
             if use_cache:
                 transactions = wizard.cached_ynab_transactions
             else:
@@ -370,6 +396,15 @@ class TransactionsPage(QWizardPage):
 
     def validatePage(self):
         return True
+
+    def on_refresh_clicked(self):
+        # Clear session cache and reload transactions
+        wiz = self.wizard()
+        wiz.cached_ynab_transactions = None
+        wiz.cached_budget_id = None
+        wiz.cached_account_id = None
+        self.cache_label.setText("Fetching fresh data...")
+        self.initializePage()
 
 class ReviewAndUploadPage(QWizardPage):
     def __init__(self, get_token_func, get_budget_account_func, get_import_file_func):
@@ -416,85 +451,18 @@ class ReviewAndUploadPage(QWizardPage):
         QApplication.processEvents()
         self.info_label.setText("Processing file and checking for duplicates...")
         self.table.setRowCount(0)
-        # 1. Convert file to YNAB CSV and get DataFrame
         file_path = self.get_import_file_func()
         if not file_path:
             self.info_label.setText("No file selected!")
             return
-        try:
-            df = ConversionService.convert_to_ynab(file_path)
-        except Exception as e:
-            self.info_label.setText(f"Processing error: {e}")
-            self.spinner.hide()
-            return
-        self.df = df
-        wizard = self.wizard()
         token = self.get_token_func()
         budget_id, account_id = self.get_budget_account_func()
-        # 2. Fetch all YNAB transactions since the earliest CSV date
-        from datetime import datetime
-        def normalize_date(date_str):
-            for fmt in ("%Y-%m-%d", "%d/%m/%Y"):
-                try:
-                    return datetime.strptime(date_str.strip(), fmt).date()
-                except Exception:
-                    continue
-            return date_str.strip()
-        try:
-            csv_records = df.to_dict(orient="records")
-            earliest_csv_date = min(normalize_date(tx["Date"]) for tx in csv_records if tx.get("Date"))
-            ynab = YnabClient(token)
-            ynab_all = ynab.get_transactions(budget_id, account_id, since_date=str(earliest_csv_date))
-        except Exception as e:
-            import traceback
-            tb_str = traceback.format_exc()
-            self.info_label.setText(f"Failed to fetch YNAB transactions: {str(e)}\nTraceback:\n{tb_str}")
-            print(f"[DEBUG] Exception in fetching YNAB transactions: {str(e)}\nTraceback:\n{tb_str}")
-            self.info_label.setText(f"Failed to fetch YNAB transactions: {str(e)}")
-            self.spinner.hide()
-            return
-        # 4. Compare and flag duplicates: do NOT remove, just flag
-        def tx_equal(csv_tx, ynab_tx):
-            def norm(s):
-                return str(s).strip().lower() if s is not None else ""
-            csv_date = normalize_date(csv_tx.get("Date", ""))
-            ynab_date = normalize_date(ynab_tx.get("date", ""))
-            try:
-                csv_amount = float(csv_tx.get("Amount", 0))
-            except Exception:
-                csv_amount = 0
-            try:
-                ynab_amount = float(ynab_tx.get("amount", 0)) / 1000
-            except Exception:
-                ynab_amount = 0
-            csv_memo = norm(csv_tx.get("Memo", ""))
-            ynab_memo = norm(ynab_tx.get("memo", ""))
-            return (
-                csv_date == ynab_date and
-                csv_amount == ynab_amount and
-                csv_memo == ynab_memo
-            )
-        # Determine which are duplicates
-        self.duplicate_rows = set()
-        for i, csv_tx in enumerate(csv_records):
-            if any(tx_equal(csv_tx, ynab_tx) for ynab_tx in ynab_all):
-                self.duplicate_rows.add(i)
-        self.new_transactions = csv_records
-        self.table.setRowCount(len(self.new_transactions))
-        self.skipped_rows = set(self.duplicate_rows)  # Start with duplicates skipped
-        for i, tx in enumerate(self.new_transactions):
-            self.table.setItem(i, 0, QTableWidgetItem(str(tx.get("Date", ""))))
-            self.table.setItem(i, 1, QTableWidgetItem(str(tx.get("Payee", ""))))
-            self.table.setItem(i, 2, QTableWidgetItem(str(tx.get("Amount", ""))))
-            self.table.setItem(i, 3, QTableWidgetItem(str(tx.get("Memo", ""))))
-            status = "Duplicate" if i in self.duplicate_rows else "Ready"
-            self.table.setItem(i, 4, QTableWidgetItem(status))
-            skip_cb = QCheckBox()
-            skip_cb.setChecked(i in self.duplicate_rows)
-            skip_cb.stateChanged.connect(lambda state, row=i: self.on_skip_checkbox_changed(row, state))
-            self.table.setCellWidget(i, 5, skip_cb)
-        self.info_label.setText("")
-        self.spinner.hide()
+        # start background worker
+        self.worker = DuplicateCheckWorker(file_path, token, budget_id, account_id)
+        self.worker.finished.connect(self.on_duplicates_ready)
+        self.worker.error.connect(self.on_duplicates_error)
+        self.worker.start()
+        return
 
     def on_skip_checkbox_changed(self, row, state):
         if state == Qt.Checked:
@@ -538,6 +506,12 @@ class ReviewAndUploadPage(QWizardPage):
                 }
                 formatted_transactions.append(formatted_tx)
             # -------------------------
+
+            # Warn if any transactions were skipped due to invalid amount format
+            if len(formatted_transactions) < len(transactions_to_upload_raw):
+                skipped = len(transactions_to_upload_raw) - len(formatted_transactions)
+                logging.warning(f"Skipped {skipped} transactions due to invalid amount format")
+                QMessageBox.warning(self, "Formatting Warnings", f"Skipped {skipped} transactions due to invalid amount format.")
 
             ynab = YnabClient(token)
             # Pass the *formatted* list to the API client
@@ -595,6 +569,30 @@ class ReviewAndUploadPage(QWizardPage):
         self.info_label.setObjectName("error-label")
         self.info_label.setStyleSheet("")
 
+    def on_duplicates_ready(self, records, duplicate_rows):
+        self.new_transactions = records
+        self.duplicate_rows = duplicate_rows
+        self.table.setRowCount(len(records))
+        self.skipped_rows = set(duplicate_rows)
+        for i, tx in enumerate(records):
+            self.table.setItem(i, 0, QTableWidgetItem(str(tx.get("Date", ""))))
+            self.table.setItem(i, 1, QTableWidgetItem(str(tx.get("Payee", ""))))
+            self.table.setItem(i, 2, QTableWidgetItem(str(tx.get("Amount", ""))))
+            self.table.setItem(i, 3, QTableWidgetItem(str(tx.get("Memo", ""))))
+            status = "Duplicate" if i in duplicate_rows else "Ready"
+            self.table.setItem(i, 4, QTableWidgetItem(status))
+            cb = QCheckBox()
+            cb.setChecked(i in duplicate_rows)
+            cb.stateChanged.connect(lambda s, row=i: self.on_skip_checkbox_changed(row, s))
+            self.table.setCellWidget(i, 5, cb)
+        self.info_label.setText("")
+        self.spinner.hide()
+
+    def on_duplicates_error(self, error_msg):
+        logging.exception("Background duplicate check failed: %s", error_msg)
+        self.info_label.setText("Processing error occurred. Check logs for details.")
+        self.spinner.hide()
+
 class FinishPage(QWizardPage):
     def __init__(self):
         super().__init__()
@@ -627,6 +625,53 @@ class FinishPage(QWizardPage):
         self.label.setText(text)
         self.wizard().setButtonText(QWizard.FinishButton, "Finish & Exit")
         self.wizard().setButtonLayout([QWizard.BackButton, QWizard.FinishButton])
+
+class DuplicateCheckWorker(QThread):
+    finished = pyqtSignal(list, set)
+    error = pyqtSignal(str)
+
+    def __init__(self, file_path, token, budget_id, account_id):
+        super().__init__()
+        self.file_path = file_path
+        self.token = token
+        self.budget_id = budget_id
+        self.account_id = account_id
+
+    def run(self):
+        import traceback
+        from services.conversion_service import ConversionService
+        from services.ynab_client import YnabClient
+        from datetime import datetime
+
+        def normalize_date(date_str):
+            for fmt in ("%Y-%m-%d", "%d/%m/%Y"):
+                try:
+                    return datetime.strptime(date_str.strip(), fmt).date()
+                except:
+                    continue
+            return date_str.strip()
+
+        try:
+            df = ConversionService.convert_to_ynab(self.file_path)
+            records = df.to_dict(orient="records")
+            earliest = min(normalize_date(tx["Date"]) for tx in records if tx.get("Date"))
+            ynab = YnabClient(self.token)
+            ynab_all = ynab.get_transactions(self.budget_id, self.account_id, since_date=str(earliest))
+            # detect duplicates with tolerance
+            duplicate_rows = set()
+            for i, tx in enumerate(records):
+                for y in ynab_all:
+                    try:
+                        csv_amt = float(tx.get("Amount", 0))
+                        ynab_amt = float(y.get("amount", 0)) / 1000
+                    except:
+                        continue
+                    if normalize_date(tx.get("Date")) == normalize_date(y.get("date")) and abs(csv_amt - ynab_amt) < 0.005 and str(tx.get("Memo", "")).strip().lower() == str(y.get("memo", "")).strip().lower():
+                        duplicate_rows.add(i)
+                        break
+            self.finished.emit(records, duplicate_rows)
+        except Exception:
+            self.error.emit(traceback.format_exc())
 
 class NBGYNABWizard(QWizard):
     def __init__(self):
