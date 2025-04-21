@@ -30,17 +30,26 @@
   - Extract YNAB API client and file conversion logic into separate modules/services.  # 
   - Replace dynamic `importlib` loads with direct module imports.  # 
   - Ensure hidden settings directory (`~/.nbg-ynab-export`) is created at startup.  # 
-  - Integrate `YnabClient` service into UI pages, replacing inline `requests` calls.
-  - Extract and modularize conversion logic into a dedicated service (e.g., `ConversionService`) for reuse in UI.
+  - Integrate `YnabClient` service into UI pages, replacing inline `requests` calls.  # In Progress
+  - Extract and modularize conversion logic into a dedicated service (e.g., `ConversionService`) for reuse in UI.  # In Progress
+  - Move core conversion logic (`process_*_operations`, `validate_dataframe`, constants) from main.py to the services layer.
+  - Refactor token encryption/decryption in YNABAuthPage to reuse utility functions.
+  - Verify and potentially fix session cache implementation (`NBGYNABWizard.cached_ynab_transactions`).
+  - Address potentially incorrect `get_selected_budget_account` in TransactionsPage.
+  - Remove unused imports (e.g., `tempfile`).
 - **Performance & Responsiveness**
   - Offload file processing and API calls to background threads (QThread/QRunnable) to avoid UI blocking.
   - Use YNAB API `per_page` parameter to fetch larger batches and reduce pagination calls.
+  - Optimize `YnabClient.get_account_name` by caching fetched accounts per budget.
 - **Settings & Config Management**
   - Consider using `QSettings` or `configparser` for persistent settings storage.
   - Validate and create settings directory before read/write operations.
 - **Error Handling & Logging**
   - Centralize logging to a file for diagnostics (e.g., `~/.nbg-ynab-export/app.log`).
+  - Centralize logging configuration at the application entry point (ui_wizard.py's main block).
   - Improve exception granularity and user messages for different error scenarios.
+  - Improve amount comparison in UI deduplication (`tx_equal`) to handle floating-point inaccuracies.
+  - Provide UI feedback (e.g., table status update) for transactions skipped due to formatting errors.
 - **Testing & CI**
   - Add unit tests for conversion utilities, API client, and spinner widget.
   - Add integration tests simulating wizard workflows.
@@ -48,6 +57,12 @@
 - **Packaging & Distribution**
   - Provide a `setup.py` or `pyproject.toml` for pip-installable package.
   - Build standalone executables (PyInstaller) for Windows, macOS, and Linux.
+- **User Experience (UX)**
+  - Enhance feedback during deduplication in ReviewAndUploadPage (e.g., status label updates).
+  - Consider making the `since_date` lookback for deduplication configurable or clearer.
+- **Command-Line Interface (CLI)**
+  - Consider using `argparse` in main.py for better CLI argument handling.
+  - Clarify or align differences between CLI (file-based) and UI (API-based) deduplication logic.
 
 ---
 _**, existing ideas below:__
