@@ -3,12 +3,12 @@
 ## TODO Tasks (in order)
 
 1. **Add UI using Python**
-   - Choose a Python UI framework (e.g., Tkinter, PyQt, or Streamlit)
-   - Scaffold the main window and layout for file import and controls
+   - [x] Choose a Python UI framework (PyQt5)
+   - [x] Scaffold the main window and layout for file import and controls (wizard style)
 
 2. **Implement File Import in UI**
-   - Add a file picker to allow users to select a statement file (CSV/XLSX)
-   - Display basic file info/preview in the UI
+   - [x] Add a file picker to allow users to select a statement file (CSV/XLSX)
+   - [x] Display basic file info/preview in the UI (file path shown)
 
 3. **Process and Modify CSV**
    - Integrate existing CSV conversion logic with the UI
