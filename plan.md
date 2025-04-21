@@ -11,12 +11,12 @@
   - ~~Address potentially incorrect `get_selected_budget_account` in `TransactionsPage`.  # In Progress~~ (Completed 2025-04-26)
   - ~~Ensure hidden settings directory (`~/.nbg-ynab-export`) is created at startup.  # In Progress~~ (Completed 2025-04-27)
   - Remove unused imports (e.g., `tempfile`).  # In Progress
-- **Error Handling & Logging**
-  - Centralize logging configuration at the application entry point (`ui_wizard.py`'s main block).
-  - Centralize logging to a file for diagnostics (e.g., `~/.nbg-ynab-export/app.log`).
-  - Improve exception granularity and user messages for different error scenarios.
-  - Improve amount comparison in UI deduplication (`tx_equal`) to handle floating-point inaccuracies.
-  - Provide UI feedback (e.g., table status update) for transactions skipped due to formatting errors.
+- ~~**Error Handling & Logging**~~ (Completed 2025-04-28)
+  - ~~Centralize logging configuration at the application entry point (`ui_wizard.py`'s main block).~~
+  - ~~Centralize logging to a file for diagnostics (e.g., `~/.nbg-ynab-export/app.log`).~~
+  - ~~Improve exception granularity and user messages for different error scenarios.~~
+  - ~~Improve amount comparison in UI deduplication (`tx_equal`) to handle floating-point inaccuracies.~~
+  - ~~Provide UI feedback (e.g., table status update) for transactions skipped due to formatting errors.~~
 - **Performance & Responsiveness**
   - Optimize `YnabClient.get_account_name` by caching fetched accounts per budget.
   - Use YNAB API `per_page` parameter to fetch larger batches and reduce pagination calls (e.g., 200 for `get_all_transactions`).
@@ -45,4 +45,4 @@ _**, existing ideas below:__
 - Add more SVG icons or color cues for other steps
 - Optional: allow user to manually refresh cached data
 
-_Last updated: 2025-04-27_
+_Last updated: 2025-04-28_
