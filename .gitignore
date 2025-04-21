@@ -1,3 +1,7 @@
 # Ignore encrypted settings and key
 settings.txt
 settings.key
+
+# Byte-compiled / optimized files
+__pycache__/
+*.pyc
