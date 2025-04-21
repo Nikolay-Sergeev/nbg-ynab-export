@@ -55,6 +55,7 @@ This Python script converts transaction data from National Bank of Greece (NBG) 
 
 - Python 3.6+
 - pandas
+- PyQt5
 
 ## Installation
 
@@ -140,6 +141,21 @@ Check code style (linting):
 ```bash
 flake8 main.py test_main.py
 ```
+
+## GUI Wizard
+
+For an interactive GUI, launch:
+```bash
+python ui_wizard.py
+```
+
+The wizard will guide you through:
+1. Step 1: Select your input file (dialog remembers last-used folder).
+2. Step 2: Enter and securely save your YNAB personal access token.
+3. Step 3: Choose YNAB budget and account.
+4. Step 4: Confirm and generate/upload transactions.
+
+Settings are stored in `~/.nbg-ynab-export/nbg_ynab_settings.txt`.
 
 ## License
 
