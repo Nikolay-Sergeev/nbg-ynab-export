@@ -8,20 +8,11 @@ from PyQt5.QtGui import QIcon, QPixmap, QPainter
 from PyQt5.QtCore import Qt, QTimer
 import requests
 import pandas as pd
-import tempfile
 from cryptography.fernet import Fernet
 from services.ynab_client import YnabClient
 from services.conversion_service import ConversionService
 import logging
-
-# Use settings.txt and settings.key in the user's home directory
-HOME_DIR = os.path.expanduser("~")
-SETTINGS_DIR = os.path.join(HOME_DIR, ".nbg-ynab-export")
-SETTINGS_FILE = os.path.join(SETTINGS_DIR, "nbg_ynab_settings.txt")
-KEY_FILE = os.path.join(SETTINGS_DIR, "nbg_ynab_settings.key")
-
-# Ensure settings directory exists
-os.makedirs(SETTINGS_DIR, exist_ok=True)
+from config import SETTINGS_DIR, SETTINGS_FILE, KEY_FILE
 
 def generate_key():
     key = Fernet.generate_key()
@@ -105,13 +96,13 @@ class ImportFilePage(QWizardPage):
         return ""
 
     def save_last_folder(self, folder):
-        # Save folder path in settings.txt (append or update)
+        # Save folder path, preserving only TOKEN entries
         lines = []
         if os.path.exists(SETTINGS_FILE):
             with open(SETTINGS_FILE, "r") as f:
-                lines = f.readlines()
-        # Remove any old folder line
-        lines = [l for l in lines if not l.startswith("FOLDER:")]
+                for line in f:
+                    if line.startswith("TOKEN:"):
+                        lines.append(line)
         lines.append(f"FOLDER:{folder}\n")
         with open(SETTINGS_FILE, "w") as f:
             f.writelines(lines)
@@ -127,8 +118,9 @@ class ImportFilePage(QWizardPage):
         self.completeChanged.emit()
 
     def browse_file(self):
+        options = QFileDialog.Options()
         start_dir = self.last_folder if self.last_folder else ""
-        file_path, _ = QFileDialog.getOpenFileName(self, "Select File", start_dir, "CSV/XLSX Files (*.csv *.xlsx *.xls)")
+        file_path, _ = QFileDialog.getOpenFileName(self, "Select File", start_dir, "CSV/XLSX Files (*.csv *.xlsx *.xls)", options=options)
         if file_path:
             self.set_file_and_remember_folder(file_path)
 
@@ -179,11 +171,15 @@ class YNABAuthPage(QWizardPage):
         if os.path.exists(SETTINGS_FILE):
             try:
                 with open(SETTINGS_FILE, "r") as f:
-                    enc_token = f.read().strip()
-                token = decrypt_token(enc_token)
-                self.token_input.setText(token)
-                self.save_checkbox.setChecked(True)
-                self._auto_validated = True
+                    lines = f.readlines()
+                for line in lines:
+                    if line.startswith("TOKEN:"):
+                        enc_token = line.split("TOKEN:",1)[1].strip()
+                        token = decrypt_token(enc_token)
+                        self.token_input.setText(token)
+                        self.save_checkbox.setChecked(True)
+                        self._auto_validated = True
+                        break
             except Exception:
                 pass
 
@@ -199,23 +195,19 @@ class YNABAuthPage(QWizardPage):
         return self.token_input.text().strip()
 
     def nextId(self):
-        # Always save token to file before leaving this page
+        # Save token, preserving only FOLDER entries
         token = self.token_input.text().strip()
         if token:
-            from cryptography.fernet import Fernet
-            import base64
-            import os
-            if not os.path.exists(KEY_FILE):
-                key = Fernet.generate_key()
-                with open(KEY_FILE, "wb") as f:
-                    f.write(key)
-            else:
-                with open(KEY_FILE, "rb") as f:
-                    key = f.read()
-            fernet = Fernet(key)
-            enc_token = fernet.encrypt(token.encode()).decode()
+            enc_token = encrypt_token(token)
+            lines = []
+            if os.path.exists(SETTINGS_FILE):
+                with open(SETTINGS_FILE, "r") as f:
+                    for line in f:
+                        if line.startswith("FOLDER:"):
+                            lines.append(line)
+            lines.append(f"TOKEN:{enc_token}\n")
             with open(SETTINGS_FILE, "w") as f:
-                f.write(enc_token)
+                f.writelines(lines)
         return super().nextId()
 
 class AccountSelectionPage(QWizardPage):
@@ -307,16 +299,14 @@ class TransactionsPage(QWizardPage):
         self.error_label = QLabel("")
         self.error_label.setObjectName("error-label")
         self.error_label.setWordWrap(True)
-        self.error_label.setMinimumWidth(400)
-        # Spinner for API fetch
-        self.spinner = SpinnerWidget()
         icon_label_layout = QHBoxLayout()
-        icon_label_layout.setContentsMargins(0, 0, 0, 0)
-        icon_label_layout.setSpacing(8)
         icon_label_layout.addWidget(self.error_icon)
         icon_label_layout.addWidget(self.error_label, 1)
         icon_label_layout.addStretch()
         self.layout.addLayout(icon_label_layout)
+        self.spinner = QSvgWidget(os.path.join(os.path.dirname(__file__), "icons", "spinner.svg"))
+        self.spinner.setFixedSize(36, 36)
+        self.spinner.hide()
         self.layout.addWidget(self.spinner, alignment=Qt.AlignCenter)
         self.table = QTableWidget(0, 4)
         self.table.setHorizontalHeaderLabels(["Date", "Payee", "Amount", "Memo"])
@@ -335,17 +325,37 @@ class TransactionsPage(QWizardPage):
         QApplication.processEvents()
         token = self.get_token_func()
         budget_id, account_id = self.get_budget_account_func()
+        wizard = self.wizard()
         try:
-            ynab = YnabClient(token)
-            transactions = ynab.get_transactions(budget_id, account_id, count=5)
+            # --- Session cache logic ---
+            use_cache = (
+                hasattr(wizard, 'cached_ynab_transactions') and wizard.cached_ynab_transactions is not None and
+                hasattr(wizard, 'cached_budget_id') and hasattr(wizard, 'cached_account_id') and
+                wizard.cached_budget_id == budget_id and wizard.cached_account_id == account_id
+            )
+            if use_cache:
+                transactions = wizard.cached_ynab_transactions
+            else:
+                ynab = YnabClient(token)
+                transactions = ynab.get_transactions(budget_id, account_id, count=5)
+                # Update cache
+                wizard.cached_ynab_transactions = transactions
+                wizard.cached_budget_id = budget_id
+                wizard.cached_account_id = account_id
             self.spinner.hide()
             transactions = sorted(transactions, key=lambda x: x['date'], reverse=True)[:5]
             self.table.setRowCount(0)
             for i, tx in enumerate(transactions):
                 self.table.insertRow(i)
-                self.table.setItem(i, 0, QTableWidgetItem(tx['date']))
+                self.table.setItem(i, 0, QTableWidgetItem(tx.get('date', '')))
                 self.table.setItem(i, 1, QTableWidgetItem(tx.get('payee_name', '')))
-                self.table.setItem(i, 2, QTableWidgetItem(str(tx['amount']/1000)))
+                # Format amount: YNAB API gives milliunits, so divide by 1000 and format as float with 2 decimals
+                amount_val = tx.get('amount', '')
+                if isinstance(amount_val, (int, float)):
+                    amount_str = f"{amount_val/1000:.2f}"
+                else:
+                    amount_str = str(amount_val)
+                self.table.setItem(i, 2, QTableWidgetItem(amount_str))
                 self.table.setItem(i, 3, QTableWidgetItem(tx.get('memo', '')))
             self.error = None
         except Exception as e:
@@ -358,11 +368,8 @@ class TransactionsPage(QWizardPage):
             self.table.setRowCount(0)
             self.error = msg
 
-    def isComplete(self):
-        return self.error is None
-
-    def get_selected_budget_account(self):
-        return self.selected_budget_id, self.selected_account_id
+    def validatePage(self):
+        return True
 
 class ReviewAndUploadPage(QWizardPage):
     def __init__(self, get_token_func, get_budget_account_func, get_import_file_func):
@@ -382,16 +389,17 @@ class ReviewAndUploadPage(QWizardPage):
         self.error_icon.setToolTip("Error")
         self.error_icon.hide()
         self.info_label = QLabel("")
+        self.info_label.setObjectName("info-label")
         self.info_label.setWordWrap(True)
-        self.info_label.setObjectName("success-label")
-        # Spinner for upload
-        self.spinner = SpinnerWidget()
         icon_label_layout = QHBoxLayout()
         icon_label_layout.addWidget(self.success_icon)
         icon_label_layout.addWidget(self.error_icon)
         icon_label_layout.addWidget(self.info_label)
         icon_label_layout.addStretch()
         self.layout.addLayout(icon_label_layout)
+        self.spinner = QSvgWidget(os.path.join(os.path.dirname(__file__), "icons", "spinner.svg"))
+        self.spinner.setFixedSize(36, 36)
+        self.spinner.hide()
         self.layout.addWidget(self.spinner, alignment=Qt.AlignCenter)
         self.table = QTableWidget(0, 6)
         self.table.setHorizontalHeaderLabels(["Date", "Payee", "Amount", "Memo", "Status", "Skip"])
@@ -402,22 +410,6 @@ class ReviewAndUploadPage(QWizardPage):
         self.removed_count = 0
         self.upload_btn = None
         self.skipped_rows = set()
-
-    def show_success(self, msg):
-        self.spinner.hide()
-        self.success_icon.show()
-        self.error_icon.hide()
-        self.info_label.setText(msg)
-        self.info_label.setObjectName("success-label")
-        self.info_label.setStyleSheet("")
-
-    def show_error(self, msg):
-        self.spinner.hide()
-        self.success_icon.hide()
-        self.error_icon.show()
-        self.info_label.setText(msg)
-        self.info_label.setObjectName("error-label")
-        self.info_label.setStyleSheet("")
 
     def initializePage(self):
         self.spinner.show()
@@ -442,7 +434,6 @@ class ReviewAndUploadPage(QWizardPage):
         # 2. Fetch all YNAB transactions since the earliest CSV date
         from datetime import datetime
         def normalize_date(date_str):
-            # Try both YNAB (DD/MM/YYYY) and CSV (YYYY-MM-DD) formats
             for fmt in ("%Y-%m-%d", "%d/%m/%Y"):
                 try:
                     return datetime.strptime(date_str.strip(), fmt).date()
@@ -453,7 +444,6 @@ class ReviewAndUploadPage(QWizardPage):
             csv_records = df.to_dict(orient="records")
             earliest_csv_date = min(normalize_date(tx["Date"]) for tx in csv_records if tx.get("Date"))
             ynab = YnabClient(token)
-            # Fetch all transactions since earliest date (YNAB API uses ISO format)
             ynab_all = ynab.get_transactions(budget_id, account_id, since_date=str(earliest_csv_date))
         except Exception as e:
             import traceback
@@ -463,8 +453,7 @@ class ReviewAndUploadPage(QWizardPage):
             self.info_label.setText(f"Failed to fetch YNAB transactions: {str(e)}")
             self.spinner.hide()
             return
-        
-        # 4. Compare and deduplicate: remove any CSV tx that matches any YNAB tx (not just one-to-one)
+        # 4. Compare and flag duplicates: do NOT remove, just flag
         def tx_equal(csv_tx, ynab_tx):
             def norm(s):
                 return str(s).strip().lower() if s is not None else ""
@@ -485,23 +474,23 @@ class ReviewAndUploadPage(QWizardPage):
                 csv_amount == ynab_amount and
                 csv_memo == ynab_memo
             )
-        deduped = []
-        for csv_tx in csv_records:
-            if not any(tx_equal(csv_tx, ynab_tx) for ynab_tx in ynab_all):
-                deduped.append(csv_tx)
-        self.new_transactions = deduped
-        # Update table
-        self.table.setRowCount(0)
+        # Determine which are duplicates
+        self.duplicate_rows = set()
+        for i, csv_tx in enumerate(csv_records):
+            if any(tx_equal(csv_tx, ynab_tx) for ynab_tx in ynab_all):
+                self.duplicate_rows.add(i)
+        self.new_transactions = csv_records
+        self.table.setRowCount(len(self.new_transactions))
+        self.skipped_rows = set(self.duplicate_rows)  # Start with duplicates skipped
         for i, tx in enumerate(self.new_transactions):
-            self.table.insertRow(i)
             self.table.setItem(i, 0, QTableWidgetItem(str(tx.get("Date", ""))))
             self.table.setItem(i, 1, QTableWidgetItem(str(tx.get("Payee", ""))))
             self.table.setItem(i, 2, QTableWidgetItem(str(tx.get("Amount", ""))))
             self.table.setItem(i, 3, QTableWidgetItem(str(tx.get("Memo", ""))))
-            self.table.setItem(i, 4, QTableWidgetItem("Ready"))
-            # Add skip checkbox
+            status = "Duplicate" if i in self.duplicate_rows else "Ready"
+            self.table.setItem(i, 4, QTableWidgetItem(status))
             skip_cb = QCheckBox()
-            skip_cb.setChecked(False)
+            skip_cb.setChecked(i in self.duplicate_rows)
             skip_cb.stateChanged.connect(lambda state, row=i: self.on_skip_checkbox_changed(row, state))
             self.table.setCellWidget(i, 5, skip_cb)
         self.info_label.setText("")
@@ -589,6 +578,22 @@ class ReviewAndUploadPage(QWizardPage):
             self.show_error(msg)
         self.spinner.hide()
         return True
+
+    def show_success(self, msg):
+        self.spinner.hide()
+        self.success_icon.show()
+        self.error_icon.hide()
+        self.info_label.setText(msg)
+        self.info_label.setObjectName("success-label")
+        self.info_label.setStyleSheet("")
+
+    def show_error(self, msg):
+        self.spinner.hide()
+        self.success_icon.hide()
+        self.error_icon.show()
+        self.info_label.setText(msg)
+        self.info_label.setObjectName("error-label")
+        self.info_label.setStyleSheet("")
 
 class FinishPage(QWizardPage):
     def __init__(self):
@@ -757,6 +762,8 @@ class NBGYNABWizard(QWizard):
         self.cached_ynab_transactions = None
         self.cached_budget_id = None
         self.cached_account_id = None
+
+os.makedirs(SETTINGS_DIR, exist_ok=True)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
