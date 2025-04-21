@@ -334,7 +334,6 @@ class TransactionsPage(QWizardPage):
         self.setLayout(self.layout)
         self.fetched = False
         self.setMinimumSize(600, 250)
-        self.setMaximumSize(600, 250)
         self.error = None
 
     def initializePage(self):
@@ -356,7 +355,8 @@ class TransactionsPage(QWizardPage):
             self.cache_label.setText("Using cached transactions")
         else:
             self.cache_label.setText("")
-        self.refresh_btn.setEnabled(use_cache)
+        # Always allow refreshing data
+        self.refresh_btn.setEnabled(True)
         # -------------------------
         try:
             if use_cache:
