@@ -17,10 +17,10 @@
   - ~~Improve exception granularity and user messages for different error scenarios.~~
   - ~~Improve amount comparison in UI deduplication (`tx_equal`) to handle floating-point inaccuracies.~~
   - ~~Provide UI feedback (e.g., table status update) for transactions skipped due to formatting errors.~~
-- **Performance & Responsiveness**
-  - Optimize `YnabClient.get_account_name` by caching fetched accounts per budget.  # In Progress
-  - Use YNAB API `per_page` parameter to fetch larger batches and reduce pagination calls (e.g., 200 for `get_all_transactions`).  # In Progress
-  - Offload file processing and API calls to background threads (QThread/QRunnable) to avoid UI blocking.  # In Progress
+- ~~**Performance & Responsiveness**~~ (Completed 2025-04-21)
+  - ~~Optimize `YnabClient.get_account_name` by caching fetched accounts per budget.~~
+  - ~~Use YNAB API `per_page` parameter to fetch larger batches and reduce pagination calls (e.g., 200 for `get_all_transactions`).~~
+  - ~~Offload file processing and API calls to background threads (QThread/QRunnable) to avoid UI blocking.~~
 - **Settings & Config Management**
   - Validate and create settings directory before read/write operations.
   - Consider using `QSettings` or `configparser` for persistent settings storage.
