@@ -80,151 +80,23 @@ ECOMMERCE_CLEANUP_PATTERN = r'E-COMMERCE ΑΓΟΡΑ - '
 # Add new cleanup patterns after ECOMMERCE_CLEANUP_PATTERN
 SECURE_ECOMMERCE_CLEANUP_PATTERN = r'3D SECURE E-COMMERCE ΑΓΟΡΑ - '
 
-def normalize_column_name(column: str) -> str:
-    """Normalize column names by removing extra spaces and normalizing Unicode."""
-    return ' '.join(column.strip().split())
+import converter.utils as _utils
+import converter.account as _account
+import converter.card as _card
+import converter.revolut as _revolut
 
-def validate_dataframe(df: pd.DataFrame, required_columns: List[str]) -> None:
-    """Validate DataFrame with normalized column names."""
-    if df.empty and len(df.columns) == 0:
-        raise ValueError("Empty DataFrame provided")
-    
-    # Normalize both actual and required column names
-    actual_columns = {normalize_column_name(col) for col in df.columns}
-    required_norm = {normalize_column_name(col) for col in required_columns}
-    
-    missing_columns = required_norm - actual_columns
-    if missing_columns:
-        raise ValueError(
-            f"Missing required columns: {', '.join(missing_columns)}\n"
-            f"Available columns: {', '.join(actual_columns)}"
-        )
-    
-    if len(df) == 0:
-        raise ValueError("DataFrame contains no data")
-
-def convert_amount(amount: Union[str, float, int]) -> float:
-    """Convert amount to float, handling both string and numeric inputs.
-    
-    Args:
-        amount: The amount to convert as string or number
-        
-    Returns:
-        float: The converted amount
-    """
-    if isinstance(amount, str):
-        return float(amount.replace(',', '.'))
-    return float(amount)
-
-def process_account_operations(df: pd.DataFrame) -> pd.DataFrame:
-    """Process the Account Operations Export and convert it to YNAB format."""
-    validate_dataframe(df, ACCOUNT_REQUIRED_COLUMNS)
-    
-    try:
-        ynab_df = pd.DataFrame()
-        # Convert Valeur date to YNAB format
-        ynab_df['Date'] = pd.to_datetime(
-            df[ACCOUNT_DATE_COLUMN], format=DATE_FORMAT_ACCOUNT, errors='coerce'
-        ).dt.strftime(DATE_FORMAT_YNAB)
-        
-        if ynab_df['Date'].isna().any():
-            raise ValueError(f"Invalid date format found in {ACCOUNT_DATE_COLUMN}")
-
-        ynab_df['Payee'] = df[ACCOUNT_PAYEE_COLUMN].where(
-            df[ACCOUNT_PAYEE_COLUMN].notna() & (df[ACCOUNT_PAYEE_COLUMN] != ''), 
-            df[ACCOUNT_MEMO_COLUMN]
-        )
-        ynab_df['Memo'] = df[ACCOUNT_MEMO_COLUMN]
-
-        ynab_df['Amount'] = df[ACCOUNT_AMOUNT_COLUMN].apply(convert_amount)
-        df[ACCOUNT_DEBIT_CREDIT_COLUMN] = df[ACCOUNT_DEBIT_CREDIT_COLUMN].str.strip()
-
-        debit_condition = (df[ACCOUNT_DEBIT_CREDIT_COLUMN] == 'Χρέωση') & (ynab_df['Amount'] > 0)
-        ynab_df.loc[debit_condition, 'Amount'] *= -1
-
-        ynab_df['Amount'] = ynab_df['Amount'].round(2)
-
-        return ynab_df
-    except Exception as e:
-        raise ValueError(f"Error processing account operations: {str(e)}")
-
-def process_card_operations(df: pd.DataFrame) -> pd.DataFrame:
-    """Process the Card Operations Export and convert it to YNAB format."""
-    validate_dataframe(df, CARD_REQUIRED_COLUMNS)
-    
-    try:
-        ynab_df = pd.DataFrame()
-        
-        # Extract date from datetime string (removes time portion)
-        ynab_df['Date'] = pd.to_datetime(
-            df[CARD_DATE_COLUMN].apply(lambda x: x.split()[0]),
-            format=DATE_FORMAT_CARD
-        ).dt.strftime(DATE_FORMAT_YNAB)
-        
-        if ynab_df['Date'].isna().any():
-            raise ValueError(f"Invalid date format found in {CARD_DATE_COLUMN}")
-
-        # Clean up payee name by removing prefixes and parentheses
-        ynab_df['Payee'] = (df[CARD_PAYEE_COLUMN]
-            .str.replace(SECURE_ECOMMERCE_CLEANUP_PATTERN, '', regex=True)  # Remove 3D Secure prefix first
-            .str.replace(ECOMMERCE_CLEANUP_PATTERN, '', regex=True)         # Then remove regular e-commerce prefix
-            .str.replace(MEMO_CLEANUP_PATTERN, '', regex=True)              # Finally remove parentheses
-        )
-        ynab_df['Memo'] = df[CARD_PAYEE_COLUMN]  # Keep original description in memo
-        ynab_df['Amount'] = df[CARD_AMOUNT_COLUMN].apply(convert_amount)
-        
-        # Handle debit/credit indicator
-        df[CARD_DEBIT_CREDIT_COLUMN] = df[CARD_DEBIT_CREDIT_COLUMN].str.strip()
-        debit_condition = (df[CARD_DEBIT_CREDIT_COLUMN] == 'Χ') & (ynab_df['Amount'] > 0)
-        ynab_df.loc[debit_condition, 'Amount'] *= -1
-
-        ynab_df['Amount'] = ynab_df['Amount'].round(2)
-
-        return ynab_df
-    except Exception as e:
-        raise ValueError(f"Error processing card operations: {str(e)}")
-
-def validate_revolut_currency(df: pd.DataFrame) -> None:
-    """Validate that all transactions are in EUR.
-    
-    Args:
-        df: DataFrame with Revolut transactions
-        
-    Raises:
-        ValueError: If non-EUR transactions are found
-    """
-    non_eur = df[df[REVOLUT_CURRENCY_COLUMN] != 'EUR']
-    if not non_eur.empty:
-        raise ValueError("Non-EUR transactions found. Only EUR is supported.")
-
-def process_revolut_operations(df: pd.DataFrame) -> pd.DataFrame:
-    """Process Revolut export and convert it to YNAB format."""
-    validate_dataframe(df, REVOLUT_REQUIRED_COLUMNS)
-    validate_revolut_currency(df)
-    
-    try:
-        df = df[df[REVOLUT_STATE_COLUMN] == 'COMPLETED']
-        ynab_df = pd.DataFrame()
-        
-        ynab_df['Date'] = pd.to_datetime(df[REVOLUT_DATE_COLUMN]).dt.strftime(DATE_FORMAT_YNAB)
-        
-        if ynab_df['Date'].isna().any():
-            raise ValueError(f"Invalid date format found in {REVOLUT_DATE_COLUMN}")
-        
-        ynab_df['Payee'] = df[REVOLUT_PAYEE_COLUMN]
-        ynab_df['Memo'] = df[REVOLUT_TYPE_COLUMN]
-        
-        # Always treat fees as positive values that reduce the final amount
-        amounts = df[REVOLUT_AMOUNT_COLUMN].apply(convert_amount)
-        fees = df[REVOLUT_FEE_COLUMN].apply(convert_amount).abs()  # Ensure fees are positive
-        
-        # Fees always reduce the amount (make expenses more negative, income less positive)
-        ynab_df['Amount'] = (amounts - fees).round(2)
-        
-        return ynab_df
-        
-    except Exception as e:
-        raise ValueError(f"Error processing Revolut operations: {str(e)}")
+# Facade overrides to support legacy imports
+convert_amount = _utils.convert_amount
+extract_date_from_filename = _utils.extract_date_from_filename
+generate_output_filename = _utils.generate_output_filename
+exclude_existing_transactions = _utils.exclude_existing
+validate_dataframe = _utils.validate_dataframe
+process_card_operations = _card.process_card
+process_account_operations = _account.process_account
+process_revolut_operations = _revolut.process_revolut
+validate_revolut_currency = _revolut.validate_revolut_currency
+REVOLUT_REQUIRED_COLUMNS = _revolut.REQUIRED
+REVOLUT_CURRENCY_COLUMN = 'Currency'
 
 def load_previous_transactions(csv_file: str) -> pd.DataFrame:
     """Load previously exported transactions from YNAB CSV file.
@@ -240,95 +112,6 @@ def load_previous_transactions(csv_file: str) -> pd.DataFrame:
     except Exception as e:
         logging.warning(f"Could not load previous transactions: {str(e)}")
         return pd.DataFrame(columns=['Date', 'Payee', 'Memo', 'Amount'])
-
-def exclude_existing_transactions(new_df: pd.DataFrame, prev_df: pd.DataFrame) -> pd.DataFrame:
-    """Remove duplicate and older transactions."""
-    if prev_df.empty:
-        return new_df
-        
-    new_df = new_df.copy()
-    new_df['Date'] = pd.to_datetime(new_df['Date'])
-    prev_df['Date'] = pd.to_datetime(prev_df['Date'])
-    
-    latest_prev_date = prev_df['Date'].max()
-    
-    # Allow same-day transactions if they're not duplicates
-    mask_newer = new_df['Date'] >= latest_prev_date
-    
-    # Create unique transaction identifier
-    def create_key(df: pd.DataFrame) -> pd.Series:
-        return (df['Date'].dt.strftime('%Y-%m-%d') + '_' + 
-                df['Payee'] + '_' + 
-                df['Amount'].astype(str))
-    
-    new_keys = create_key(new_df)
-    prev_keys = create_key(prev_df)
-    mask_unique = ~new_keys.isin(prev_keys)
-    
-    filtered_df = new_df[mask_newer & mask_unique].copy()
-    filtered_df['Date'] = filtered_df['Date'].dt.strftime(DATE_FORMAT_YNAB)
-    
-    excluded_count = len(new_df) - len(filtered_df)
-    if excluded_count > 0:
-        logging.info(f"Excluded {excluded_count} duplicate or older transactions")
-    
-    return filtered_df
-
-def extract_date_from_filename(filename: str) -> str:
-    """Extract date from filename if present.
-    
-    Args:
-        filename: Name of the file to check
-        
-    Returns:
-        str: Date in YYYY-MM-DD format if found, empty string otherwise
-    """
-    import re
-    # Match patterns like "25-02-2025" or "2025-02-25"
-    patterns = [
-        r'(\d{2})-(\d{2})-(\d{4})',  # DD-MM-YYYY
-        r'(\d{4})-(\d{2})-(\d{2})'   # YYYY-MM-DD
-    ]
-    
-    for pattern in patterns:
-        match = re.search(pattern, filename)
-        if match:
-            groups = match.groups()
-            if len(groups[0]) == 4:  # YYYY-MM-DD format
-                return f"{groups[0]}-{groups[1]}-{groups[2]}"
-            else:  # DD-MM-YYYY format
-                return f"{groups[2]}-{groups[1]}-{groups[0]}"
-    return ""
-
-def generate_output_filename(input_file: str, is_revolut: bool = False) -> str:
-    """Generate output filename with appropriate date.
-    
-    Args:
-        input_file: Path to the input file
-        is_revolut: Whether the file is a Revolut export
-        
-    Returns:
-        str: Path to the output CSV file
-    """
-    base_name = os.path.splitext(os.path.basename(input_file))[0]
-    
-    # For Revolut exports, always use current date
-    if is_revolut:
-        date_str = datetime.now().strftime('%Y-%m-%d')
-    else:
-        # Try to extract date from filename
-        date_str = extract_date_from_filename(base_name)
-        if not date_str:
-            # If no date in filename, use current date
-            date_str = datetime.now().strftime('%Y-%m-%d')
-    
-    # Remove any existing date from base_name
-    base_name = re.sub(r'_?\d{2}-\d{2}-\d{4}', '', base_name)
-    
-    return os.path.join(
-        os.path.dirname(input_file),
-        f"{base_name}_{date_str}_ynab.{OUTPUT_FORMAT}"
-    )
 
 def validate_input_file(file_path: str) -> None:
     """Validate input file existence and format.

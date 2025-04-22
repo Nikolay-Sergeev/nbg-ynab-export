@@ -1,0 +1,375 @@
+QWizard {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #f7fbff, stop:1 #e3f2fd);
+    font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+}
+QWizardPage {
+    background: transparent;
+    border-radius: 18px;
+    padding: 32px 32px 24px 32px;
+    margin: 16px;
+}
+#card-panel, .card-panel, QFrame#card-panel {
+    background: #fff;
+    border-radius: 18px;
+    border: 1px solid #e3eaf2;
+    /* box-shadow removed for Qt compatibility; drop shadow handled by QGraphicsDropShadowEffect in code */
+    padding: 32px 32px 32px 32px;
+}
+
+/* Stepper styles */
+#stepper {
+    margin-bottom: 24px;
+    min-height: 32px;
+}
+#stepper QLabel {
+    background: transparent;
+}
+
+/* Drop zone styles */
+#drop-zone {
+    border: 2px dashed #3897f0;
+    border-radius: 12px;
+    background: #f3faff;
+    min-height: 160px;
+    padding: 24px 16px 24px 16px;
+    transition: background 0.2s;
+}
+#drop-zone[drag="true"] {
+    border-color: #1976d2;
+    background: #e3f2fd;
+}
+#drop-zone QLabel {
+    background: transparent;
+    qproperty-alignment: AlignCenter;
+}
+
+/* Browse button */
+QPushButton#browse-btn {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #2196f3, stop:1 #64b5f6);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 500;
+    width: 70%;
+    min-width: 220px;
+    margin-top: 0;
+    margin-bottom: 0;
+    padding: 12px 0;
+}
+QPushButton#browse-btn:disabled {
+    background: #e3eaf2;
+    color: #aaa;
+}
+
+/* File name + clear icon */
+QLabel#file-name-label {
+    font-size: 15px;
+    color: #222;
+    padding-left: 6px;
+}
+QPushButton#clear-btn {
+    background: transparent;
+    font-size: 22px;
+    color: #d32f2f;
+    border: none;
+    margin-left: 8px;
+    margin-right: 0;
+    padding: 0;
+}
+QPushButton#clear-btn:hover {
+    color: #b71c1c;
+}
+
+/* Error label */
+#error-label {
+    color: #d32f2f;
+    font-size: 12px;
+    margin-top: 0px;
+    margin-bottom: 0px;
+}
+
+/* Action buttons row */
+QPushButton#exit-btn, QPushButton#continue-btn, QPushButton#back-btn {
+    min-width: 160px;
+    max-width: 160px;
+    min-height: 48px;
+    max-height: 48px;
+    font-size: 18px;
+    font-weight: 600;
+    border-radius: 8px;
+    border: none;
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #2196f3, stop:1 #21cbf3);
+    color: #fff;
+    letter-spacing: 0.5px;
+}
+QPushButton#exit-btn:disabled, QPushButton#continue-btn:disabled, QPushButton#back-btn:disabled {
+    background: #e0e0e0;
+    color: #aaa;
+}
+QPushButton#exit-btn:hover, QPushButton#continue-btn:hover, QPushButton#back-btn:hover {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #1976d2, stop:1 #00bcd4);
+}
+
+/* 8px grid for vertical spacing */
+#card-panel > * {
+    margin-top: 8px;
+    margin-bottom: 8px;
+}
+
+/* Helper and error labels */
+#error-label {
+    color: #d32f2f;
+    font-size: 12px;
+    margin-top: 0px;
+    margin-bottom: 0px;
+}
+#helper-label {
+    color: #666;
+    font-size: 12px;
+    margin-top: 0px;
+    margin-bottom: 0px;
+}
+
+/* Token input show/hide icon */
+QLineEdit {
+    background: #fff;
+    border: 2px solid #1976d2;
+    border-radius: 10px;
+    padding: 10px 38px 10px 14px; /* leave space for icon */
+    font-size: 16px;
+    color: #222;
+}
+QLineEdit:disabled {
+    background: #f5f5f5;
+    color: #bbb;
+}
+
+QCheckBox, QCheckBox QLabel {
+    color: #222;
+    font-size: 15px;
+}
+
+QPushButton {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #2196f3, stop:1 #64b5f6);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 10px 24px;
+    font-size: 16px;
+    font-weight: 500;
+    margin-top: 8px;
+    margin-bottom: 8px;
+}
+QPushButton:disabled {
+    background: #e3eaf2;
+    color: #aaa;
+    border: 1px solid #e3eaf2;
+}
+
+/* Helper link */
+QLabel[objectName="helper-link"] {
+    color: #1976d2;
+    text-decoration: none;
+    font-size: 14px;
+    margin-left: 8px;
+}
+
+QLabel {
+    color: #222;
+    font-size: 15px;
+}
+QLabel[role='title'] {
+    font-size: 22px;
+    font-weight: bold;
+    color: #1976d2;
+    margin-bottom: 16px;
+}
+
+QTableWidget {
+    background: #f7fbff;
+    border-radius: 10px;
+    border: 1px solid #bbdefb;
+    font-size: 15px;
+    gridline-color: #e3f2fd;
+}
+QHeaderView::section {
+    background: #e3f2fd;
+    color: #1976d2;
+    font-weight: bold;
+    border: none;
+    border-radius: 8px;
+}
+QTableWidget::item:selected {
+    background: #bbdefb;
+    color: #222;
+}
+QTableWidget QTableCornerButton::section {
+    background: #e3f2fd;
+    border-radius: 8px;
+}
+QSvgWidget {
+    background: transparent;
+}
+.error-label {
+    color: #d32f2f;
+    font-weight: bold;
+    font-size: 15px;
+    border-radius: 8px;
+    background: rgba(244, 67, 54, 0.06);
+    padding: 8px 12px;
+    margin-bottom: 8px;
+    animation: fadeIn 0.7s;
+}
+.success-label {
+    color: #388e3c;
+    font-weight: bold;
+    font-size: 15px;
+    border-radius: 8px;
+    background: rgba(76, 175, 80, 0.08);
+    padding: 8px 12px;
+    margin-bottom: 8px;
+    animation: fadeIn 0.7s;
+}
+@keyframes fadeIn {
+    0% { opacity: 0; }
+    100% { opacity: 1; }
+}
+
+/* AccountSelectionPage styles */
+#card-panel {
+    background: #fff;
+    border-radius: 8px;
+    border: 1px solid #e3eaf2;
+    padding: 30px;
+}
+
+#stepper {
+    margin-bottom: 24px;
+    min-height: 32px;
+}
+
+/* Title */
+QLabel {
+    font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+}
+QLabel[style*="font-size:20px"] {
+    font-size: 20px;
+    font-weight: bold;
+    color: #222;
+    margin-bottom: 24px;
+}
+
+/* Labels */
+QLabel[style*="font-size:14px"] {
+    font-size: 14px;
+    font-weight: 500;
+    color: #333;
+}
+
+/* Dropdowns */
+QComboBox#budget-combo, QComboBox#account-combo {
+    min-height: 40px;
+    font-size: 15px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    color: #222;
+    background: #fff;
+    padding: 6px 32px 6px 12px;
+    width: 60%;
+    min-width: 240px;
+    max-width: 360px;
+}
+QComboBox#budget-combo QAbstractItemView, QComboBox#account-combo QAbstractItemView {
+    font-size: 15px;
+}
+QComboBox#budget-combo::placeholder, QComboBox#account-combo::placeholder {
+    color: #999;
+}
+
+/* Helper label */
+QLabel#helper-label {
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 0;
+    margin-top: 0;
+}
+
+/* Error label */
+QLabel#error-label {
+    font-size: 12px;
+    color: #d32f2f;
+    margin-bottom: 0;
+    margin-top: 0;
+}
+
+/* Buttons */
+QPushButton#back-btn {
+    background: #fff;
+    color: #555;
+    border: 1px solid #aaa;
+    font-weight: 500;
+    border-radius: 10px;
+    padding: 10px 24px;
+    font-size: 16px;
+    min-width: 100px;
+    min-height: 40px;
+}
+QPushButton#continue-btn {
+    background: #1976d2;
+    color: #fff;
+    font-weight: 600;
+    border-radius: 10px;
+    padding: 10px 24px;
+    font-size: 16px;
+    min-width: 100px;
+    min-height: 40px;
+    opacity: 1;
+}
+QPushButton#continue-btn:disabled {
+    background: #e3eaf2;
+    color: #aaa;
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* 8px grid for vertical spacing */
+#card-panel > * {
+    margin-top: 8px;
+    margin-bottom: 8px;
+}
+
+/* Transaction Table Specific Styles */
+#transactions-table {
+    /* inherits border, background from QTableWidget */
+    gridline-color: #e3f2fd; /* Ensure grid lines match the light theme */
+    alternate-background-color: #ffffff; /* Explicitly set for :alternate selector */
+    background-color: #f7fbff; /* Ensure default background matches */
+}
+
+#transactions-table::item {
+    padding: 5px 8px; /* Add padding */
+    color: #111 !important; /* Darker text color, try !important */
+    background-color: transparent; /* Ensure item background is transparent by default */
+    border-bottom: 1px solid #e3f2fd; /* Add subtle row separator */
+    border-right: none;
+    border-left: none;
+    border-top: none;
+}
+#transactions-table::item:selected {
+    background-color: #bbdefb; /* Slightly darker blue background for selection */
+    color: #000 !important; /* Ensure black text on selection */
+}
+
+/* Keep header style consistent, maybe add padding */
+#transactions-table QHeaderView::section {
+    padding: 6px 8px;
+    /* inherits background: #e3f2fd; color: #1976d2; font-weight: bold; border: none; */
+}
+
+#supported-label {
+    font-size: 13px;
+    color: #1976d2;
+    margin-top: 8px;
+    margin-bottom: 0;
+}

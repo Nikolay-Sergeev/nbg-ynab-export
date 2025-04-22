@@ -1,16 +1,28 @@
 # NBG/Revolut to YNAB Wizard: Development Plan
 
 ## Next Steps / Ideas
-- **Code Architecture & Refactoring**
-  - ~~Extract and modularize conversion logic into a dedicated service (e.g., `ConversionService`) for reuse in UI.  # In Progress~~ (Completed 2025-04-21)
-  - ~~Move core conversion logic (`process_*_operations`, `validate_dataframe`, constants) from `main.py` to the services layer.~~ (Completed 2025-04-21)
-  - ~~Integrate `YnabClient` service into UI pages, replacing inline `requests` calls.  # In Progress~~ (Completed 2025-04-22)
-  - ~~Refactor token encryption/decryption in `YNABAuthPage` to reuse utility functions.  # In Progress~~ (Completed 2025-04-23)
-  - ~~Replace dynamic `importlib` loads with direct module imports.  # In Progress~~ (Completed 2025-04-24)
-  - ~~Verify and potentially fix session cache implementation (`NBGYNABWizard.cached_ynab_transactions`).  # In Progress~~ (Completed 2025-04-25)
-  - ~~Address potentially incorrect `get_selected_budget_account` in `TransactionsPage`.  # In Progress~~ (Completed 2025-04-26)
-  - ~~Ensure hidden settings directory (`~/.nbg-ynab-export`) is created at startup.  # In Progress~~ (Completed 2025-04-27)
-  - ~~Remove unused imports (e.g., `tempfile`).~~ (Completed 2025-04-21)
+- **Code Architecture & Refactoring (Senior‑Level Overhaul) # In Progress**
+  - Clear separation of concerns:
+    - `cli.py` for CLI & logging setup
+    - `config.py` for constants and QSettings-backed prefs
+    - `converter/` for pure data-transforms with type hints & tests
+    - `services/` for I/O clients (YnabClient, ConversionService)
+    - `ui/` for Qt pages emitting signals; `controller.py` orchestrates logic
+  - Modern Python practices: `argparse`, `pathlib`, `dataclasses`, full type hints
+  - Robust logging: per-module loggers via `get_logger`, catch only at top-level
+  - Testability: pure functions in `converter/` with pytest suites in `tests/`
+  - Proposed structure:
+    ```
+    .
+    ├── cli.py
+    ├── config.py
+    ├── converter/
+    ├── services/
+    ├── ui/
+    ├── tests/
+    └── requirements.txt
+    ```
+  - **Next**: scaffold directories/files & migrate existing code into modules
 - ~~**Error Handling & Logging**~~ (Completed 2025-04-28)
   - ~~Centralize logging configuration at the application entry point (`ui_wizard.py`'s main block).~~
   - ~~Centralize logging to a file for diagnostics (e.g., `~/.nbg-ynab-export/app.log`).~~

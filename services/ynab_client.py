@@ -4,9 +4,17 @@ import os
 
 # Setup YNAB API debug logging
 ynab_log_file = os.path.expanduser('~/.nbg-ynab-export/ynab_api.log')
+# Dedicated logger for YNAB API calls
+api_logger = logging.getLogger('ynab_api')
+api_logger.setLevel(logging.DEBUG)
+# File handler for YNAB API log
+api_file_handler = logging.FileHandler(ynab_log_file, mode='a')
+api_file_handler.setFormatter(logging.Formatter('%(asctime)s %(levelname)s %(message)s'))
+api_logger.addHandler(api_file_handler)
+
+# Root logger for general application logging
 logging.basicConfig(
-    filename=ynab_log_file,
-    level=logging.DEBUG,
+    level=logging.INFO,
     format='%(asctime)s %(levelname)s %(message)s',
     filemode='a'
 )
@@ -18,6 +26,8 @@ class YnabClient:
 
     def __init__(self, token: str):
         self.headers = {"Authorization": f"Bearer {token}"}
+        # Cache accounts per budget to avoid repeated API calls
+        self._accounts_cache = {}
 
     def get_budgets(self) -> list:
         """Fetch list of budgets."""
@@ -54,18 +64,22 @@ class YnabClient:
         """Fetch all transactions with automatic pagination."""
         all_tx = []
         page = 1
+        per_page = 200
         while True:
-            txs = self.get_transactions(budget_id, account_id, page=page)
+            txs = self.get_transactions(budget_id, account_id, count=per_page, page=page)
             if not txs:
                 break
             all_tx.extend(txs)
-            if len(txs) < 30:
+            if len(txs) < per_page:
                 break
             page += 1
         return all_tx
 
     def get_account_name(self, budget_id: str, account_id: str) -> str:
-        accounts = self.get_accounts(budget_id)
+        # Use cached accounts list if available
+        if budget_id not in self._accounts_cache:
+            self._accounts_cache[budget_id] = self.get_accounts(budget_id)
+        accounts = self._accounts_cache[budget_id]
         for acc in accounts:
             if acc['id'] == account_id:
                 return acc['name']
@@ -90,6 +104,6 @@ class YnabClient:
                 'json': json,
                 'response': resp.text[:10000]  # Avoid logging huge responses
             }
-            logging.debug('[YNAB API] %s', log_entry)
+            api_logger.debug('[YNAB API] %s', log_entry)
         except Exception as e:
             logging.error('Failed to log YNAB API call: %s', e)

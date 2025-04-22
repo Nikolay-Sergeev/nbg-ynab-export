@@ -1,8 +1,6 @@
 import os
 import sys
-from PyQt5.QtWidgets import (
-    QApplication, QWizard, QWizardPage, QLabel, QVBoxLayout, QPushButton, QFileDialog, QLineEdit, QMessageBox, QComboBox, QCheckBox, QTableWidget, QTableWidgetItem, QHeaderView, QHBoxLayout
-)
+from PyQt5.QtWidgets import QApplication, QWizard, QWizardPage, QLabel, QVBoxLayout, QPushButton, QFileDialog, QLineEdit, QMessageBox, QComboBox, QCheckBox, QTableWidget, QTableWidgetItem, QHeaderView, QHBoxLayout
 from PyQt5.QtSvg import QSvgWidget, QSvgRenderer
 from PyQt5.QtGui import QIcon, QPixmap, QPainter
 from PyQt5.QtCore import Qt, QTimer, QThread, pyqtSignal
@@ -445,6 +443,7 @@ class ReviewAndUploadPage(QWizardPage):
         self.removed_count = 0
         self.upload_btn = None
         self.skipped_rows = set()
+        self.review_upload_worker = None
 
     def initializePage(self):
         self.spinner.show()
@@ -458,10 +457,10 @@ class ReviewAndUploadPage(QWizardPage):
         token = self.get_token_func()
         budget_id, account_id = self.get_budget_account_func()
         # start background worker
-        self.worker = DuplicateCheckWorker(file_path, token, budget_id, account_id)
-        self.worker.finished.connect(self.on_duplicates_ready)
-        self.worker.error.connect(self.on_duplicates_error)
-        self.worker.start()
+        self.review_upload_worker = DuplicateCheckWorker(file_path, token, budget_id, account_id)
+        self.review_upload_worker.finished.connect(self.on_duplicates_ready)
+        self.review_upload_worker.error.connect(self.on_duplicates_error)
+        self.review_upload_worker.start()
         return
 
     def on_skip_checkbox_changed(self, row, state):
@@ -570,28 +569,34 @@ class ReviewAndUploadPage(QWizardPage):
         self.info_label.setStyleSheet("")
 
     def on_duplicates_ready(self, records, duplicate_rows):
-        self.new_transactions = records
-        self.duplicate_rows = duplicate_rows
-        self.table.setRowCount(len(records))
-        self.skipped_rows = set(duplicate_rows)
-        for i, tx in enumerate(records):
-            self.table.setItem(i, 0, QTableWidgetItem(str(tx.get("Date", ""))))
-            self.table.setItem(i, 1, QTableWidgetItem(str(tx.get("Payee", ""))))
-            self.table.setItem(i, 2, QTableWidgetItem(str(tx.get("Amount", ""))))
-            self.table.setItem(i, 3, QTableWidgetItem(str(tx.get("Memo", ""))))
-            status = "Duplicate" if i in duplicate_rows else "Ready"
-            self.table.setItem(i, 4, QTableWidgetItem(status))
-            cb = QCheckBox()
-            cb.setChecked(i in duplicate_rows)
-            cb.stateChanged.connect(lambda s, row=i: self.on_skip_checkbox_changed(row, s))
-            self.table.setCellWidget(i, 5, cb)
-        self.info_label.setText("")
-        self.spinner.hide()
+        try:
+            self.new_transactions = records
+            self.duplicate_rows = duplicate_rows
+            self.table.setRowCount(len(records))
+            self.skipped_rows = set(duplicate_rows)
+            for i, tx in enumerate(records):
+                self.table.setItem(i, 0, QTableWidgetItem(str(tx.get("Date", ""))))
+                self.table.setItem(i, 1, QTableWidgetItem(str(tx.get("Payee", ""))))
+                self.table.setItem(i, 2, QTableWidgetItem(str(tx.get("Amount", ""))))
+                self.table.setItem(i, 3, QTableWidgetItem(str(tx.get("Memo", ""))))
+                status = "Duplicate" if i in duplicate_rows else "Ready"
+                self.table.setItem(i, 4, QTableWidgetItem(status))
+                cb = QCheckBox()
+                cb.setChecked(i in duplicate_rows)
+                cb.stateChanged.connect(lambda s, row=i: self.on_skip_checkbox_changed(row, s))
+                self.table.setCellWidget(i, 5, cb)
+            self.info_label.setText("")
+            self.spinner.hide()
+        except Exception as e:
+            logging.exception("Error processing duplicate check results: %s", e)
 
     def on_duplicates_error(self, error_msg):
-        logging.exception("Background duplicate check failed: %s", error_msg)
-        self.info_label.setText("Processing error occurred. Check logs for details.")
-        self.spinner.hide()
+        try:
+            logging.exception("Background duplicate check failed: %s", error_msg)
+            self.info_label.setText("Processing error occurred. Check logs for details.")
+            self.spinner.hide()
+        except Exception as e:
+            logging.exception("Error handling duplicate check error: %s", e)
 
 class FinishPage(QWizardPage):
     def __init__(self):
@@ -808,21 +813,69 @@ class NBGYNABWizard(QWizard):
         self.cached_budget_id = None
         self.cached_account_id = None
 
+    def closeEvent(self, event):
+        # --- Stop any QThreads (e.g., duplicate checker in review_upload_page) ---
+        try:
+            if hasattr(self, 'review_upload_page'):
+                page = self.review_upload_page
+                worker = getattr(page, 'review_upload_worker', None)
+                if worker is not None and worker.isRunning():
+                    print("[Thread] Stopping review_upload_page worker thread...")
+                    worker.quit()
+                    worker.wait(2000)  # 2s timeout
+        except Exception as e:
+            print(f"[Thread] Exception while stopping threads: {e}")
+        # Add more thread cleanup here if needed
+        super().closeEvent(event)
+
 os.makedirs(SETTINGS_DIR, exist_ok=True)
+
+PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+RESOURCE_DIR = os.path.join(PROJECT_ROOT, "resources")
+QSS_PATH = os.path.join(RESOURCE_DIR, "style.qss")
+ICON_PATH = os.path.join(RESOURCE_DIR, "app_icon.svg")
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    # Set SVG app icon
-    import os
-    svg_icon_path = os.path.join(os.path.dirname(__file__), "icons", "app_icon.svg")
-    if os.path.exists(svg_icon_path):
-        renderer = QSvgRenderer(svg_icon_path)
-        pixmap = QPixmap(128, 128)
-        pixmap.fill(Qt.transparent)
-        painter = QPainter(pixmap)
-        renderer.render(painter)
-        painter.end()
-        app.setWindowIcon(QIcon(pixmap))
+
+    # Load and apply QSS stylesheet if available
+    if os.path.exists(QSS_PATH):
+        try:
+            with open(QSS_PATH, "r") as f:
+                app.setStyleSheet(f.read())
+            print(f"[QSS] Loaded style from {QSS_PATH}")
+        except Exception as e:
+            print(f"[QSS] Failed to load style.qss: {e}")
+    else:
+        print(f"[QSS] style.qss not found at {QSS_PATH}. UI will use default style.")
+
+    # Set SVG app icon if available
+    if os.path.exists(ICON_PATH):
+        try:
+            renderer = QSvgRenderer(ICON_PATH)
+            pixmap = QPixmap(128, 128)
+            pixmap.fill(Qt.transparent)
+            painter = QPainter(pixmap)
+            renderer.render(painter)
+            painter.end()
+            app.setWindowIcon(QIcon(pixmap))
+        except Exception as e:
+            print(f"[Icon] Failed to load app_icon.svg: {e}")
+    else:
+        print(f"[Icon] app_icon.svg not found at {ICON_PATH}. App will use default icon.")
+
     wizard = NBGYNABWizard()
     wizard.show()
+
+    # Ensure any QThreads are stopped before exit (if present)
+    def cleanup_threads():
+        # If you use threads in your pages, ensure they are stopped here
+        # Example: if hasattr(wizard, 'review_upload_page') and wizard.review_upload_page.worker:
+        #     worker = wizard.review_upload_page.worker
+        #     if worker.isRunning():
+        #         worker.quit()
+        #         worker.wait()
+        pass
+    app.aboutToQuit.connect(cleanup_threads)
+
     sys.exit(app.exec_())
