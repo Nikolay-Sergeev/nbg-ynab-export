@@ -89,7 +89,7 @@ def main():
         wizard.addPage(TransactionsPage(controller))
         wizard.addPage(ReviewAndUploadPage(controller))
         wizard.addPage(FinishPage())
-        wizard.showFullScreen()
+        wizard.showMaximized()
         print("[Wizard] Wizard UI started. Entering event loop.")
         sys.exit(app.exec_())
     except Exception as e:

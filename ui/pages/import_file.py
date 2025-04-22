@@ -121,47 +121,23 @@ class ImportFilePage(QWizardPage):
         self.setMinimumSize(0, 0)
         self.setMaximumSize(16777215, 16777215)
 
-        # --- Outer layout ---
-        outer_layout = QVBoxLayout(self)
-        outer_layout.setContentsMargins(0, 0, 0, 0)
-        outer_layout.setSpacing(0)
-
-        # Stepper (1/6) - dots only, hide indicator text
-        self.stepper = StepperWidget(step_idx=0, total_steps=6)
-        outer_layout.addWidget(self.stepper, alignment=Qt.AlignHCenter)
-
-        # --- Card Panel (Central Widget) ---
-        card_container = QWidget() # Use a container to center the card
-        card_container_layout = QHBoxLayout(card_container)
-        card_container_layout.setContentsMargins(20, 20, 20, 20) # Add padding around card
-        card_container_layout.addStretch()
-
         card = QFrame()
         card.setObjectName("card-panel")
-        card.setMinimumWidth(500)
-        card.setMaximumWidth(500)
-        card.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred) # Allow vertical expansion
+        card.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         card_layout = QVBoxLayout(card)
-        card_layout.setContentsMargins(30, 30, 30, 30)
-        card_layout.setSpacing(15)
-        # Drop shadow (skip on macOS to avoid Qt crash)
-        if not sys.platform.startswith('darwin'):
-            shadow = QGraphicsDropShadowEffect(card)
-            shadow.setBlurRadius(20)
-            shadow.setColor(QColor(0,0,0,40))
-            shadow.setOffset(0, 3)
-            card.setGraphicsEffect(shadow)
+        card_layout.setContentsMargins(32, 32, 32, 32)
+        card_layout.setSpacing(16)
 
-        card_container_layout.addWidget(card)
-        card_container_layout.addStretch()
-        outer_layout.addWidget(card_container)
-        outer_layout.addStretch() # Push card container up
+        # Stepper (1/6)
+        stepper = StepperWidget(step_idx=0, total_steps=6)
+        card_layout.addWidget(stepper)
+        indicator = QLabel("1/6")
+        indicator.setAlignment(Qt.AlignRight)
+        indicator.setStyleSheet("font-size:14px;color:#888;margin-bottom:8px;")
+        card_layout.addWidget(indicator)
 
-        # --- Content inside Card ---
-        # Title
-        title = QLabel("Import NBG or Revolut Export")
-        title.setObjectName("wizard-title")
-        title.setAlignment(Qt.AlignCenter)
+        title = QLabel("Import NBG or Revolut Statement")
+        title.setProperty('role', 'title')
         card_layout.addWidget(title)
 
         # Drop zone
@@ -214,7 +190,7 @@ class ImportFilePage(QWizardPage):
         self.clear_btn.clicked.connect(self.clear_file)
         file_display_layout.addWidget(self.clear_btn)
         self.file_display_widget.hide()
-        card_layout.addWidget(self.file_display_widget, alignment=Qt.AlignCenter)
+        card_layout.addWidget(self.file_display_widget)
 
         # Error label
         self.error_label = QLabel("")
@@ -262,6 +238,13 @@ class ImportFilePage(QWizardPage):
         # Initial UI state
         self.update_ui_state()
         # === End of restored code ===
+
+        main_layout = QVBoxLayout()
+        main_layout.setContentsMargins(24, 24, 24, 24)
+        main_layout.addWidget(card)
+        self.setLayout(main_layout)
+        self.setMinimumSize(0, 0)
+        self.setMaximumSize(16777215, 16777215)
 
     def browse_file(self):
         folder = self.last_folder if self.last_folder else os.path.expanduser("~")

@@ -2,6 +2,7 @@
 from PyQt5.QtCore import QObject, pyqtSignal, QThread
 from services.ynab_client import YnabClient
 from services.conversion_service import ConversionService
+import re
 
 
 # --- Worker Classes --- #
@@ -110,9 +111,21 @@ class DuplicateCheckWorker(QObject):
                     amt_csv = int(round(float(r.get("Amount", 0)) * 1000))
                 except:
                     amt_csv = None
-                key = (date_csv, payee_csv, amt_csv, memo_csv)
-                if key in keys_prev:
-                    dup_idx.add(i)
+                is_transfer_csv = payee_csv.startswith("transfer :")
+                for (date_prev, payee_prev, amt_prev, memo_prev) in keys_prev:
+                    is_transfer_prev = payee_prev.startswith("transfer :")
+                    if date_csv == date_prev and amt_csv == amt_prev:
+                        if is_transfer_csv or is_transfer_prev:
+                            # Fuzzy memo match: ignore non-word chars, lowercase, compare first 15 chars
+                            norm_memo_csv = re.sub(r"\W", "", memo_csv.lower())
+                            norm_memo_prev = re.sub(r"\W", "", memo_prev.lower())
+                            if norm_memo_csv[:15] == norm_memo_prev[:15]:
+                                dup_idx.add(i)
+                                break
+                        else:
+                            if payee_csv == payee_prev and memo_csv == memo_prev:
+                                dup_idx.add(i)
+                                break
             self.finished.emit(records, dup_idx)
         except Exception as e:
             err_msg = f"Failed to check duplicates: {e}"

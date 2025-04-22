@@ -1,5 +1,5 @@
 QWizard {
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #f7fbff, stop:1 #e3f2fd);
+    background: #F7F8FA;
     font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
 }
 QWizardPage {
@@ -10,10 +10,10 @@ QWizardPage {
 }
 #card-panel, .card-panel, QFrame#card-panel {
     background: #fff;
-    border-radius: 18px;
-    border: 1px solid #e3eaf2;
-    /* box-shadow removed for Qt compatibility; drop shadow handled by QGraphicsDropShadowEffect in code */
-    padding: 32px 32px 32px 32px;
+    border-radius: 10px;
+    border: 10px solid #fff;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.04);
+    padding: 0;
 }
 
 /* Stepper styles */
@@ -27,16 +27,14 @@ QWizardPage {
 
 /* Drop zone styles */
 #drop-zone {
-    border: 2px dashed #3897f0;
-    border-radius: 12px;
-    background: #f3faff;
-    min-height: 160px;
-    padding: 24px 16px 24px 16px;
-    transition: background 0.2s;
+    background: rgba(225, 227, 229, 0.12); /* #E1E3E5 at 12% opacity */
+    border: 2px dashed #E1E3E5;
+    border-radius: 14px;
+    transition: background 0.2s, border-color 0.2s;
 }
-#drop-zone[drag="true"] {
-    border-color: #1976d2;
-    background: #e3f2fd;
+#drop-zone[drag="true"], #drop-zone:hover, #drop-zone:focus {
+    background: #fff;
+    border-color: #1976d2; /* Brand blue */
 }
 #drop-zone QLabel {
     background: transparent;
@@ -90,25 +88,32 @@ QPushButton#clear-btn:hover {
 }
 
 /* Action buttons row */
-QPushButton#exit-btn, QPushButton#continue-btn, QPushButton#back-btn {
-    min-width: 160px;
-    max-width: 160px;
-    min-height: 48px;
-    max-height: 48px;
-    font-size: 18px;
+QPushButton#continue-btn, QPushButton#exit-btn, QPushButton#back-btn {
+    min-width: 100px;
+    max-width: 100px;
+    min-height: 36px;
+    max-height: 36px;
+    font-size: 15px;
     font-weight: 600;
     border-radius: 8px;
     border: none;
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #2196f3, stop:1 #21cbf3);
+}
+QPushButton#exit-btn {
+    background: #F7F8FA;
+    color: #222;
+}
+QPushButton#continue-btn {
+    background: #1976d2;
     color: #fff;
-    letter-spacing: 0.5px;
+    box-shadow: 0 2px 4px rgba(25, 118, 210, 0.08);
 }
 QPushButton#exit-btn:disabled, QPushButton#continue-btn:disabled, QPushButton#back-btn:disabled {
     background: #e0e0e0;
-    color: #aaa;
+    color: #A0A3A6;
 }
 QPushButton#exit-btn:hover, QPushButton#continue-btn:hover, QPushButton#back-btn:hover {
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #1976d2, stop:1 #00bcd4);
+    background: #1976d2;
+    color: #fff;
 }
 
 /* 8px grid for vertical spacing */
@@ -163,8 +168,7 @@ QPushButton {
 }
 QPushButton:disabled {
     background: #e3eaf2;
-    color: #aaa;
-    border: 1px solid #e3eaf2;
+    color: #A0A3A6;
 }
 
 /* Helper link */
@@ -187,7 +191,7 @@ QLabel[role='title'] {
 }
 
 QTableWidget {
-    background: #f7fbff;
+    background: #fff;
     border-radius: 10px;
     border: 1px solid #bbdefb;
     font-size: 15px;
@@ -226,7 +230,7 @@ QSvgWidget {
     font-weight: bold;
     font-size: 15px;
     border-radius: 8px;
-    background: rgba(76, 175, 80, 0.08);
+    background: rgba(56, 142, 60, 0.06);
     padding: 8px 12px;
     margin-bottom: 8px;
     animation: fadeIn 0.7s;
@@ -305,9 +309,9 @@ QLabel#error-label {
 
 /* Buttons */
 QPushButton#back-btn {
-    background: #fff;
-    color: #555;
-    border: 1px solid #aaa;
+    background: #F7F8FA;
+    color: #222;
+    border: 1px solid #E1E3E5;
     font-weight: 500;
     border-radius: 10px;
     padding: 10px 24px;
@@ -325,10 +329,12 @@ QPushButton#continue-btn {
     min-width: 100px;
     min-height: 40px;
     opacity: 1;
+    border: none;
+    box-shadow: 0 2px 4px rgba(25, 118, 210, 0.08);
 }
 QPushButton#continue-btn:disabled {
-    background: #e3eaf2;
-    color: #aaa;
+    background: #e0e0e0;
+    color: #A0A3A6;
     opacity: 0.6;
     cursor: not-allowed;
 }
@@ -372,4 +378,12 @@ QPushButton#continue-btn:disabled {
     color: #1976d2;
     margin-top: 8px;
     margin-bottom: 0;
+}
+
+:root {
+  --gray-0: #FFFFFF;
+  --gray-1: #F7F8FA;
+  --gray-2: #E1E3E5;
+  --gray-7: #A0A3A6;
+  --blue-500: #1976d2;
 }

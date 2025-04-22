@@ -12,9 +12,7 @@ class TransactionsPage(QWizardPage):
 
         card = QFrame()
         card.setObjectName("card-panel")
-        card.setMinimumWidth(500)
-        card.setMaximumWidth(500)
-        card.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
+        card.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         card_layout = QVBoxLayout(card)
         card_layout.setContentsMargins(32, 32, 32, 32)
         card_layout.setSpacing(16)
@@ -95,9 +93,8 @@ class TransactionsPage(QWizardPage):
         card_layout.addLayout(nav_layout)
 
         main_layout = QVBoxLayout()
-        main_layout.addStretch(1)
-        main_layout.addWidget(card, alignment=Qt.AlignCenter)
-        main_layout.addStretch(1)
+        main_layout.setContentsMargins(24, 24, 24, 24)
+        main_layout.addWidget(card)
         self.setLayout(main_layout)
 
         self.setMinimumSize(0, 0)

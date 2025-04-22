@@ -91,6 +91,8 @@ def process_account_operations(df: pd.DataFrame) -> pd.DataFrame:
         ynab_df['Payee'] = df[ACCOUNT_PAYEE_COLUMN].str.replace(ECOMMERCE_CLEANUP_PATTERN, '', regex=True)
         ynab_df['Payee'] = ynab_df['Payee'].str.replace(SECURE_ECOMMERCE_CLEANUP_PATTERN, '', regex=True)
         ynab_df['Memo'] = df[ACCOUNT_MEMO_COLUMN]
+        # Fallback: if Payee is empty, use Memo
+        ynab_df['Payee'] = ynab_df['Payee'].mask(ynab_df['Payee'].isnull() | (ynab_df['Payee'].astype(str).str.strip() == ''), ynab_df['Memo'])
         ynab_df['Amount'] = df[ACCOUNT_AMOUNT_COLUMN].apply(convert_amount)
         df[ACCOUNT_DEBIT_CREDIT_COLUMN] = df[ACCOUNT_DEBIT_CREDIT_COLUMN].str.strip()
         debit_condition = (df[ACCOUNT_DEBIT_CREDIT_COLUMN] == 'Χρέωση') & (ynab_df['Amount'] > 0)

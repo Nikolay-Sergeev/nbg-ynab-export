@@ -44,40 +44,27 @@ class AccountSelectionPage(QWizardPage):
 
         # --- Outer layout ---
         outer_layout = QVBoxLayout(self)
-        outer_layout.setContentsMargins(40, 40, 40, 40)
+        outer_layout.setContentsMargins(24, 24, 24, 24)
         outer_layout.addStretch(1)
+
+        card = QFrame()
+        card.setObjectName("card-panel")
+        card.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(32, 32, 32, 32)
+        card_layout.setSpacing(16)
 
         # Stepper (3/6)
         stepper = StepperWidget(step_idx=2, total_steps=6)
-        outer_layout.addWidget(stepper, alignment=Qt.AlignHCenter)
+        card_layout.addWidget(stepper)
         indicator = QLabel("3/6")
         indicator.setAlignment(Qt.AlignRight)
         indicator.setStyleSheet("font-size:14px;color:#888;margin-bottom:8px;")
-        outer_layout.addWidget(indicator)
+        card_layout.addWidget(indicator)
 
-        # Card
-        card = QFrame()
-        card.setObjectName("card-panel")
-        card.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Maximum)
-        card.setMinimumWidth(420)
-        card_layout = QVBoxLayout(card)
-        card_layout.setContentsMargins(30, 30, 30, 30)
-        card_layout.setSpacing(0)
-        # Drop shadow (skip on macOS to avoid Qt crash)
-        if not sys.platform.startswith('darwin'):
-            from PyQt5.QtWidgets import QGraphicsDropShadowEffect
-            shadow = QGraphicsDropShadowEffect(card)
-            shadow.setBlurRadius(18)
-            shadow.setColor(QColor(0,0,0,30))
-            shadow.setOffset(0, 2)
-            card.setGraphicsEffect(shadow)
-
-        # Title
-        title = QLabel("Select your YNAB Account")
-        title.setStyleSheet("font-size:20px;font-weight:bold;color:#222;margin-bottom:24px;")
-        title.setWordWrap(True)
-        card_layout.addWidget(title, alignment=Qt.AlignHCenter)
-        card_layout.addSpacing(8)
+        title = QLabel("Select YNAB Budget and Account")
+        title.setProperty('role', 'title')
+        card_layout.addWidget(title)
 
         # Budget label
         budget_label = QLabel("Budget:")
@@ -145,10 +132,9 @@ class AccountSelectionPage(QWizardPage):
         card_layout.addLayout(btn_row)
 
         # Final layout
-        outer_layout.addWidget(card, alignment=Qt.AlignCenter)
+        outer_layout.addWidget(card)
         outer_layout.addStretch(1)
         self.setLayout(outer_layout)
-
         self.setMinimumSize(0, 0)
         self.setMaximumSize(16777215, 16777215)
 

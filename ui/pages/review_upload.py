@@ -1,7 +1,8 @@
-from PyQt5.QtWidgets import QWizardPage, QVBoxLayout, QLabel, QPushButton, QTableWidget, QTableWidgetItem, QHBoxLayout, QCheckBox, QFrame, QSizePolicy
+from PyQt5.QtWidgets import QWizardPage, QVBoxLayout, QLabel, QPushButton, QTableWidget, QTableWidgetItem, QHBoxLayout, QFrame, QSizePolicy, QHeaderView
 from PyQt5.QtCore import Qt
 from .account_select import StepperWidget
 import os
+import functools
 
 class ReviewAndUploadPage(QWizardPage):
     def __init__(self, controller):
@@ -13,9 +14,7 @@ class ReviewAndUploadPage(QWizardPage):
         card.setObjectName("card-panel")
         card.setFrameShape(QFrame.StyledPanel)
         card.setFrameShadow(QFrame.Raised)
-        card.setMinimumWidth(500)
-        card.setMaximumWidth(500)
-        card.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
+        card.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         card_layout = QVBoxLayout(card)
         card_layout.setContentsMargins(32, 32, 32, 32)
         card_layout.setSpacing(16)
@@ -54,9 +53,9 @@ class ReviewAndUploadPage(QWizardPage):
         card_layout.addWidget(self.spinner, alignment=Qt.AlignCenter)
 
         self.table = QTableWidget()
-        # Ensure readable font color for table
         self.table.setStyleSheet("color: #222; background: #fff;")
-        self.table.setMinimumWidth(700)
+        # Respond to Skip item changes
+        self.table.itemChanged.connect(self.on_skip_item_changed)
         self.table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         card_layout.addWidget(self.table)
 
@@ -64,23 +63,18 @@ class ReviewAndUploadPage(QWizardPage):
         nav_layout = QHBoxLayout()
         self.back_btn = QPushButton("Back")
         self.back_btn.setObjectName("back-btn")
-        self.back_btn.setFixedWidth(160)
-        self.back_btn.setFixedHeight(48)
         self.back_btn.clicked.connect(lambda: self.wizard().back())
         nav_layout.addWidget(self.back_btn)
         nav_layout.addStretch(1)
         self.continue_btn = QPushButton("Continue")
         self.continue_btn.setObjectName("continue-btn")
-        self.continue_btn.setFixedWidth(160)
-        self.continue_btn.setFixedHeight(48)
         self.continue_btn.clicked.connect(self.on_continue)
         nav_layout.addWidget(self.continue_btn)
         card_layout.addLayout(nav_layout)
 
-        main_layout = QVBoxLayout(self)
-        main_layout.addStretch(1)
-        main_layout.addWidget(card, alignment=Qt.AlignCenter)
-        main_layout.addStretch(1)
+        main_layout = QVBoxLayout()
+        main_layout.setContentsMargins(24, 24, 24, 24)
+        main_layout.addWidget(card)
         self.setLayout(main_layout)
         self.setMinimumSize(0, 0)
         self.setMaximumSize(16777215, 16777215)
@@ -107,40 +101,58 @@ class ReviewAndUploadPage(QWizardPage):
                 QMessageBox.critical(self, "Error", f"Error checking duplicates: {str(e)}")
 
     def on_duplicates_found(self, records, dup_idx):
-        try:
-            self.records = records
-            self.dup_idx = dup_idx
-            self.skipped_rows = set(dup_idx)
-            self.table.setRowCount(len(records))
-            self.table.setColumnCount(len(records[0]) + 2 if records else 0)
-            headers = list(records[0].keys()) if records else []
-            headers.append("Status")
-            headers.append("Skip")
-            self.table.setHorizontalHeaderLabels(headers)
-            for row, rec in enumerate(records):
-                for col, key in enumerate(rec):
-                    item = QTableWidgetItem(str(rec[key]))
-                    if row in dup_idx:
-                        item.setBackground(Qt.yellow)
-                    self.table.setItem(row, col, item)
-                status = "Duplicate" if row in dup_idx else "Ready"
-                self.table.setItem(row, len(rec), QTableWidgetItem(status))
-                cb = QCheckBox()
-                cb.setChecked(row in dup_idx)
+        # Populate table with records and duplicates
+        self.records = records
+        self.dup_idx = dup_idx
+        self.skipped_rows = set(dup_idx)
+        # Clear existing content, then set dimensions and headers
+        self.table.clearContents()
+        row_count = len(records)
+        col_count = len(records[0]) + 2 if records else 0
+        self.table.setRowCount(row_count)
+        self.table.setColumnCount(col_count)
+        headers = list(records[0].keys()) if records else []
+        headers += ["Status", "Skip"]
+        self.table.setHorizontalHeaderLabels(headers)
+        skip_col = col_count - 1
+        # Block signals while initializing
+        self.table.blockSignals(True)
+        for row, rec in enumerate(records):
+            # Data columns
+            for col, key in enumerate(rec):
+                item = QTableWidgetItem(str(rec[key]))
                 if row in dup_idx:
-                    cb.setEnabled(False)  # Disable checkbox for duplicates
-                cb.stateChanged.connect(lambda s, r=row: self.on_skip_checkbox_changed(r, s))
-                self.table.setCellWidget(row, len(rec)+1, cb)
-            # Always enable Continue button after populating table
-            self.continue_btn.setEnabled(True)
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"Error displaying duplicates: {str(e)}")
+                    item.setBackground(Qt.yellow)
+                self.table.setItem(row, col, item)
+            # Status column
+            status_item = QTableWidgetItem("Duplicate" if row in dup_idx else "Ready")
+            status_item.setFlags(Qt.ItemIsEnabled)
+            self.table.setItem(row, col_count - 2, status_item)
+            # Skip column as checkable item
+            skip_item = QTableWidgetItem()
+            skip_item.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
+            skip_item.setCheckState(Qt.Checked if row in dup_idx else Qt.Unchecked)
+            if row in dup_idx:
+                self.skipped_rows.add(row)
+            self.table.setItem(row, skip_col, skip_item)
+        self.table.blockSignals(False)
+        # Resize columns and rows to show checkboxes
+        header = self.table.horizontalHeader()
+        for c in range(col_count - 1):
+            header.setSectionResizeMode(c, QHeaderView.Stretch)
+        header.setSectionResizeMode(skip_col, QHeaderView.ResizeToContents)
+        self.table.resizeRowsToContents()
+        # Enable Continue button
+        self.continue_btn.setEnabled(True)
 
-    def on_skip_checkbox_changed(self, row, state):
-        if state == Qt.Checked:
-            self.skipped_rows.add(row)
+    def on_skip_item_changed(self, item):
+        # Track Skip column changes
+        if item.column() != self.table.columnCount() - 1:
+            return
+        if item.checkState() == Qt.Checked:
+            self.skipped_rows.add(item.row())
         else:
-            self.skipped_rows.discard(row)
+            self.skipped_rows.discard(item.row())
 
     def upload_transactions(self):
         print("[DEBUG] upload_transactions called")
