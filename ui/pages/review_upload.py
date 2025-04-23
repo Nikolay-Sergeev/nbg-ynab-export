@@ -1,8 +1,10 @@
 from PyQt5.QtWidgets import QWizardPage, QVBoxLayout, QLabel, QPushButton, QTableWidget, QTableWidgetItem, QHBoxLayout, QFrame, QSizePolicy, QHeaderView
 from PyQt5.QtCore import Qt
+from PyQt5.QtSvg import QSvgWidget
 from .account_select import StepperWidget
 import os
 import functools
+import logging
 
 class ReviewAndUploadPage(QWizardPage):
     def __init__(self, controller):
@@ -21,7 +23,7 @@ class ReviewAndUploadPage(QWizardPage):
 
         # Stepper (5/6)
         self.stepper = StepperWidget(step_idx=4, total_steps=6)
-        card_layout.insertWidget(0, self.stepper)
+        card_layout.insertWidget(0, self.stepper, 0, Qt.AlignHCenter)
         indicator = QLabel("5/6")
         indicator.setAlignment(Qt.AlignRight)
         indicator.setStyleSheet("font-size:14px;color:#888;margin-bottom:8px;")
@@ -32,23 +34,50 @@ class ReviewAndUploadPage(QWizardPage):
         self.label.setAlignment(Qt.AlignCenter)
         card_layout.addWidget(self.label)
 
-        # Setup success and error icon placeholders
-        self.success_icon = QLabel()
+        # Load icons: success, error, info, spinner
+        base = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../resources'))
+        # Success icon
+        success_path = os.path.join(base, 'success.svg')
+        try:
+            self.success_icon = QSvgWidget(success_path)
+            self.success_icon.setFixedSize(24, 24)
+        except Exception:
+            self.success_icon = QLabel()
         self.success_icon.hide()
-        self.error_icon = QLabel()
+        # Error icon
+        error_path = os.path.join(base, 'error.svg')
+        try:
+            self.error_icon = QSvgWidget(error_path)
+            self.error_icon.setFixedSize(24, 24)
+        except Exception:
+            self.error_icon = QLabel()
         self.error_icon.hide()
+        # Info icon
+        info_path = os.path.join(base, 'info.svg')
+        try:
+            self.info_icon = QSvgWidget(info_path)
+            self.info_icon.setFixedSize(24, 24)
+        except Exception:
+            self.info_icon = QLabel()
+        self.info_icon.hide()
+        # Info label
         self.info_label = QLabel("")
         self.info_label.setObjectName("info-label")
         self.info_label.setWordWrap(True)
         icon_label_layout = QHBoxLayout()
         icon_label_layout.addWidget(self.success_icon)
         icon_label_layout.addWidget(self.error_icon)
+        icon_label_layout.addWidget(self.info_icon)
         icon_label_layout.addWidget(self.info_label)
         icon_label_layout.addStretch()
         card_layout.addLayout(icon_label_layout)
-
-        # Setup spinner placeholder
-        self.spinner = QLabel()
+        # Spinner icon
+        spinner_path = os.path.join(base, 'spinner.svg')
+        try:
+            self.spinner = QSvgWidget(spinner_path)
+            self.spinner.setFixedSize(36, 36)
+        except Exception:
+            self.spinner = QLabel()
         self.spinner.hide()
         card_layout.addWidget(self.spinner, alignment=Qt.AlignCenter)
 
@@ -232,6 +261,7 @@ class ReviewAndUploadPage(QWizardPage):
     def on_upload_finished(self, count):
         self.success_icon.show()
         self.error_icon.hide()
+        self.info_icon.hide()
         self.table.setRowCount(0)
         self.info_label.setText(f"Upload complete. {count} transactions uploaded.")
         # Save upload stats and account name to wizard for FinishPage
@@ -254,7 +284,33 @@ class ReviewAndUploadPage(QWizardPage):
     def on_error(self, msg):
         self.success_icon.hide()
         self.error_icon.show()
+        self.info_icon.hide()
         self.info_label.setText(f"Error: {msg}")
+
+    def show_success(self, msg):
+        self.spinner.hide()
+        self.success_icon.show()
+        self.error_icon.hide()
+        self.info_icon.hide()
+        self.info_label.setText(msg)
+        self.info_label.setObjectName("success-label")
+        self.info_label.setStyleSheet("")
+
+    def show_error(self, msg):
+        self.spinner.hide()
+        self.success_icon.hide()
+        self.error_icon.show()
+        self.info_icon.hide()
+        self.info_label.setText(msg)
+        self.info_label.setObjectName("error-label")
+        self.info_label.setStyleSheet("")
+
+    def on_duplicates_error(self, error_msg):
+        try:
+            logging.exception("Background duplicate check failed: %s", error_msg)
+            self.show_error("Processing error occurred. Check logs for details.")
+        except Exception as e:
+            logging.exception("Error handling duplicate check error: %s", e)
 
     def isComplete(self):
         print("[DEBUG] isComplete called for ReviewAndUploadPage, always returns True")

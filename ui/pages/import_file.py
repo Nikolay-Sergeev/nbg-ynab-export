@@ -3,6 +3,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt, QMimeData, pyqtSignal
 from PyQt5.QtGui import QIcon, QPixmap, QColor, QCursor
+from PyQt5.QtSvg import QSvgWidget
 import os
 import sys  # for platform checks
 from config import SETTINGS_FILE
@@ -10,25 +11,24 @@ from config import SETTINGS_FILE
 class StepperWidget(QFrame):
     def __init__(self, step_idx=0, total_steps=4, parent=None):
         super().__init__(parent)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.setObjectName("stepper")
         layout = QHBoxLayout(self)
-        layout.setSpacing(8)
-        layout.setContentsMargins(0, 0, 0, 24)
+        layout.setSpacing(4)
+        layout.setContentsMargins(0, 0, 0, 16)
+        layout.addStretch(1)
         for i in range(total_steps):
-            dot = QLabel()
-            dot.setFixedSize(18, 18)
-            if i == step_idx:
-                dot.setStyleSheet("background:#1976d2;border-radius:9px;border:2px solid #1976d2;")
+            dot = QLabel(str(i+1))
+            dot.setFixedSize(24, 24)
+            dot.setAlignment(Qt.AlignCenter)
+            if i < step_idx:
+                dot.setStyleSheet("background:#3B82F6;color:#fff;border-radius:12px;font-size:12px;")
+            elif i == step_idx:
+                dot.setStyleSheet("background:#fff;color:#3B82F6;border:2px solid #3B82F6;border-radius:12px;font-size:12px;font-weight:bold;")
             else:
-                dot.setStyleSheet("background:#b0bec5;border-radius:9px;border:2px solid #b0bec5;")
+                dot.setStyleSheet("background:transparent;color:#aaa;border:2px solid #E5E7EB;border-radius:12px;font-size:12px;")
             layout.addWidget(dot)
-            if i < total_steps - 1:
-                arrow = QLabel()
-                arrow.setPixmap(QPixmap(16, 2))
-                arrow.setStyleSheet("background:#b0bec5;")
-                arrow.setFixedHeight(2)
-                arrow.setFixedWidth(24)
-                layout.addWidget(arrow)
+        layout.addStretch()
 
 class DropZone(QFrame):
     fileClicked = pyqtSignal()
@@ -44,12 +44,12 @@ class DropZone(QFrame):
         layout.setAlignment(Qt.AlignCenter)
         layout.setSpacing(8)
         layout.setContentsMargins(16, 16, 16, 16)
-        # Upload icon (TEMP: comment out for segfault diagnosis)
-        # icon_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../resources/upload.svg'))
-        # if os.path.exists(icon_path):
-        #     self.upload_icon = QSvgWidget(icon_path)
-        #     self.upload_icon.setFixedSize(32, 32)
-        #     layout.addWidget(self.upload_icon, alignment=Qt.AlignHCenter)
+        # Upload icon
+        icon_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../resources/upload.svg'))
+        if os.path.exists(icon_path):
+            self.upload_icon = QSvgWidget(icon_path)
+            self.upload_icon.setFixedSize(32, 32)
+            layout.addWidget(self.upload_icon, alignment=Qt.AlignHCenter)
         # Default text
         self.text_label = QLabel("Drag & drop file here, or click to browse")
         self.text_label.setStyleSheet("color:#1976d2;font-size:15px;font-weight:500;")
@@ -130,7 +130,7 @@ class ImportFilePage(QWizardPage):
 
         # Stepper (1/6)
         stepper = StepperWidget(step_idx=0, total_steps=6)
-        card_layout.addWidget(stepper)
+        card_layout.addWidget(stepper, alignment=Qt.AlignHCenter)
         indicator = QLabel("1/6")
         indicator.setAlignment(Qt.AlignRight)
         indicator.setStyleSheet("font-size:14px;color:#888;margin-bottom:8px;")

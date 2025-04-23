@@ -18,11 +18,12 @@ QWizardPage {
 
 /* Stepper styles */
 #stepper {
-    margin-bottom: 24px;
-    min-height: 32px;
+    margin-bottom: 16px;
+    min-height: 24px;
 }
 #stepper QLabel {
     background: transparent;
+    margin: 0 4px;
 }
 
 /* Drop zone styles */
@@ -249,8 +250,8 @@ QSvgWidget {
 }
 
 #stepper {
-    margin-bottom: 24px;
-    min-height: 32px;
+    margin-bottom: 16px;
+    min-height: 24px;
 }
 
 /* Title */

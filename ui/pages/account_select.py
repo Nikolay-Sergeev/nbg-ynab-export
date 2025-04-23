@@ -11,23 +11,20 @@ class StepperWidget(QFrame):
         super().__init__(parent)
         self.setObjectName("stepper")
         layout = QHBoxLayout(self)
-        layout.setSpacing(8)
-        layout.setContentsMargins(0, 0, 0, 24)
+        layout.setSpacing(4)
+        layout.setContentsMargins(0, 0, 0, 16)
         for i in range(total_steps):
-            dot = QLabel()
-            dot.setFixedSize(18, 18)
-            if i <= step_idx:
-                dot.setStyleSheet("background:#1976d2;border-radius:9px;border:2px solid #1976d2;")
+            dot = QLabel(str(i+1))
+            dot.setFixedSize(24, 24)
+            dot.setAlignment(Qt.AlignCenter)
+            if i < step_idx:
+                dot.setStyleSheet("background:#3B82F6;color:#fff;border-radius:12px;font-size:12px;")
+            elif i == step_idx:
+                dot.setStyleSheet("background:#fff;color:#3B82F6;border:2px solid #3B82F6;border-radius:12px;font-size:12px;font-weight:bold;")
             else:
-                dot.setStyleSheet("background:#fff;border-radius:9px;border:2px solid #b0bec5;")
+                dot.setStyleSheet("background:transparent;color:#aaa;border:2px solid #E5E7EB;border-radius:12px;font-size:12px;")
             layout.addWidget(dot)
-            if i < total_steps - 1:
-                arrow = QLabel()
-                arrow.setPixmap(QPixmap(16, 2))
-                arrow.setStyleSheet("background:#b0bec5;")
-                arrow.setFixedHeight(2)
-                arrow.setFixedWidth(24)
-                layout.addWidget(arrow)
+        layout.addStretch()
 
 class AccountSelectionPage(QWizardPage):
     def __init__(self, controller):
@@ -56,7 +53,7 @@ class AccountSelectionPage(QWizardPage):
 
         # Stepper (3/6)
         stepper = StepperWidget(step_idx=2, total_steps=6)
-        card_layout.addWidget(stepper)
+        card_layout.addWidget(stepper, alignment=Qt.AlignHCenter)
         indicator = QLabel("3/6")
         indicator.setAlignment(Qt.AlignRight)
         indicator.setStyleSheet("font-size:14px;color:#888;margin-bottom:8px;")

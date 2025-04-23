@@ -2,8 +2,9 @@ import sys
 import os
 import traceback
 from PyQt5.QtWidgets import QApplication, QWizard
-from PyQt5.QtGui import QIcon
+from PyQt5.QtGui import QIcon, QPixmap, QPainter
 from PyQt5.QtCore import Qt
+from PyQt5.QtSvg import QSvgRenderer
 from .controller import WizardController
 from .pages.import_file import ImportFilePage
 from .pages.auth import YNABAuthPage
@@ -70,13 +71,28 @@ def main():
                 print(f"[QSS] Failed to load style.qss: {e}")
         else:
             print(f"[QSS] style.qss not found at {STYLE_PATH}. UI will use default style.")
-        # Skipping icon setup to avoid Qt-related crash
-        print("[Icon] Icon setup skipped.")
+        # Load SVG app icon
+        if os.path.exists(ICON_PATH):
+            try:
+                renderer = QSvgRenderer(ICON_PATH)
+                pixmap = QPixmap(128, 128)
+                pixmap.fill(Qt.transparent)
+                painter = QPainter(pixmap)
+                renderer.render(painter)
+                painter.end()
+                app.setWindowIcon(QIcon(pixmap))
+                print(f"[Icon] Loaded app icon from {ICON_PATH}")
+            except Exception as e:
+                print(f"[Icon] Failed to load app_icon.svg: {e}")
+        else:
+            print(f"[Icon] app_icon.svg not found at {ICON_PATH}. Using default icon.")
         print("[Debug] About to initialize WizardController")
         controller = WizardController()
         print("[Debug] WizardController initialized")
         print("[Debug] About to initialize RobustWizard")
         wizard = RobustWizard()
+        # Use ModernStyle to display page pixmaps
+        wizard.setWizardStyle(QWizard.ModernStyle)
         print("[Debug] RobustWizard initialized")
         wizard.setWindowTitle("NBG/Revolut to YNAB Wizard")
         # Hide default QWizard footer buttons
@@ -89,6 +105,20 @@ def main():
         wizard.addPage(TransactionsPage(controller))
         wizard.addPage(ReviewAndUploadPage(controller))
         wizard.addPage(FinishPage())
+        # Assign per-page icons
+        resource_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../resources'))
+        icon_names = ['upload.svg', 'info.svg', 'info.svg', 'spinner.svg', 'error.svg', 'success.svg']
+        for pid, name in zip(wizard.pageIds(), icon_names):
+            icon_path = os.path.join(resource_dir, name)
+            if os.path.exists(icon_path):
+                renderer_page = QSvgRenderer(icon_path)
+                pixmap_page = QPixmap(24, 24)
+                pixmap_page.fill(Qt.transparent)
+                painter = QPainter(pixmap_page)
+                renderer_page.render(painter)
+                painter.end()
+                # Use banner pixmap for ModernStyle wizard pages
+                wizard.page(pid).setPixmap(QWizard.BannerPixmap, pixmap_page)
         wizard.showMaximized()
         print("[Wizard] Wizard UI started. Entering event loop.")
         sys.exit(app.exec_())

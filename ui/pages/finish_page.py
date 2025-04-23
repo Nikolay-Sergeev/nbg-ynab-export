@@ -18,7 +18,7 @@ class FinishPage(QWizardPage):
 
         # Stepper (6/6)
         self.stepper = StepperWidget(step_idx=5, total_steps=6)
-        card_layout.addWidget(self.stepper)
+        card_layout.addWidget(self.stepper, alignment=Qt.AlignHCenter)
         indicator = QLabel("6/6")
         indicator.setAlignment(Qt.AlignRight)
         indicator.setStyleSheet("font-size:14px;color:#888;margin-bottom:8px;")
