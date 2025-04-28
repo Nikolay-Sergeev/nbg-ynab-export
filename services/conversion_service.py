@@ -112,8 +112,11 @@ def process_card_operations(df: pd.DataFrame) -> pd.DataFrame:
         ).dt.strftime(DATE_FORMAT_YNAB)
         if ynab_df['Date'].isna().any():
             raise ValueError(f"Invalid date format found in {CARD_DATE_COLUMN}")
-        ynab_df['Payee'] = df[CARD_PAYEE_COLUMN].str.replace(ECOMMERCE_CLEANUP_PATTERN, '', regex=True)
-        ynab_df['Payee'] = ynab_df['Payee'].str.replace(SECURE_ECOMMERCE_CLEANUP_PATTERN, '', regex=True)
+        # Clean up payee: remove parenthetical text, then ecommerce prefixes
+        raw_payee = df[CARD_PAYEE_COLUMN].str.replace(MEMO_CLEANUP_PATTERN, '', regex=True)
+        payee = raw_payee.str.replace(SECURE_ECOMMERCE_CLEANUP_PATTERN, '', regex=True)
+        payee = payee.str.replace(ECOMMERCE_CLEANUP_PATTERN, '', regex=True)
+        ynab_df['Payee'] = payee.str.strip()
         ynab_df['Memo'] = df[CARD_PAYEE_COLUMN]
         ynab_df['Amount'] = df[CARD_AMOUNT_COLUMN].apply(convert_amount)
         df[CARD_DEBIT_CREDIT_COLUMN] = df[CARD_DEBIT_CREDIT_COLUMN].str.strip()

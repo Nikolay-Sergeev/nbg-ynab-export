@@ -34,13 +34,14 @@ def process_card(df: pd.DataFrame) -> pd.DataFrame:
     if df_copy['Date'].isna().any():
         raise ValueError("Invalid dates in card export")
     # Clean up payee
-    payee = df_copy['Περιγραφή Κίνησης'].str.replace(
-        ECOMMERCE_CLEANUP_PATTERN, '', regex=True
-    )
-    payee = payee.str.replace(
-        SECURE_ECOMMERCE_CLEANUP_PATTERN, '', regex=True
-    )
-    df_copy['Payee'] = payee
+    raw_payee = df_copy['Περιγραφή Κίνησης']
+    # Remove any parentheses and their contents
+    payee = raw_payee.str.replace(r'\s*\([^)]*\)', '', regex=True)
+    # Remove secure ecommerce prefix first
+    payee = payee.str.replace(SECURE_ECOMMERCE_CLEANUP_PATTERN, '', regex=True)
+    # Remove standard ecommerce prefix
+    payee = payee.str.replace(ECOMMERCE_CLEANUP_PATTERN, '', regex=True)
+    df_copy['Payee'] = payee.str.strip()
     df_copy['Memo'] = df_copy['Περιγραφή Κίνησης']
     # Convert and sign amount
     df_copy['Amount'] = df_copy['Ποσό'].apply(convert_amount)
