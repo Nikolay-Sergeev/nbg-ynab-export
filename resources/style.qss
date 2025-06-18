@@ -1,6 +1,6 @@
 QWizard {
     background: #F7F8FA;
-    font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+    font-family: -apple-system, system-ui, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
 }
 QWizardPage {
     background: transparent;
@@ -256,7 +256,7 @@ QSvgWidget {
 
 /* Title */
 QLabel {
-    font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+    font-family: -apple-system, system-ui, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
 }
 QLabel[style*="font-size:20px"] {
     font-size: 20px;

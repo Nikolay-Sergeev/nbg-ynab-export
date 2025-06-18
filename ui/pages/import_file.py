@@ -205,7 +205,8 @@ class ImportFilePage(QWizardPage):
         # Navigation Buttons
         button_layout = QHBoxLayout()
         button_layout.setSpacing(12)
-        self.exit_button = QPushButton("Exit")
+        exit_text = "Quit" if sys.platform.startswith('darwin') else "Exit"
+        self.exit_button = QPushButton(exit_text)
         self.exit_button.setObjectName("exit-btn")
         self.exit_button.setFixedWidth(160)
         self.exit_button.setFixedHeight(48)
