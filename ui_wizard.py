@@ -1,6 +1,6 @@
 import os
 import sys
-from PyQt5.QtWidgets import QApplication, QWizard, QWizardPage, QLabel, QVBoxLayout, QPushButton, QFileDialog, QLineEdit, QMessageBox, QComboBox, QCheckBox, QTableWidget, QTableWidgetItem, QHeaderView, QHBoxLayout
+from PyQt5.QtWidgets import QApplication, QWizard, QWizardPage, QLabel, QVBoxLayout, QPushButton, QFileDialog, QLineEdit, QMessageBox, QComboBox, QCheckBox, QTableWidget, QTableWidgetItem, QHeaderView, QHBoxLayout, QMainWindow
 from PyQt5.QtSvg import QSvgWidget, QSvgRenderer
 from PyQt5.QtGui import QIcon, QPixmap, QPainter
 from PyQt5.QtCore import Qt, QTimer, QThread, pyqtSignal
@@ -866,8 +866,28 @@ if __name__ == "__main__":
     else:
         print(f"[Icon] app_icon.svg not found at {ICON_PATH}. App will use default icon.")
 
+    window = QMainWindow()
+    window.setWindowTitle("NBG/Revolut to YNAB Wizard")
+    window.setUnifiedTitleAndToolBarOnMac(True)
+
     wizard = NBGYNABWizard()
-    wizard.show()
+    wizard.setContentsMargins(32, 24, 32, 32)
+    window.setCentralWidget(wizard)
+
+    if sys.platform == "darwin":
+        try:
+            from ctypes import cdll
+            NSVisualEffectMaterialSidebar = 5
+            NSVisualEffectBlendingModeBehindWindow = 1
+            objc = cdll.LoadLibrary("/System/Library/Frameworks/AppKit.framework/AppKit")
+            effect_view = objc.NSVisualEffectView.alloc().init()
+            effect_view.setMaterial_(NSVisualEffectMaterialSidebar)
+            effect_view.setBlendingMode_(NSVisualEffectBlendingModeBehindWindow)
+            window.setAttribute(Qt.WA_NativeWindow)
+        except Exception as e:
+            print(f"[Vibrancy] Failed to enable vibrancy: {e}")
+
+    window.show()
 
     # Ensure any QThreads are stopped before exit (if present)
     def cleanup_threads():
