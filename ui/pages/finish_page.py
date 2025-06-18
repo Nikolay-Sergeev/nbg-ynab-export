@@ -1,5 +1,6 @@
 from PyQt5.QtWidgets import QWizardPage, QVBoxLayout, QLabel, QWizard, QHBoxLayout, QPushButton, QFrame, QSizePolicy
 from PyQt5.QtCore import Qt
+import sys
 from .account_select import StepperWidget  # Import StepperWidget from account_select.py
 
 class FinishPage(QWizardPage):
@@ -36,7 +37,8 @@ class FinishPage(QWizardPage):
         self.back_btn.clicked.connect(lambda: self.wizard().back())
         btn_layout.addWidget(self.back_btn)
         btn_layout.addStretch(1)
-        self.exit_btn = QPushButton("Exit")
+        exit_text = "Quit" if sys.platform.startswith('darwin') else "Exit"
+        self.exit_btn = QPushButton(exit_text)
         self.exit_btn.setObjectName("exit-btn")
         self.exit_btn.clicked.connect(lambda: self.wizard().reject())
         btn_layout.addWidget(self.exit_btn)
@@ -61,5 +63,6 @@ class FinishPage(QWizardPage):
         else:
             text = "<b>Import complete!</b> You may now close the wizard."
         self.label.setText(text)
-        w.setButtonText(QWizard.FinishButton, "Finish & Exit")
+        finish_text = "Finish & Quit" if sys.platform.startswith('darwin') else "Finish & Exit"
+        w.setButtonText(QWizard.FinishButton, finish_text)
         w.setOption(QWizard.NoCancelButtonOnLastPage, False)
