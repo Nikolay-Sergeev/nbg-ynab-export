@@ -628,7 +628,8 @@ class FinishPage(QWizardPage):
         else:
             text = "<b>Import complete!</b> You may now close the wizard."
         self.label.setText(text)
-        self.wizard().setButtonText(QWizard.FinishButton, "Finish & Exit")
+        finish_text = "Finish & Quit" if sys.platform.startswith('darwin') else "Finish & Exit"
+        self.wizard().setButtonText(QWizard.FinishButton, finish_text)
         self.wizard().setButtonLayout([QWizard.BackButton, QWizard.FinishButton])
 
 class DuplicateCheckWorker(QThread):
@@ -782,8 +783,9 @@ class NBGYNABWizard(QWizard):
                 100% { opacity: 1; }
             }
         """)
-        # Rename Cancel to Exit and ensure it's always shown
-        self.setButtonText(QWizard.CancelButton, "Exit")
+        # Rename Cancel to Exit/Quit and ensure it's always shown
+        cancel_text = "Quit" if sys.platform.startswith('darwin') else "Exit"
+        self.setButtonText(QWizard.CancelButton, cancel_text)
         self.setOption(QWizard.NoCancelButtonOnLastPage, False)
         self.setButtonLayout([
             QWizard.Stretch,

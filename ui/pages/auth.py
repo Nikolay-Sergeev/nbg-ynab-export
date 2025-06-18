@@ -39,21 +39,9 @@ class YNABAuthPage(QWizardPage):
 
         # --- Outer layout for centering ---
         outer_layout = QVBoxLayout(self)
-        outer_layout.setContentsMargins(40, 40, 40, 40)
+        outer_layout.setContentsMargins(24, 24, 24, 24)
         outer_layout.addStretch(1)
 
-        # --- Stepper (2/6) - dots only, hide indicator text ---
-        self.stepper = StepperWidget(step_idx=1, total_steps=6)
-        outer_layout.addWidget(self.stepper, alignment=Qt.AlignHCenter)
-
-        # --- Header ---
-        self.header = QLabel("Authorize with YNAB")
-        self.header.setObjectName("wizard-title")
-        self.header.setAlignment(Qt.AlignCenter)
-        self.header.setWordWrap(True)
-        outer_layout.addWidget(self.header)
-
-        # --- Card ---
         card = QFrame()
         card.setObjectName("card-panel")
         card.setMinimumWidth(500)
@@ -63,6 +51,18 @@ class YNABAuthPage(QWizardPage):
         card_layout.setContentsMargins(36, 36, 36, 36)
         card_layout.setSpacing(0)
 
+        # --- Stepper (2/6) and indicator ---
+        self.stepper = StepperWidget(step_idx=1, total_steps=6)
+        card_layout.addWidget(self.stepper, alignment=Qt.AlignHCenter)
+        indicator = QLabel("2/6")
+        indicator.setAlignment(Qt.AlignRight)
+        indicator.setStyleSheet("font-size:14px;color:#888;margin-bottom:8px;")
+        card_layout.addWidget(indicator)
+
+        title = QLabel("Authorize with YNAB")
+        title.setProperty('role', 'title')
+        card_layout.addWidget(title)
+
         # Drop shadow (skip on macOS to avoid Qt crash)
         if not sys.platform.startswith('darwin'):
             shadow = QGraphicsDropShadowEffect(card)
@@ -71,12 +71,7 @@ class YNABAuthPage(QWizardPage):
             shadow.setOffset(0, 2)
             card.setGraphicsEffect(shadow)
 
-        # --- Title ---
-        title = QLabel("Step 2 of 4: Authorize with YNAB")
-        title.setObjectName("auth-title")
-        title.setStyleSheet("font-size:22px;font-weight:bold;color:#222;margin-bottom:24px;")
-        card_layout.addWidget(title, alignment=Qt.AlignHCenter)
-        card_layout.addSpacing(8)
+
 
         # --- Subheading + helper link ---
         subheading_row = QHBoxLayout()
@@ -139,14 +134,14 @@ class YNABAuthPage(QWizardPage):
         button_layout.setSpacing(12)
         self.back_button = QPushButton("Back")
         self.back_button.setObjectName("back-btn")
-        self.back_button.setFixedWidth(160)
-        self.back_button.setFixedHeight(48)
+        self.back_button.setFixedWidth(100)
+        self.back_button.setFixedHeight(40)
         self.back_button.clicked.connect(lambda: self.wizard().back())
         button_layout.addWidget(self.back_button)
         self.continue_button = QPushButton("Continue")
         self.continue_button.setObjectName("continue-btn")
-        self.continue_button.setFixedWidth(160)
-        self.continue_button.setFixedHeight(48)
+        self.continue_button.setFixedWidth(100)
+        self.continue_button.setFixedHeight(40)
         self.continue_button.clicked.connect(self.on_continue)
         button_layout.addStretch(1)
         button_layout.addWidget(self.continue_button)

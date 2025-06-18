@@ -91,8 +91,11 @@ def main():
         print("[Debug] WizardController initialized")
         print("[Debug] About to initialize RobustWizard")
         wizard = RobustWizard()
-        # Use ModernStyle to display page pixmaps
-        wizard.setWizardStyle(QWizard.ModernStyle)
+        # Use macOS native style when running on macOS
+        if sys.platform.startswith('darwin'):
+            wizard.setWizardStyle(QWizard.MacStyle)
+        else:
+            wizard.setWizardStyle(QWizard.ModernStyle)
         print("[Debug] RobustWizard initialized")
         wizard.setWindowTitle("NBG/Revolut to YNAB Wizard")
         # Hide default QWizard footer buttons
@@ -119,7 +122,11 @@ def main():
                 painter.end()
                 # Use banner pixmap for ModernStyle wizard pages
                 wizard.page(pid).setPixmap(QWizard.BannerPixmap, pixmap_page)
-        wizard.showMaximized()
+        if sys.platform.startswith('darwin'):
+            wizard.resize(1000, 700)
+            wizard.show()
+        else:
+            wizard.showMaximized()
         print("[Wizard] Wizard UI started. Entering event loop.")
         sys.exit(app.exec_())
     except Exception as e:
