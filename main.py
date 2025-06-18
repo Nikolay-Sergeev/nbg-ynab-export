@@ -322,8 +322,8 @@ def generate_output_filename(input_file: str, is_revolut: bool = False) -> str:
             # If no date in filename, use current date
             date_str = datetime.now().strftime('%Y-%m-%d')
     
-    # Remove any existing date from base_name
-    base_name = re.sub(r'_?\d{2}-\d{2}-\d{4}', '', base_name)
+    # Remove any existing date from base_name (supports DD-MM-YYYY and YYYY-MM-DD)
+    base_name = re.sub(r'_?(\d{2}-\d{2}-\d{4}|\d{4}-\d{2}-\d{2})', '', base_name)
     
     return os.path.join(
         os.path.dirname(input_file),
