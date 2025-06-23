@@ -51,16 +51,18 @@ class YNABAuthPage(QWizardPage):
 
         # --- Outer layout for centering ---
         outer_layout = QVBoxLayout(self)
-        outer_layout.setContentsMargins(24, 24, 24, 24)
+        outer_layout.setContentsMargins(0, 0, 0, 0)
         outer_layout.addStretch(1)
 
         card = QFrame()
         card.setObjectName("card-panel")
+        card.setFrameShape(QFrame.NoFrame)
+        card.setStyleSheet("background: transparent;")
         card.setMinimumWidth(500)
         card.setMaximumWidth(500)
         card.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
         card_layout = QVBoxLayout(card)
-        card_layout.setContentsMargins(36, 36, 36, 36)
+        card_layout.setContentsMargins(0, 0, 0, 0)
         card_layout.setSpacing(0)
 
         # --- Stepper (2/6) and indicator ---

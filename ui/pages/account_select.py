@@ -41,14 +41,16 @@ class AccountSelectionPage(QWizardPage):
 
         # --- Outer layout ---
         outer_layout = QVBoxLayout(self)
-        outer_layout.setContentsMargins(24, 24, 24, 24)
+        outer_layout.setContentsMargins(0, 0, 0, 0)
         outer_layout.addStretch(1)
 
         card = QFrame()
         card.setObjectName("card-panel")
+        card.setFrameShape(QFrame.NoFrame)
+        card.setStyleSheet("background: transparent;")
         card.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         card_layout = QVBoxLayout(card)
-        card_layout.setContentsMargins(32, 32, 32, 32)
+        card_layout.setContentsMargins(0, 0, 0, 0)
         card_layout.setSpacing(16)
 
         # Stepper (3/6)

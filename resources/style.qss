@@ -1,18 +1,17 @@
 QWizard {
-    background: #F7F8FA;
+    background: transparent;
     font-family: -apple-system, system-ui, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
 }
 QWizardPage {
     background: transparent;
-    border-radius: 18px;
-    padding: 32px 32px 24px 32px;
-    margin: 16px;
+    border: none;
+    padding: 0;
+    margin: 0;
 }
 #card-panel, .card-panel, QFrame#card-panel {
-    background: #fff;
-    border-radius: 10px;
-    border: 10px solid #fff;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.04);
+    background: transparent;
+    border: none;
+    box-shadow: none;
     padding: 0;
 }
 
@@ -243,10 +242,9 @@ QSvgWidget {
 
 /* AccountSelectionPage styles */
 #card-panel {
-    background: #fff;
-    border-radius: 8px;
-    border: 1px solid #e3eaf2;
-    padding: 30px;
+    background: transparent;
+    border: none;
+    padding: 0;
 }
 
 #stepper {

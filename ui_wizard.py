@@ -685,15 +685,14 @@ class NBGYNABWizard(QWizard):
         self.setWindowTitle("NBG/Revolut to YNAB Wizard")
         self.setStyleSheet("""
             QWizard {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #f7fbff, stop:1 #e3f2fd);
+                background: transparent;
                 font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
             }
             QWizardPage {
-                background: #ffffff;
-                border-radius: 18px;
-                padding: 32px 32px 24px 32px;
-                margin: 16px;
-                /* box-shadow removed for Qt compatibility */
+                background: transparent;
+                border: none;
+                padding: 0;
+                margin: 0;
             }
             QLabel {
                 color: #222;
@@ -871,8 +870,10 @@ if __name__ == "__main__":
     window.setUnifiedTitleAndToolBarOnMac(True)
 
     wizard = NBGYNABWizard()
-    wizard.setContentsMargins(32, 24, 32, 32)
+    wizard.setContentsMargins(0, 0, 0, 0)
+    wizard.setStyleSheet("background: transparent;")
     window.setCentralWidget(wizard)
+    window.setStyleSheet("QMainWindow { background-color: #FFFFFF; }")
 
     if sys.platform == "darwin":
         try:

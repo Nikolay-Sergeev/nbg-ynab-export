@@ -123,9 +123,11 @@ class ImportFilePage(QWizardPage):
 
         card = QFrame()
         card.setObjectName("card-panel")
+        card.setFrameShape(QFrame.NoFrame)
+        card.setStyleSheet("background: transparent;")
         card.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         card_layout = QVBoxLayout(card)
-        card_layout.setContentsMargins(32, 32, 32, 32)
+        card_layout.setContentsMargins(0, 0, 0, 0)
         card_layout.setSpacing(16)
 
         # Stepper (1/6)
@@ -241,7 +243,7 @@ class ImportFilePage(QWizardPage):
         # === End of restored code ===
 
         main_layout = QVBoxLayout()
-        main_layout.setContentsMargins(24, 24, 24, 24)
+        main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.addWidget(card)
         self.setLayout(main_layout)
         self.setMinimumSize(0, 0)
