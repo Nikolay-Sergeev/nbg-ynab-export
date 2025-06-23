@@ -113,6 +113,96 @@ def load_previous_transactions(csv_file: str) -> pd.DataFrame:
         logging.warning(f"Could not load previous transactions: {str(e)}")
         return pd.DataFrame(columns=['Date', 'Payee', 'Memo', 'Amount'])
 
+def exclude_existing_transactions(new_df: pd.DataFrame, prev_df: pd.DataFrame) -> pd.DataFrame:
+    """Remove duplicate and older transactions."""
+    if prev_df.empty:
+        return new_df
+        
+    new_df = new_df.copy()
+    new_df['Date'] = pd.to_datetime(new_df['Date'])
+    prev_df['Date'] = pd.to_datetime(prev_df['Date'])
+    
+    latest_prev_date = prev_df['Date'].max()
+    
+    # Allow same-day transactions if they're not duplicates
+    mask_newer = new_df['Date'] >= latest_prev_date
+    
+    # Create unique transaction identifier
+    def create_key(df: pd.DataFrame) -> pd.Series:
+        return (df['Date'].dt.strftime('%Y-%m-%d') + '_' + 
+                df['Payee'] + '_' + 
+                df['Amount'].astype(str))
+    
+    new_keys = create_key(new_df)
+    prev_keys = create_key(prev_df)
+    mask_unique = ~new_keys.isin(prev_keys)
+    
+    filtered_df = new_df[mask_newer & mask_unique].copy()
+    filtered_df['Date'] = filtered_df['Date'].dt.strftime(DATE_FORMAT_YNAB)
+    
+    excluded_count = len(new_df) - len(filtered_df)
+    if excluded_count > 0:
+        logging.info(f"Excluded {excluded_count} duplicate or older transactions")
+    
+    return filtered_df
+
+def extract_date_from_filename(filename: str) -> str:
+    """Extract date from filename if present.
+    
+    Args:
+        filename: Name of the file to check
+        
+    Returns:
+        str: Date in YYYY-MM-DD format if found, empty string otherwise
+    """
+    import re
+    # Match patterns like "25-02-2025" or "2025-02-25"
+    patterns = [
+        r'(\d{2})-(\d{2})-(\d{4})',  # DD-MM-YYYY
+        r'(\d{4})-(\d{2})-(\d{2})'   # YYYY-MM-DD
+    ]
+    
+    for pattern in patterns:
+        match = re.search(pattern, filename)
+        if match:
+            groups = match.groups()
+            if len(groups[0]) == 4:  # YYYY-MM-DD format
+                return f"{groups[0]}-{groups[1]}-{groups[2]}"
+            else:  # DD-MM-YYYY format
+                return f"{groups[2]}-{groups[1]}-{groups[0]}"
+    return ""
+
+def generate_output_filename(input_file: str, is_revolut: bool = False) -> str:
+    """Generate output filename with appropriate date.
+    
+    Args:
+        input_file: Path to the input file
+        is_revolut: Whether the file is a Revolut export
+        
+    Returns:
+        str: Path to the output CSV file
+    """
+    base_name = os.path.splitext(os.path.basename(input_file))[0]
+    
+    # For Revolut exports, always use current date
+    if is_revolut:
+        date_str = datetime.now().strftime('%Y-%m-%d')
+    else:
+        # Try to extract date from filename
+        date_str = extract_date_from_filename(base_name)
+        if not date_str:
+            # If no date in filename, use current date
+            date_str = datetime.now().strftime('%Y-%m-%d')
+    
+    # Remove any existing date from base_name (supports DD-MM-YYYY and YYYY-MM-DD)
+    base_name = re.sub(r'_?(\d{2}-\d{2}-\d{4}|\d{4}-\d{2}-\d{2})', '', base_name)
+    
+    return os.path.join(
+        os.path.dirname(input_file),
+        f"{base_name}_{date_str}_ynab.{OUTPUT_FORMAT}"
+    )
+
+
 def validate_input_file(file_path: str) -> None:
     """Validate input file existence and format.
     

@@ -137,14 +137,20 @@ class TestNBGToYNAB(unittest.TestCase):
     def test_generate_output_filename(self):
         """Test output filename generation."""
         test_cases = [
-            ("/path/to/statementexport25-02-2025.xlsx", 
+            ("/path/to/statementexport25-02-2025.xlsx",
              "/path/to/statementexport_2025-02-25_ynab.csv"),
-            ("/path/to/CardStatementExport.xlsx", 
+            ("/path/to/CardStatementExport.xlsx",
              f"/path/to/CardStatementExport_{datetime.now().strftime('%Y-%m-%d')}_ynab.csv")
         ]
         for input_path, expected in test_cases:
             with self.subTest(input_path=input_path):
                 self.assertEqual(generate_output_filename(input_path), expected)
+
+    def test_generate_output_filename_existing_ymd_date(self):
+        """Ensure existing YYYY-MM-DD dates are removed from the base name."""
+        input_path = "/path/to/statement_2025-02-25.xlsx"
+        expected = "/path/to/statement_2025-02-25_ynab.csv"
+        self.assertEqual(generate_output_filename(input_path), expected)
 
     def test_exclude_existing_transactions(self):
         """Test exclusion of existing transactions."""
