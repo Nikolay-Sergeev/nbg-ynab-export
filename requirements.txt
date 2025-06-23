@@ -2,4 +2,4 @@ pandas
 flake8
 pytest
 openpyxl
-# plus anything else you need
+PyQt5>=5.15
