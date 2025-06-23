@@ -35,10 +35,27 @@ This Python script converts transaction data from National Bank of Greece (NBG) 
   - Uses current date for Revolut exports
   - Format: `{original_name}_{YYYY-MM-DD}_ynab.csv`
 
+## Implemented Improvements
+
+### API Rate Limit Optimization
+- Session-level cache for fetched YNAB transactions
+- Only fetch transactions once per account per session
+- Navigating back/forth or re-reviewing does not trigger extra API requests
+- Cache is invalidated if budget/account selection changes
+- All uploads use batch API endpoint
+
+### UI/UX Improvements
+- SVG icons for error, success, upload, info
+- No unnecessary left margins in drag/drop or error areas
+- Only filename shown in file input
+- Error messages wrap and are never cut off
+- Tooltips for all icons
+
 ## Requirements
 
 - Python 3.6+
 - pandas
+- PyQt5
 
 ## Installation
 
@@ -124,6 +141,21 @@ Check code style (linting):
 ```bash
 flake8 main.py test_main.py
 ```
+
+## GUI Wizard
+
+For an interactive GUI, launch:
+```bash
+python ui_wizard.py
+```
+
+The wizard will guide you through:
+1. Step 1: Select your input file (dialog remembers last-used folder).
+2. Step 2: Enter and securely save your YNAB personal access token.
+3. Step 3: Choose YNAB budget and account.
+4. Step 4: Confirm and generate/upload transactions.
+
+Settings are stored in `~/.nbg-ynab-export/nbg_ynab_settings.txt`.
 
 ## License
 
