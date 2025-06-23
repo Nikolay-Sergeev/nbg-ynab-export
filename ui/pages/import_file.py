@@ -39,7 +39,6 @@ class ImportFilePage(QWizardPage):
         pane_widget = QFrame()
         pane_widget.setFrameShape(QFrame.NoFrame)
         pane_widget.setObjectName("main-pane")
-        pane_widget.setStyleSheet("background: transparent;")
         self.pane = QVBoxLayout(pane_widget)
         self.pane.setContentsMargins(20, 20, 20, 20)
         self.pane.setSpacing(12)
