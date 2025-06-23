@@ -2,9 +2,6 @@ from PyQt5.QtWidgets import (
     QWizardPage, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QPushButton, QFrame, QSizePolicy
 )
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QIcon, QPixmap, QColor
-import traceback
-import sys  # for platform checks
 
 class AccountSelectionPage(QWizardPage):
     def __init__(self, controller):

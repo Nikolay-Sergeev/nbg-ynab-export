@@ -9,13 +9,10 @@ from PyQt5.QtWidgets import (
     QPushButton,
     QFrame,
     QSizePolicy,
-    QSpacerItem,
-    QStyle,
-    QStyleOptionFrame,
     QGraphicsDropShadowEffect,
 )
 from PyQt5.QtCore import Qt, QUrl
-from PyQt5.QtGui import QIcon, QColor, QPixmap, QCursor, QDesktopServices
+from PyQt5.QtGui import QIcon, QColor, QCursor, QDesktopServices
 import os
 import sys
 from config import SETTINGS_FILE, KEY_FILE

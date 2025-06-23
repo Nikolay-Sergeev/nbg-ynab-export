@@ -5,7 +5,6 @@ import csv
 import re  # Add this import
 import logging
 from datetime import datetime
-from typing import Union, List
 
 # Configuration
 LOGGING_FORMAT = '%(asctime)s - %(levelname)s - %(message)s'

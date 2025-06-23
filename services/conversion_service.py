@@ -4,7 +4,6 @@ import csv
 import logging
 from typing import Optional
 from datetime import datetime
-from datetime import timedelta
 import re
 from config import SETTINGS_DIR
 
