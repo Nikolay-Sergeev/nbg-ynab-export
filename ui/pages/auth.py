@@ -1,6 +1,18 @@
 # ui/pages/auth.py
 from PyQt5.QtWidgets import (
-    QWizardPage, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QCheckBox, QPushButton, QFrame, QSizePolicy, QSpacerItem, QStyle, QStyleOptionFrame
+    QWizardPage,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QCheckBox,
+    QPushButton,
+    QFrame,
+    QSizePolicy,
+    QSpacerItem,
+    QStyle,
+    QStyleOptionFrame,
+    QGraphicsDropShadowEffect,
 )
 from PyQt5.QtCore import Qt, QUrl
 from PyQt5.QtGui import QIcon, QColor, QPixmap, QCursor, QDesktopServices
