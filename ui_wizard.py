@@ -874,8 +874,10 @@ if __name__ == "__main__":
 
     wizard = NBGYNABWizard()
     wizard.setContentsMargins(0, 0, 0, 0)
-    wizard.setStyleSheet("background: transparent;")
+    if wizard.layout():
+        wizard.layout().setContentsMargins(0, 0, 0, 0)
     window.setCentralWidget(wizard)
+    window.setContentsMargins(0, 0, 0, 0)
     window.setStyleSheet("QMainWindow { background-color: #FFFFFF; }")
 
     if sys.platform == "darwin":
