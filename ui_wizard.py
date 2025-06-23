@@ -685,7 +685,7 @@ class NBGYNABWizard(QWizard):
         self.setWindowTitle("NBG/Revolut to YNAB Wizard")
         self.setStyleSheet("""
             QWizard {
-                background: transparent;
+                background: #ffffff;
                 font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
             }
             QWizardPage {
@@ -693,6 +693,9 @@ class NBGYNABWizard(QWizard):
                 border: none;
                 padding: 0;
                 margin: 0;
+            }
+            QWizard > QStackedWidget {
+                border: none;
             }
             QLabel {
                 color: #222;

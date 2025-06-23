@@ -1,5 +1,5 @@
 QWizard {
-    background: transparent;
+    background: #ffffff;
     font-family: -apple-system, system-ui, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
 }
 QWizardPage {
@@ -7,6 +7,9 @@ QWizardPage {
     border: none;
     padding: 0;
     margin: 0;
+}
+QWizard > QStackedWidget {
+    border: none;
 }
 #card-panel, .card-panel, QFrame#card-panel {
     background: transparent;
