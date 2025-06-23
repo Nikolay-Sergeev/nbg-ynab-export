@@ -3,6 +3,7 @@
 Minimal Step 1 macOS style wizard using PyQt5.
 """
 
+import os
 import sys
 from PyQt5 import QtCore, QtGui, QtWidgets
 
@@ -30,7 +31,8 @@ class StepSidebar(QtWidgets.QListWidget):
         for i, text in enumerate(steps, start=1):
             item = QtWidgets.QListWidgetItem(f"{i}  {text}")
             item.setTextAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
-            item.setFlags(item.flags() & ~QtCore.Qt.ItemIsSelectable | QtCore.Qt.ItemIsEnabled)
+            flags = item.flags() & ~QtCore.Qt.ItemIsSelectable
+            item.setFlags(flags | QtCore.Qt.ItemIsEnabled)
             self.addItem(item)
 
         self.setCurrentRow(0)
@@ -40,7 +42,8 @@ class StepSidebar(QtWidgets.QListWidget):
             QListWidget {
                 background: #FFFFFF;
                 font-size: 14px;
-                font-family: -apple-system, "Helvetica Neue", Arial, sans-serif;
+                font-family: -apple-system, "Helvetica Neue",
+                             Arial, sans-serif;
             }
             QListWidget::item {
                 padding: 12px 8px;
@@ -160,11 +163,14 @@ class MainWindow(QtWidgets.QMainWindow):
         super().__init__()
         self.setWindowTitle("Importer")
         self.resize(700, 450)
+        self.setStyleSheet("QMainWindow { background-color: #FFFFFF; }")
         central = QtWidgets.QWidget()
+        central.setContentsMargins(0, 0, 0, 0)
+        central.setStyleSheet("background: transparent;")
         self.setCentralWidget(central)
 
         main_layout = QtWidgets.QHBoxLayout(central)
-        main_layout.setContentsMargins(20, 20, 20, 20)
+        main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
 
         sidebar = StepSidebar()
@@ -277,6 +283,15 @@ class MainWindow(QtWidgets.QMainWindow):
 
 def main():
     app = QtWidgets.QApplication(sys.argv)
+
+    # Load shared QSS for consistent styling
+    qss_path = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "../resources/style.qss")
+    )
+    if os.path.exists(qss_path):
+        with open(qss_path, "r") as f:
+            app.setStyleSheet(f.read())
+
     window = MainWindow()
     window.show()
     sys.exit(app.exec_())
