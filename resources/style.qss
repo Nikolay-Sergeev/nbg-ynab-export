@@ -434,20 +434,7 @@ QPushButton#continue-btn:disabled {
   --blue-500: #1976d2;
 }
 
-/* MacOS Step 1 overrides */
-QListWidget#sidebar {
-    border: none;
-    font-size: 13px;
-    color: #888888;
-    background: #F5F5F5;
-    font-family: 'San Francisco', -apple-system, system-ui;
-}
-QListWidget#sidebar::item { padding: 6px; }
-QListWidget#sidebar::item:selected {
-    background: #007aff;
-    color: #ffffff;
-    font-weight: bold;
-}
+
 
 # Main pane background
 #main-pane {

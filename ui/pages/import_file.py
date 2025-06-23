@@ -1,13 +1,13 @@
 from PyQt5.QtWidgets import (
     QWizardPage, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QFileDialog, QListWidget, QListWidgetItem, QWidget, QFrame
+    QFileDialog, QWidget, QFrame
 )
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QPixmap, QFont
+
 import os
 import sys
 from config import SETTINGS_FILE
-from ui.widgets import FileDropWidget
+from ui.widgets import FileDropWidget, StepSidebar
 
 class ImportFilePage(QWizardPage):
     def __init__(self, controller=None):
@@ -23,21 +23,16 @@ class ImportFilePage(QWizardPage):
         root.addLayout(body, 1)
 
         # Sidebar
-        self.sidebar = QListWidget()
-        self.sidebar.setObjectName("sidebar")
-        self.sidebar.setFixedWidth(200)
         steps = [
-            "Import",
-            "Authorize",
-            "Select Account",
-            "Check",
-            "Review",
+            "Import NBG or Revolut Statement",
+            "Authorize with YNAB",
+            "Select YNAB Budget and Account",
+            "Check Recent Transactions",
+            "Review New Transactions",
             "Status",
         ]
-        for i, step in enumerate(steps):
-            item = QListWidgetItem(f"{i + 1}. {step}")
-            self.sidebar.addItem(item)
-        self.sidebar.setCurrentRow(0)
+        self.sidebar = StepSidebar(steps)
+        self.sidebar.setFixedWidth(200)
         body.addWidget(self.sidebar)
 
         # Main pane
@@ -46,7 +41,7 @@ class ImportFilePage(QWizardPage):
         pane_widget.setObjectName("main-pane")
         pane_widget.setStyleSheet("background: transparent;")
         self.pane = QVBoxLayout(pane_widget)
-        self.pane.setContentsMargins(40, 40, 40, 40)
+        self.pane.setContentsMargins(20, 20, 20, 20)
         self.pane.setSpacing(12)
         self.pane.addStretch(1)
         body.addWidget(pane_widget, 1)
@@ -152,11 +147,6 @@ class ImportFilePage(QWizardPage):
     def initializePage(self):
         """Called when the page becomes visible."""
         super().initializePage()
-        font = QFont("San Francisco", 13)
-        for i in range(self.sidebar.count()):
-            item_font = QFont(font)
-            if i == 0:
-                item_font.setWeight(QFont.DemiBold)
-            self.sidebar.item(i).setFont(item_font)
+        self.sidebar.set_current(0)
         # ensure buttons reflect state
         self.continue_button.setEnabled(bool(self.selected_file))
