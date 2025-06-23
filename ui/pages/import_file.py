@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import (
     QWizardPage, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QFileDialog, QListWidget, QListWidgetItem, QWidget
+    QFileDialog, QListWidget, QListWidgetItem, QWidget, QFrame
 )
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap, QFont
@@ -41,9 +41,10 @@ class ImportFilePage(QWizardPage):
         body.addWidget(self.sidebar)
 
         # Main pane
-        pane_widget = QWidget()
+        pane_widget = QFrame()
+        pane_widget.setFrameShape(QFrame.NoFrame)
         pane_widget.setObjectName("main-pane")
-        pane_widget.setStyleSheet("background-color: #FFFFFF;")
+        pane_widget.setStyleSheet("background: transparent;")
         self.pane = QVBoxLayout(pane_widget)
         self.pane.setContentsMargins(40, 40, 40, 40)
         self.pane.setSpacing(12)

@@ -873,10 +873,16 @@ if __name__ == "__main__":
     window.setUnifiedTitleAndToolBarOnMac(True)
 
     wizard = NBGYNABWizard()
+    wizard.setWizardStyle(QWizard.ModernStyle)
     wizard.setContentsMargins(0, 0, 0, 0)
     if wizard.layout():
         wizard.layout().setContentsMargins(0, 0, 0, 0)
+
     window.setCentralWidget(wizard)
+    if window.centralWidget():
+        window.centralWidget().setStyleSheet("background: transparent;")
+        window.centralWidget().setContentsMargins(0, 0, 0, 0)
+
     window.setContentsMargins(0, 0, 0, 0)
     window.setStyleSheet("QMainWindow { background-color: #FFFFFF; }")
 
