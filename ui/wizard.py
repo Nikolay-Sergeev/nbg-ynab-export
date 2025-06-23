@@ -33,7 +33,7 @@ class StepLabel(QLabel):
         super().__init__(text)
         # Allow wrapping for long titles and align to top-left
         self.setWordWrap(True)
-        self.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        self.setAlignment(Qt.AlignLeft | Qt.AlignTop)
         self.setContentsMargins(0, 4, 0, 4)
         self.set_selected(False)
 
@@ -117,7 +117,7 @@ class SidebarWizardWindow(QMainWindow):
         sidebar_layout.addStretch()
         side_widget = QWidget()
         side_widget.setLayout(sidebar_layout)
-        side_widget.setFixedWidth(200)
+        side_widget.setFixedWidth(160)
         side_widget.setStyleSheet("background:#F7F7F7;")
         main_layout.addWidget(side_widget)
 

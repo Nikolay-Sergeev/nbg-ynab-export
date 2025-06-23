@@ -22,6 +22,7 @@ class FinishPage(QWizardPage):
         self.label.setProperty('role', 'title')
         self.label.setWordWrap(True)
         card_layout.addWidget(self.label)
+        card_layout.addStretch(1)
 
         # Navigation Buttons (Back/Exit, same size, Exit on right)
         btn_layout = QHBoxLayout()

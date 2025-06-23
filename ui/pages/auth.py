@@ -32,7 +32,6 @@ class YNABAuthPage(QWizardPage):
         # --- Outer layout for centering ---
         outer_layout = QVBoxLayout(self)
         outer_layout.setContentsMargins(24, 24, 24, 24)
-        outer_layout.addStretch(1)
 
         card = QFrame()
         card.setObjectName("card-panel")
@@ -111,7 +110,7 @@ class YNABAuthPage(QWizardPage):
         self.save_checkbox = QCheckBox("Save token securely on this device")
         self.save_checkbox.setStyleSheet("font-size:14px;color:#333;margin-top:0;margin-bottom:0;")
         card_layout.addWidget(self.save_checkbox, alignment=Qt.AlignLeft)
-        card_layout.addSpacing(32)
+        card_layout.addStretch(1)
 
         # --- Navigation Buttons ---
         button_layout = QHBoxLayout()
@@ -132,7 +131,7 @@ class YNABAuthPage(QWizardPage):
         card_layout.addLayout(button_layout)
 
         # --- Final layout setup ---
-        outer_layout.addWidget(card, alignment=Qt.AlignCenter)
+        outer_layout.addWidget(card)
         outer_layout.addStretch(1)
         self.setLayout(outer_layout)
 

@@ -22,7 +22,6 @@ class AccountSelectionPage(QWizardPage):
         # --- Outer layout ---
         outer_layout = QVBoxLayout(self)
         outer_layout.setContentsMargins(24, 24, 24, 24)
-        outer_layout.addStretch(1)
 
         card = QFrame()
         card.setObjectName("card-panel")
@@ -78,7 +77,7 @@ class AccountSelectionPage(QWizardPage):
         self.helper_label.setObjectName("helper-label")
         self.helper_label.setStyleSheet("font-size:12px;color:#666;margin-bottom:0;")
         card_layout.addWidget(self.helper_label, alignment=Qt.AlignLeft)
-        card_layout.addSpacing(32)
+        card_layout.addStretch(1)
 
         # Action buttons
         btn_row = QHBoxLayout()

@@ -80,6 +80,7 @@ class TransactionsPage(QWizardPage):
         self.refresh_btn = QPushButton("Refresh")
         card_layout.addWidget(self.refresh_btn)
         self.refresh_btn.clicked.connect(self.on_refresh_clicked)
+        card_layout.addStretch(1)
 
         # Navigation Buttons (Back/Continue, same size, Continue on right)
         nav_layout = QHBoxLayout()

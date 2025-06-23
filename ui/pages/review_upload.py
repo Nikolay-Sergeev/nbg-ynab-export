@@ -90,6 +90,7 @@ class ReviewAndUploadPage(QWizardPage):
         self.table.itemChanged.connect(self.on_skip_item_changed)
         self.table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         card_layout.addWidget(self.table)
+        card_layout.addStretch(1)
 
         # Navigation Buttons (Back/Continue, same size, Continue on right)
         nav_layout = QHBoxLayout()
