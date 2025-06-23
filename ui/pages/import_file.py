@@ -182,7 +182,7 @@ class ImportFilePage(QWizardPage):
         self.exit_button.setFixedWidth(100)
         self.exit_button.setFixedHeight(40)
         self.exit_button.setCursor(Qt.PointingHandCursor)
-        self.exit_button.clicked.connect(lambda: self.wizard().reject())
+        self.exit_button.clicked.connect(lambda: self.window().close())
         button_layout.addWidget(self.exit_button)
         self.continue_button = QPushButton("Continue")
         self.continue_button.setObjectName("continue-btn")

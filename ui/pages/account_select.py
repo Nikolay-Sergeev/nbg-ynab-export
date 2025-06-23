@@ -82,7 +82,6 @@ class AccountSelectionPage(QWizardPage):
 
         # Action buttons
         btn_row = QHBoxLayout()
-        btn_row.addStretch(1)
         self.back_btn = QPushButton("Back")
         self.back_btn.setObjectName("back-btn")
         self.back_btn.setFixedHeight(40)
@@ -90,7 +89,7 @@ class AccountSelectionPage(QWizardPage):
         self.back_btn.setStyleSheet("background:#fff;color:#555;border:1px solid #aaa;font-weight:500;")
         self.back_btn.clicked.connect(self.go_back)
         btn_row.addWidget(self.back_btn)
-        btn_row.addSpacing(24)
+        btn_row.addStretch(1)
         self.continue_btn = QPushButton("Continue")
         self.continue_btn.setObjectName("continue-btn")
         self.continue_btn.setFixedHeight(40)

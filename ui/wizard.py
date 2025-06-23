@@ -91,7 +91,8 @@ class SidebarWizardWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("NBG/Revolut to YNAB Wizard")
-        self.resize(900, 600)
+        fixed_w, fixed_h = 900, 600
+        self.setFixedSize(fixed_w, fixed_h)
 
         central = QWidget()
         main_layout = QHBoxLayout(central)
@@ -107,6 +108,8 @@ class SidebarWizardWindow(QMainWindow):
         ]
         self.step_labels = []
         sidebar_layout = QVBoxLayout()
+        sidebar_layout.setContentsMargins(8, 16, 8, 16)
+        sidebar_layout.setSpacing(4)
         for t in step_titles:
             lbl = StepLabel(t)
             self.step_labels.append(lbl)
@@ -114,7 +117,7 @@ class SidebarWizardWindow(QMainWindow):
         sidebar_layout.addStretch()
         side_widget = QWidget()
         side_widget.setLayout(sidebar_layout)
-        side_widget.setFixedWidth(220)
+        side_widget.setFixedWidth(200)
         side_widget.setStyleSheet("background:#F7F7F7;")
         main_layout.addWidget(side_widget)
 
@@ -212,10 +215,7 @@ def main():
         app = QApplication(sys.argv)
         load_style(app)
         window = SidebarWizardWindow()
-        if sys.platform.startswith('darwin'):
-            window.show()
-        else:
-            window.showMaximized()
+        window.show()
         print("[Wizard] Wizard UI started. Entering event loop.")
         sys.exit(app.exec_())
     except Exception as e:

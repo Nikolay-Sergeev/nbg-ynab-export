@@ -37,7 +37,7 @@ class FinishPage(QWizardPage):
         self.exit_btn.setObjectName("exit-btn")
         self.exit_btn.setFixedWidth(100)
         self.exit_btn.setFixedHeight(40)
-        self.exit_btn.clicked.connect(lambda: self.wizard().reject())
+        self.exit_btn.clicked.connect(lambda: self.window().close())
         btn_layout.addWidget(self.exit_btn)
         card_layout.addLayout(btn_layout)
 
