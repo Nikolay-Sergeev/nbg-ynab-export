@@ -10,7 +10,7 @@ from PyQt5.QtWidgets import (
     QHBoxLayout,
     QVBoxLayout,
 )
-from PyQt5.QtGui import QIcon, QPixmap, QPainter
+from PyQt5.QtGui import QIcon, QPixmap, QPainter, QFont
 from PyQt5.QtCore import Qt
 from PyQt5.QtSvg import QSvgRenderer
 from .controller import WizardController
@@ -31,16 +31,16 @@ class StepLabel(QLabel):
 
     def __init__(self, text: str):
         super().__init__(text)
-        # Allow wrapping for long titles and align to top-left
         self.setWordWrap(True)
         self.setAlignment(Qt.AlignLeft | Qt.AlignTop)
         self.setContentsMargins(0, 4, 0, 4)
+        self.setFont(QFont("San Francisco", 13))
         self.set_selected(False)
 
     def set_selected(self, selected: bool):
         if selected:
             self.setStyleSheet(
-                "background-color:#007AFF;color:white;border-radius:16px;"
+                "background-color:#007AFF;color:white;border-radius:20px;"
                 "padding:8px 16px;font-size:13pt;"
             )
         else:
@@ -108,8 +108,8 @@ class SidebarWizardWindow(QMainWindow):
         ]
         self.step_labels = []
         sidebar_layout = QVBoxLayout()
-        sidebar_layout.setContentsMargins(8, 16, 8, 16)
-        sidebar_layout.setSpacing(4)
+        sidebar_layout.setContentsMargins(16, 16, 16, 16)
+        sidebar_layout.setSpacing(12)
         for t in step_titles:
             lbl = StepLabel(t)
             self.step_labels.append(lbl)
@@ -117,7 +117,7 @@ class SidebarWizardWindow(QMainWindow):
         sidebar_layout.addStretch()
         side_widget = QWidget()
         side_widget.setLayout(sidebar_layout)
-        side_widget.setFixedWidth(160)
+        side_widget.setFixedWidth(220)
         side_widget.setStyleSheet("background:#F7F7F7;")
         main_layout.addWidget(side_widget)
 
@@ -198,6 +198,7 @@ def load_style(app: QApplication):
     # Use Fusion style with a light palette for consistency
     from PyQt5.QtGui import QPalette, QColor
     app.setStyle("Fusion")
+    app.setFont(QFont("San Francisco", 13))
     pal = app.palette()
     pal.setColor(QPalette.Window, QColor("#F7F7F7"))
     pal.setColor(QPalette.WindowText, Qt.black)

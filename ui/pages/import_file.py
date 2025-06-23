@@ -23,10 +23,12 @@ class DropZone(QFrame):
         layout.setSpacing(8)
         layout.setContentsMargins(16, 16, 16, 16)
         # Upload icon
-        icon_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../resources/upload.svg'))
+        icon_path = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), '../../resources/cloud_download.svg')
+        )
         if os.path.exists(icon_path):
             self.upload_icon = QSvgWidget(icon_path)
-            self.upload_icon.setFixedSize(32, 32)
+            self.upload_icon.setFixedSize(48, 48)
             layout.addWidget(self.upload_icon, alignment=Qt.AlignHCenter)
         # Default text
         self.text_label = QLabel("Drag & drop your file here,\nor click 'Browse files…'")
@@ -114,27 +116,13 @@ class ImportFilePage(QWizardPage):
         # Drop zone
         self.drop_zone = DropZone()
         self.drop_zone.setObjectName("drop-zone")
-        drop_zone_layout = QVBoxLayout(self.drop_zone)
-        drop_zone_layout.setContentsMargins(16, 16, 16, 16)
-        drop_zone_layout.setSpacing(8)
-        # Supported formats label
-        self.supported_label = QLabel("Supported formats: .xlsx, .csv")
-        self.supported_label.setObjectName("supported-label")
-        self.supported_label.setAlignment(Qt.AlignCenter)
-        drop_zone_layout.addWidget(self.supported_label)
-        # Browse button inside drop zone
-        self.browse_button = QPushButton("Browse Files")
-        self.browse_button.setObjectName("browse-btn")
-        self.browse_button.setCursor(Qt.PointingHandCursor)
-        self.browse_button.clicked.connect(self.browse_file) # From click
-        drop_zone_layout.addWidget(self.browse_button, alignment=Qt.AlignCenter)
-        # Need help? link
-        self.help_link = QLabel('<a href="#">Need help?</a>')
-        self.help_link.setObjectName("helper-link")
-        self.help_link.setAlignment(Qt.AlignCenter)
-        self.help_link.setOpenExternalLinks(False)
-        self.help_link.linkActivated.connect(self.show_help_modal)
-        drop_zone_layout.addWidget(self.help_link)
+        self.drop_zone.browse_button.clicked.connect(self.browse_file)
+        self.drop_zone.help_link = QLabel('<a href="#">Need help?</a>')
+        self.drop_zone.help_link.setObjectName("helper-link")
+        self.drop_zone.help_link.setAlignment(Qt.AlignCenter)
+        self.drop_zone.help_link.setOpenExternalLinks(False)
+        self.drop_zone.help_link.linkActivated.connect(self.show_help_modal)
+        self.drop_zone.layout().addWidget(self.drop_zone.help_link)
         card_layout.addWidget(self.drop_zone)
 
         # File display (filename and clear button)
