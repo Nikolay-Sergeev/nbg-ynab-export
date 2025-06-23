@@ -1,7 +1,6 @@
 from PyQt5.QtWidgets import QWizardPage, QVBoxLayout, QLabel, QWizard, QHBoxLayout, QPushButton, QFrame, QSizePolicy
 from PyQt5.QtCore import Qt
 import sys
-from .account_select import StepperWidget  # Import StepperWidget from account_select.py
 
 class FinishPage(QWizardPage):
     def __init__(self, parent=None):
@@ -17,18 +16,13 @@ class FinishPage(QWizardPage):
         card_layout.setContentsMargins(32, 32, 32, 32)
         card_layout.setSpacing(16)
 
-        # Stepper (6/6)
-        self.stepper = StepperWidget(step_idx=5, total_steps=6)
-        card_layout.addWidget(self.stepper, alignment=Qt.AlignHCenter)
-        indicator = QLabel("6/6")
-        indicator.setAlignment(Qt.AlignRight)
-        indicator.setStyleSheet("font-size:14px;color:#888;margin-bottom:8px;")
-        card_layout.addWidget(indicator)
+        # Final message
 
         self.label = QLabel()
         self.label.setProperty('role', 'title')
         self.label.setWordWrap(True)
         card_layout.addWidget(self.label)
+        card_layout.addStretch(1)
 
         # Navigation Buttons (Back/Exit, same size, Exit on right)
         btn_layout = QHBoxLayout()
@@ -44,7 +38,7 @@ class FinishPage(QWizardPage):
         self.exit_btn.setObjectName("exit-btn")
         self.exit_btn.setFixedWidth(100)
         self.exit_btn.setFixedHeight(40)
-        self.exit_btn.clicked.connect(lambda: self.wizard().reject())
+        self.exit_btn.clicked.connect(lambda: self.window().close())
         btn_layout.addWidget(self.exit_btn)
         card_layout.addLayout(btn_layout)
 

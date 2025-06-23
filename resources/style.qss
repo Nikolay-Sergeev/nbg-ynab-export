@@ -11,20 +11,11 @@ QWizardPage {
 #card-panel, .card-panel, QFrame#card-panel {
     background: #fff;
     border-radius: 10px;
-    border: 10px solid #fff;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.04);
+    border: none;
+    box-shadow: none;
     padding: 0;
 }
 
-/* Stepper styles */
-#stepper {
-    margin-bottom: 16px;
-    min-height: 24px;
-}
-#stepper QLabel {
-    background: transparent;
-    margin: 0 4px;
-}
 
 /* Drop zone styles */
 #drop-zone {
@@ -100,12 +91,15 @@ QPushButton#continue-btn, QPushButton#exit-btn, QPushButton#back-btn {
     border: none;
 }
 QPushButton#exit-btn {
-    background: #F7F8FA;
-    color: #222;
+    background: transparent;
+    color: #333;
+    border: none;
 }
 QPushButton#continue-btn {
     background: #1976d2;
     color: #fff;
+    border-radius: 20px;
+    padding: 8px 16px;
     box-shadow: 0 2px 4px rgba(25, 118, 210, 0.08);
 }
 QPushButton#exit-btn:disabled, QPushButton#continue-btn:disabled, QPushButton#back-btn:disabled {
@@ -185,9 +179,9 @@ QLabel {
     font-size: 15px;
 }
 QLabel[role='title'] {
-    font-size: 22px;
-    font-weight: bold;
-    color: #1976d2;
+    font-size: 14pt;
+    font-weight: 600;
+    color: #000;
     margin-bottom: 16px;
 }
 
@@ -245,14 +239,10 @@ QSvgWidget {
 #card-panel {
     background: #fff;
     border-radius: 8px;
-    border: 1px solid #e3eaf2;
+    border: none;
     padding: 30px;
 }
 
-#stepper {
-    margin-bottom: 16px;
-    min-height: 24px;
-}
 
 /* Title */
 QLabel {
@@ -324,8 +314,8 @@ QPushButton#continue-btn {
     background: #1976d2;
     color: #fff;
     font-weight: 600;
-    border-radius: 10px;
-    padding: 10px 24px;
+    border-radius: 20px;
+    padding: 8px 16px;
     font-size: 16px;
     min-width: 100px;
     min-height: 40px;

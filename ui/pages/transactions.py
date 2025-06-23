@@ -14,7 +14,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt
 from PyQt5.QtSvg import QSvgWidget
-from .account_select import StepperWidget
+
 import os
 
 class TransactionsPage(QWizardPage):
@@ -30,14 +30,6 @@ class TransactionsPage(QWizardPage):
         card_layout = QVBoxLayout(card)
         card_layout.setContentsMargins(32, 32, 32, 32)
         card_layout.setSpacing(16)
-
-        # Stepper (4/6)
-        self.stepper = StepperWidget(step_idx=3, total_steps=6)
-        card_layout.insertWidget(0, self.stepper, 0, Qt.AlignHCenter)
-        indicator = QLabel("4/6")
-        indicator.setAlignment(Qt.AlignRight)
-        indicator.setStyleSheet("font-size:14px;color:#888;margin-bottom:8px;")
-        card_layout.insertWidget(1, indicator)
 
         self.label = QLabel("Recent transactions in this account:")
         self.label.setProperty('role', 'title')
@@ -88,6 +80,7 @@ class TransactionsPage(QWizardPage):
         self.refresh_btn = QPushButton("Refresh")
         card_layout.addWidget(self.refresh_btn)
         self.refresh_btn.clicked.connect(self.on_refresh_clicked)
+        card_layout.addStretch(1)
 
         # Navigation Buttons (Back/Continue, same size, Continue on right)
         nav_layout = QHBoxLayout()

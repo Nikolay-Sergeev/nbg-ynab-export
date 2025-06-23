@@ -23,26 +23,6 @@ from cryptography.fernet import Fernet
 
 YNAB_DOCS_URL = "https://api.ynab.com/#personal-access-tokens"
 
-class StepperWidget(QFrame):
-    def __init__(self, step_idx=1, total_steps=4, parent=None):
-        super().__init__(parent)
-        self.setObjectName("stepper")
-        layout = QHBoxLayout(self)
-        layout.setSpacing(4)
-        layout.setContentsMargins(0, 0, 0, 16)
-        for i in range(total_steps):
-            dot = QLabel(str(i+1))
-            dot.setFixedSize(24, 24)
-            dot.setAlignment(Qt.AlignCenter)
-            if i < step_idx:
-                dot.setStyleSheet("background:#3B82F6;color:#fff;border-radius:12px;font-size:12px;")
-            elif i == step_idx:
-                dot.setStyleSheet("background:#fff;color:#3B82F6;border:2px solid #3B82F6;border-radius:12px;font-size:12px;font-weight:bold;")
-            else:
-                dot.setStyleSheet("background:transparent;color:#aaa;border:2px solid #E5E7EB;border-radius:12px;font-size:12px;")
-            layout.addWidget(dot)
-        layout.addStretch()
-
 class YNABAuthPage(QWizardPage):
     def __init__(self, controller):
         super().__init__()
@@ -52,7 +32,6 @@ class YNABAuthPage(QWizardPage):
         # --- Outer layout for centering ---
         outer_layout = QVBoxLayout(self)
         outer_layout.setContentsMargins(24, 24, 24, 24)
-        outer_layout.addStretch(1)
 
         card = QFrame()
         card.setObjectName("card-panel")
@@ -62,14 +41,6 @@ class YNABAuthPage(QWizardPage):
         card_layout = QVBoxLayout(card)
         card_layout.setContentsMargins(36, 36, 36, 36)
         card_layout.setSpacing(0)
-
-        # --- Stepper (2/6) and indicator ---
-        self.stepper = StepperWidget(step_idx=1, total_steps=6)
-        card_layout.addWidget(self.stepper, alignment=Qt.AlignHCenter)
-        indicator = QLabel("2/6")
-        indicator.setAlignment(Qt.AlignRight)
-        indicator.setStyleSheet("font-size:14px;color:#888;margin-bottom:8px;")
-        card_layout.addWidget(indicator)
 
         title = QLabel("Authorize with YNAB")
         title.setProperty('role', 'title')
@@ -139,7 +110,7 @@ class YNABAuthPage(QWizardPage):
         self.save_checkbox = QCheckBox("Save token securely on this device")
         self.save_checkbox.setStyleSheet("font-size:14px;color:#333;margin-top:0;margin-bottom:0;")
         card_layout.addWidget(self.save_checkbox, alignment=Qt.AlignLeft)
-        card_layout.addSpacing(32)
+        card_layout.addStretch(1)
 
         # --- Navigation Buttons ---
         button_layout = QHBoxLayout()
@@ -160,7 +131,7 @@ class YNABAuthPage(QWizardPage):
         card_layout.addLayout(button_layout)
 
         # --- Final layout setup ---
-        outer_layout.addWidget(card, alignment=Qt.AlignCenter)
+        outer_layout.addWidget(card)
         outer_layout.addStretch(1)
         self.setLayout(outer_layout)
 
