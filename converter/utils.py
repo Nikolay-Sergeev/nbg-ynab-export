@@ -2,6 +2,7 @@
 from pathlib import Path
 from datetime import datetime
 import pandas as pd
+import csv
 import re
 from typing import Optional, Union
 from config import DATE_FMT_YNAB, get_logger
@@ -22,7 +23,7 @@ def write_output(
     stem = in_path.stem
     out_name = f"{stem}_{date_str}_ynab.csv"
     out_path = in_path.with_name(out_name)
-    df.to_csv(out_path, index=False, quoting=pd.io.common.csv.QUOTE_MINIMAL)
+    df.to_csv(out_path, index=False, quoting=csv.QUOTE_MINIMAL)
     return out_path
 
 def exclude_existing(
