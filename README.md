@@ -146,7 +146,7 @@ flake8 main.py test_main.py
 
 For an interactive GUI, launch:
 ```bash
-python ui_wizard.py
+python ui/wizard.py
 ```
 
 The wizard will guide you through:

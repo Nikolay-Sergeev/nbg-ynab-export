@@ -5,3 +5,5 @@ settings.key
 # Byte-compiled / optimized files
 __pycache__/
 *.pyc
+*.DS_Store
+.vscode/
