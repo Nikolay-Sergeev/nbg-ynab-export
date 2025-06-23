@@ -1,67 +1,13 @@
 from PyQt5.QtWidgets import (
     QWizardPage, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QFileDialog, QListWidget, QListWidgetItem, QWidget, QFrame
+    QFileDialog, QListWidget, QListWidgetItem, QWidget
 )
-from PyQt5.QtCore import Qt, pyqtSignal
-from PyQt5.QtGui import QPixmap
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QPixmap, QFont
 import os
 import sys
 from config import SETTINGS_FILE
-
-class FileDropWidget(QFrame):
-    fileDropped = pyqtSignal(str)
-    clicked = pyqtSignal()
-
-    def __init__(self):
-        super().__init__()
-        self.setObjectName("drop-widget")
-        self.setAcceptDrops(True)
-        self.setFixedSize(320, 200)
-        layout = QVBoxLayout(self)
-        layout.setAlignment(Qt.AlignCenter)
-
-        self.icon = QLabel()
-        icon_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../resources/upload.svg'))
-        if os.path.exists(icon_path):
-            self.icon.setPixmap(QPixmap(icon_path).scaled(48, 48, Qt.KeepAspectRatio, Qt.SmoothTransformation))
-        layout.addWidget(self.icon)
-
-        self.text = QLabel("Drag & drop your file here,\nor click \u201cBrowse files\u2026\u201d")
-        self.text.setAlignment(Qt.AlignCenter)
-        layout.addWidget(self.text)
-
-        self.file_label = QLabel("")
-        self.file_label.setAlignment(Qt.AlignCenter)
-        self.file_label.hide()
-        layout.addWidget(self.file_label)
-
-    def dragEnterEvent(self, event):
-        if event.mimeData().hasUrls():
-            path = event.mimeData().urls()[0].toLocalFile()
-            if path.lower().endswith((".csv", ".xlsx")):
-                event.acceptProposedAction()
-                self.setProperty("drag", True)
-                self.style().unpolish(self)
-                self.style().polish(self)
-            else:
-                event.ignore()
-        else:
-            event.ignore()
-
-    def dragLeaveEvent(self, event):
-        self.setProperty("drag", False)
-        self.style().polish(self)
-
-    def dropEvent(self, event):
-        self.setProperty("drag", False)
-        self.style().polish(self)
-        if event.mimeData().hasUrls():
-            path = event.mimeData().urls()[0].toLocalFile()
-            self.fileDropped.emit(path)
-        event.accept()
-
-    def mousePressEvent(self, event):
-        self.clicked.emit()
+from ui.widgets import FileDropWidget
 
 class ImportFilePage(QWizardPage):
     def __init__(self, controller=None):
@@ -81,11 +27,11 @@ class ImportFilePage(QWizardPage):
         self.sidebar.setObjectName("sidebar")
         self.sidebar.setFixedWidth(200)
         steps = [
-            "Import NBG or Revolut Statement",
-            "Authorize with YNAB",
-            "Select YNAB Budget and Account",
-            "Check Recent Transactions",
-            "Review New Transactions",
+            "Import",
+            "Authorize",
+            "Select Account",
+            "Check",
+            "Review",
             "Status",
         ]
         for i, step in enumerate(steps):
@@ -97,33 +43,35 @@ class ImportFilePage(QWizardPage):
         # Main pane
         pane_widget = QWidget()
         pane_widget.setObjectName("main-pane")
-        pane = QVBoxLayout(pane_widget)
-        pane.setContentsMargins(40, 40, 40, 40)
-        pane.setSpacing(12)
+        pane_widget.setStyleSheet("background-color: #FFFFFF;")
+        self.pane = QVBoxLayout(pane_widget)
+        self.pane.setContentsMargins(40, 40, 40, 40)
+        self.pane.setSpacing(12)
+        self.pane.addStretch(1)
         body.addWidget(pane_widget, 1)
 
         title = QLabel("Import NBG or Revolut Statement")
         title.setObjectName("main-title")
-        pane.addWidget(title)
+        self.pane.addWidget(title)
 
         subtitle = QLabel("Supported formats: .xlsx, .csv")
         subtitle.setObjectName("subtext")
-        pane.addWidget(subtitle)
+        self.pane.addWidget(subtitle)
 
-        pane.addSpacing(20)
+        self.pane.addSpacing(20)
 
         self.drop_widget = FileDropWidget()
-        pane.addWidget(self.drop_widget, alignment=Qt.AlignHCenter)
+        self.pane.addWidget(self.drop_widget, alignment=Qt.AlignHCenter)
 
         self.browse_btn = QPushButton("Browse files…")
         self.browse_btn.setObjectName("browse-btn")
-        pane.addWidget(self.browse_btn, alignment=Qt.AlignCenter)
+        self.pane.addWidget(self.browse_btn, alignment=Qt.AlignCenter)
 
         self.error_label = QLabel("")
         self.error_label.setObjectName("error-label")
-        pane.addWidget(self.error_label)
+        self.pane.addWidget(self.error_label)
 
-        pane.addStretch(1)
+        self.pane.addStretch(1)
 
         footer = QHBoxLayout()
         footer.setContentsMargins(20, 12, 20, 12)
@@ -199,3 +147,15 @@ class ImportFilePage(QWizardPage):
 
     def nextId(self):
         return 1
+
+    def initializePage(self):
+        """Called when the page becomes visible."""
+        super().initializePage()
+        font = QFont("San Francisco", 13)
+        for i in range(self.sidebar.count()):
+            item_font = QFont(font)
+            if i == 0:
+                item_font.setWeight(QFont.DemiBold)
+            self.sidebar.item(i).setFont(item_font)
+        # ensure buttons reflect state
+        self.continue_button.setEnabled(bool(self.selected_file))

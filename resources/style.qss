@@ -1,6 +1,6 @@
 QWizard {
     background: #ffffff;
-    font-family: -apple-system, system-ui, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+    font-family: 'San Francisco', -apple-system, system-ui, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
     border: none;
     padding: 0;
     margin: 0;
@@ -135,29 +135,32 @@ QPushButton#clear-btn:hover {
 QPushButton#continue-btn, QPushButton#exit-btn, QPushButton#back-btn {
     min-width: 100px;
     max-width: 100px;
-    min-height: 36px;
-    max-height: 36px;
-    font-size: 15px;
+    min-height: 32px;
+    max-height: 32px;
+    font-size: 13px;
     font-weight: 600;
-    border-radius: 8px;
+    border-radius: 6px;
     border: none;
 }
 QPushButton#exit-btn {
-    background: #F7F8FA;
-    color: #222;
+    background: #F2F2F2;
+    color: #333333;
+    padding: 4px 16px;
 }
 QPushButton#continue-btn {
-    background: #1976d2;
-    color: #fff;
-    box-shadow: 0 2px 4px rgba(25, 118, 210, 0.08);
+    background: #c0c0c0;
+    color: #ffffff;
 }
 QPushButton#exit-btn:disabled, QPushButton#continue-btn:disabled, QPushButton#back-btn:disabled {
     background: #e0e0e0;
     color: #A0A3A6;
 }
-QPushButton#exit-btn:hover, QPushButton#continue-btn:hover, QPushButton#back-btn:hover {
-    background: #1976d2;
-    color: #fff;
+QPushButton#exit-btn:hover {
+    background: #DDDDDD;
+}
+QPushButton#continue-btn:hover {
+    background: #0a84ff;
+    color: #ffffff;
 }
 
 /* 8px grid for vertical spacing */
@@ -436,6 +439,7 @@ QListWidget#sidebar {
     border: none;
     font-size: 13px;
     color: #888888;
+    font-family: 'San Francisco', -apple-system, system-ui;
 }
 QListWidget#sidebar::item { padding: 6px; }
 QListWidget#sidebar::item:selected {
@@ -448,10 +452,12 @@ QListWidget#sidebar::item:selected {
     font-size: 20px;
     font-weight: bold;
     color: #222222;
+    font-family: 'San Francisco', -apple-system, system-ui;
 }
 #main-pane QLabel#subtext {
     font-size: 13px;
     color: #666666;
+    font-family: 'San Francisco', -apple-system, system-ui;
 }
 
 #drop-widget {
@@ -492,5 +498,9 @@ QPushButton#continue-btn:enabled {
 QPushButton#continue-btn:disabled {
     background: #c0c0c0;
     color: #ffffff;
+}
+
+QPushButton#exit-btn:hover {
+    background: #DDDDDD;
 }
 
