@@ -1,7 +1,15 @@
 import sys
 import os
 import traceback
-from PyQt5.QtWidgets import QApplication, QWizard
+from PyQt5.QtWidgets import (
+    QApplication,
+    QWizard,
+    QMainWindow,
+    QWidget,
+    QLabel,
+    QHBoxLayout,
+    QVBoxLayout,
+)
 from PyQt5.QtGui import QIcon, QPixmap, QPainter
 from PyQt5.QtCore import Qt
 from PyQt5.QtSvg import QSvgRenderer
@@ -16,6 +24,27 @@ from .pages.finish_page import FinishPage
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 STYLE_PATH = os.path.join(PROJECT_ROOT, "resources", "style.qss")
 ICON_PATH = os.path.join(PROJECT_ROOT, "resources", "app_icon.svg")
+
+
+class StepLabel(QLabel):
+    """Sidebar step label with selectable style."""
+
+    def __init__(self, text: str):
+        super().__init__(text)
+        self.setAlignment(Qt.AlignCenter)
+        self.setFixedHeight(32)
+        self.set_selected(False)
+
+    def set_selected(self, selected: bool):
+        if selected:
+            self.setStyleSheet(
+                "background-color:#007AFF;color:white;border-radius:16px;"
+                "padding:8px 16px;font-size:13pt;"
+            )
+        else:
+            self.setStyleSheet(
+                "color:#333;padding:8px 16px;font-size:13pt;"
+            )
 
 class RobustWizard(QWizard):
     def closeEvent(self, event):
@@ -53,65 +82,67 @@ class RobustWizard(QWizard):
             return 5  # Go to FinishPage
         return super().nextId()
 
-def main():
-    try:
-        # On Linux headless, use offscreen; skip on macOS
-        if sys.platform.startswith('linux') and not os.environ.get('DISPLAY') and not os.environ.get('WAYLAND_DISPLAY'):
-            os.environ['QT_QPA_PLATFORM'] = 'offscreen'
-        app = QApplication(sys.argv)
-        # Load QSS stylesheet
-        STYLE_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '../resources/style.qss'))
-        ICON_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '../resources/app_icon.svg'))
-        if os.path.exists(STYLE_PATH):
-            try:
-                with open(STYLE_PATH, "r") as f:
-                    app.setStyleSheet(f.read())
-                print(f"[QSS] Loaded style from {STYLE_PATH}")
-            except Exception as e:
-                print(f"[QSS] Failed to load style.qss: {e}")
+
+class SidebarWizardWindow(QMainWindow):
+    """Main window embedding the wizard with a navigation sidebar."""
+
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("NBG/Revolut to YNAB Wizard")
+        self.resize(900, 600)
+
+        central = QWidget()
+        main_layout = QHBoxLayout(central)
+        main_layout.setContentsMargins(16, 16, 16, 16)
+
+        step_titles = [
+            "Import File",
+            "Authorize",
+            "Select Budget\nand Account",
+            "Transactions",
+            "Review",
+            "Finish",
+        ]
+        self.step_labels = []
+        sidebar_layout = QVBoxLayout()
+        for t in step_titles:
+            lbl = StepLabel(t)
+            self.step_labels.append(lbl)
+            sidebar_layout.addWidget(lbl)
+        sidebar_layout.addStretch()
+        side_widget = QWidget()
+        side_widget.setLayout(sidebar_layout)
+        side_widget.setFixedWidth(160)
+        side_widget.setStyleSheet("background:#F7F7F7;")
+        main_layout.addWidget(side_widget)
+
+        self.controller = WizardController()
+        self.wizard = RobustWizard()
+        if sys.platform.startswith("darwin"):
+            self.wizard.setWizardStyle(QWizard.MacStyle)
         else:
-            print(f"[QSS] style.qss not found at {STYLE_PATH}. UI will use default style.")
-        # Load SVG app icon
-        if os.path.exists(ICON_PATH):
-            try:
-                renderer = QSvgRenderer(ICON_PATH)
-                pixmap = QPixmap(128, 128)
-                pixmap.fill(Qt.transparent)
-                painter = QPainter(pixmap)
-                renderer.render(painter)
-                painter.end()
-                app.setWindowIcon(QIcon(pixmap))
-                print(f"[Icon] Loaded app icon from {ICON_PATH}")
-            except Exception as e:
-                print(f"[Icon] Failed to load app_icon.svg: {e}")
-        else:
-            print(f"[Icon] app_icon.svg not found at {ICON_PATH}. Using default icon.")
-        print("[Debug] About to initialize WizardController")
-        controller = WizardController()
-        print("[Debug] WizardController initialized")
-        print("[Debug] About to initialize RobustWizard")
-        wizard = RobustWizard()
-        # Use macOS native style when running on macOS
-        if sys.platform.startswith('darwin'):
-            wizard.setWizardStyle(QWizard.MacStyle)
-        else:
-            wizard.setWizardStyle(QWizard.ModernStyle)
-        print("[Debug] RobustWizard initialized")
-        wizard.setWindowTitle("NBG/Revolut to YNAB Wizard")
-        # Hide default QWizard footer buttons
-        wizard.setButtonLayout([])
-        # wizard.setOptions(QWizard.NoDefaultButton) # Causes segfault on macOS
-        # Add pages
-        wizard.addPage(ImportFilePage(controller))
-        wizard.addPage(YNABAuthPage(controller))
-        wizard.addPage(AccountSelectionPage(controller))
-        wizard.addPage(TransactionsPage(controller))
-        wizard.addPage(ReviewAndUploadPage(controller))
-        wizard.addPage(FinishPage())
-        # Assign per-page icons
-        resource_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../resources'))
-        icon_names = ['upload.svg', 'info.svg', 'info.svg', 'spinner.svg', 'error.svg', 'success.svg']
-        for pid, name in zip(wizard.pageIds(), icon_names):
+            self.wizard.setWizardStyle(QWizard.ModernStyle)
+        self.wizard.setButtonLayout([])
+
+        self.wizard.addPage(ImportFilePage(self.controller))
+        self.wizard.addPage(YNABAuthPage(self.controller))
+        self.wizard.addPage(AccountSelectionPage(self.controller))
+        self.wizard.addPage(TransactionsPage(self.controller))
+        self.wizard.addPage(ReviewAndUploadPage(self.controller))
+        self.wizard.addPage(FinishPage())
+
+        resource_dir = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "../resources")
+        )
+        icon_names = [
+            "upload.svg",
+            "info.svg",
+            "info.svg",
+            "spinner.svg",
+            "error.svg",
+            "success.svg",
+        ]
+        for pid, name in zip(self.wizard.pageIds(), icon_names):
             icon_path = os.path.join(resource_dir, name)
             if os.path.exists(icon_path):
                 renderer_page = QSvgRenderer(icon_path)
@@ -120,13 +151,56 @@ def main():
                 painter = QPainter(pixmap_page)
                 renderer_page.render(painter)
                 painter.end()
-                # Use banner pixmap for ModernStyle wizard pages
-                wizard.page(pid).setPixmap(QWizard.BannerPixmap, pixmap_page)
+                self.wizard.page(pid).setPixmap(QWizard.BannerPixmap, pixmap_page)
+
+        self.wizard.currentIdChanged.connect(self.update_sidebar)
+
+        main_layout.addWidget(self.wizard, 1)
+        self.setCentralWidget(central)
+        self.update_sidebar(self.wizard.currentId())
+
+    def update_sidebar(self, step: int):
+        for i, lbl in enumerate(self.step_labels):
+            lbl.set_selected(i == step)
+
+
+def load_style(app: QApplication):
+    if os.path.exists(STYLE_PATH):
+        try:
+            with open(STYLE_PATH, "r") as f:
+                app.setStyleSheet(f.read())
+            print(f"[QSS] Loaded style from {STYLE_PATH}")
+        except Exception as e:
+            print(f"[QSS] Failed to load style.qss: {e}")
+    else:
+        print(f"[QSS] style.qss not found at {STYLE_PATH}. UI will use default style.")
+    if os.path.exists(ICON_PATH):
+        try:
+            renderer = QSvgRenderer(ICON_PATH)
+            pixmap = QPixmap(128, 128)
+            pixmap.fill(Qt.transparent)
+            painter = QPainter(pixmap)
+            renderer.render(painter)
+            painter.end()
+            app.setWindowIcon(QIcon(pixmap))
+            print(f"[Icon] Loaded app icon from {ICON_PATH}")
+        except Exception as e:
+            print(f"[Icon] Failed to load app_icon.svg: {e}")
+    else:
+        print(f"[Icon] app_icon.svg not found at {ICON_PATH}. Using default icon.")
+
+def main():
+    try:
+        # On Linux headless, use offscreen; skip on macOS
+        if sys.platform.startswith('linux') and not os.environ.get('DISPLAY') and not os.environ.get('WAYLAND_DISPLAY'):
+            os.environ['QT_QPA_PLATFORM'] = 'offscreen'
+        app = QApplication(sys.argv)
+        load_style(app)
+        window = SidebarWizardWindow()
         if sys.platform.startswith('darwin'):
-            wizard.resize(1000, 700)
-            wizard.show()
+            window.show()
         else:
-            wizard.showMaximized()
+            window.showMaximized()
         print("[Wizard] Wizard UI started. Entering event loop.")
         sys.exit(app.exec_())
     except Exception as e:
