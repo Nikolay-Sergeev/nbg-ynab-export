@@ -1,4 +1,17 @@
-from PyQt5.QtWidgets import QWizardPage, QVBoxLayout, QLabel, QPushButton, QTableWidget, QTableWidgetItem, QHBoxLayout, QFrame, QAbstractItemView, QHeaderView, QSizePolicy
+from PyQt5.QtWidgets import (
+    QWizardPage,
+    QVBoxLayout,
+    QLabel,
+    QPushButton,
+    QTableWidget,
+    QTableWidgetItem,
+    QHBoxLayout,
+    QFrame,
+    QAbstractItemView,
+    QHeaderView,
+    QSizePolicy,
+    QMessageBox,
+)
 from PyQt5.QtCore import Qt
 from PyQt5.QtSvg import QSvgWidget
 from .account_select import StepperWidget
