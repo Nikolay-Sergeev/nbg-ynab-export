@@ -18,6 +18,40 @@ QWizard QFrame {
     border: none;
     background: transparent;
 }
+
+/* Sidebar styles */
+#sidebar {
+    background: transparent;
+    padding: 20px;
+}
+#sidebar QLabel.step-label {
+    font-size: 13px;
+    color: #888888;
+    font-weight: normal;
+}
+#sidebar QLabel.step-label[current="true"] {
+    color: #333333;
+    font-weight: 600;
+}
+#sidebar QFrame.step-circle {
+    min-width: 12px;
+    max-width: 12px;
+    min-height: 12px;
+    max-height: 12px;
+    border-radius: 6px;
+}
+#sidebar QFrame.step-circle[current="true"] {
+    background: #1976d2;
+}
+#sidebar QFrame.step-circle[current="false"] {
+    border: 1px solid #cccccc;
+    background: transparent;
+}
+#sidebar QFrame.step-connector {
+    background: #dddddd;
+    max-width: 1px;
+    min-width: 1px;
+}
 #card-panel, .card-panel, QFrame#card-panel {
     background: transparent;
     border: none;
@@ -37,14 +71,14 @@ QWizard QFrame {
 
 /* Drop zone styles */
 #drop-zone {
-    background: rgba(225, 227, 229, 0.12); /* #E1E3E5 at 12% opacity */
-    border: 2px dashed #E1E3E5;
-    border-radius: 14px;
+    background: #F9F9F9;
+    border: 1px dashed #CCCCCC;
+    border-radius: 8px;
     transition: background 0.2s, border-color 0.2s;
 }
 #drop-zone[drag="true"], #drop-zone:hover, #drop-zone:focus {
-    background: #fff;
-    border-color: #1976d2; /* Brand blue */
+    background: #FFFFFF;
+    border-color: #888888;
 }
 #drop-zone QLabel {
     background: transparent;
@@ -53,21 +87,21 @@ QWizard QFrame {
 
 /* Browse button */
 QPushButton#browse-btn {
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #2196f3, stop:1 #64b5f6);
+    background: #0a84ff;
     color: #fff;
     border: none;
-    border-radius: 8px;
-    font-size: 16px;
-    font-weight: 500;
-    width: 70%;
-    min-width: 220px;
-    margin-top: 0;
-    margin-bottom: 0;
-    padding: 12px 0;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    min-width: 120px;
+    max-width: 120px;
+    min-height: 32px;
+    max-height: 32px;
+    padding: 4px 12px;
 }
 QPushButton#browse-btn:disabled {
-    background: #e3eaf2;
-    color: #aaa;
+    background: #c0c0c0;
+    color: #fff;
 }
 
 /* File name + clear icon */

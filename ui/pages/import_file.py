@@ -1,5 +1,6 @@
 from PyQt5.QtWidgets import (
-    QWizardPage, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame, QFileDialog, QSizePolicy, QGraphicsDropShadowEffect, QWidget, QMessageBox
+    QWizardPage, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame, QFileDialog,
+    QSizePolicy, QWidget, QMessageBox
 )
 from PyQt5.QtCore import Qt, QMimeData, pyqtSignal
 from PyQt5.QtGui import QIcon, QPixmap, QColor, QCursor
@@ -7,28 +8,6 @@ from PyQt5.QtSvg import QSvgWidget
 import os
 import sys  # for platform checks
 from config import SETTINGS_FILE
-
-class StepperWidget(QFrame):
-    def __init__(self, step_idx=0, total_steps=4, parent=None):
-        super().__init__(parent)
-        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        self.setObjectName("stepper")
-        layout = QHBoxLayout(self)
-        layout.setSpacing(4)
-        layout.setContentsMargins(0, 0, 0, 16)
-        layout.addStretch(1)
-        for i in range(total_steps):
-            dot = QLabel(str(i+1))
-            dot.setFixedSize(24, 24)
-            dot.setAlignment(Qt.AlignCenter)
-            if i < step_idx:
-                dot.setStyleSheet("background:#3B82F6;color:#fff;border-radius:12px;font-size:12px;")
-            elif i == step_idx:
-                dot.setStyleSheet("background:#fff;color:#3B82F6;border:2px solid #3B82F6;border-radius:12px;font-size:12px;font-weight:bold;")
-            else:
-                dot.setStyleSheet("background:transparent;color:#aaa;border:2px solid #E5E7EB;border-radius:12px;font-size:12px;")
-            layout.addWidget(dot)
-        layout.addStretch()
 
 class DropZone(QFrame):
     fileClicked = pyqtSignal()
@@ -121,134 +100,128 @@ class ImportFilePage(QWizardPage):
         self.setMinimumSize(0, 0)
         self.setMaximumSize(16777215, 16777215)
 
-        card = QFrame()
-        card.setObjectName("card-panel")
-        card.setFrameShape(QFrame.NoFrame)
-        card.setStyleSheet("background: transparent;")
-        card.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        card_layout = QVBoxLayout(card)
-        card_layout.setContentsMargins(0, 0, 0, 0)
-        card_layout.setSpacing(16)
-
-        # Stepper (1/6)
-        stepper = StepperWidget(step_idx=0, total_steps=6)
-        card_layout.addWidget(stepper, alignment=Qt.AlignHCenter)
-        indicator = QLabel("1/6")
-        indicator.setAlignment(Qt.AlignRight)
-        indicator.setStyleSheet("font-size:14px;color:#888;margin-bottom:8px;")
-        card_layout.addWidget(indicator)
-
+        
+        root_layout = QVBoxLayout(self)
+        root_layout.setContentsMargins(0, 0, 0, 0)
+        root_layout.setSpacing(0)
+        
+        body_layout = QHBoxLayout()
+        body_layout.setContentsMargins(0, 0, 0, 0)
+        root_layout.addLayout(body_layout, 1)
+        
+        sidebar = QFrame()
+        sidebar.setObjectName("sidebar")
+        sidebar_layout = QVBoxLayout(sidebar)
+        sidebar_layout.setContentsMargins(20, 20, 20, 20)
+        sidebar_layout.setSpacing(6)
+        steps = [
+            "Import NBG or Revolut Statement",
+            "Authorize with YNAB",
+            "Select YNAB Budget and Account",
+            "Check Recent Transactions",
+            "Review New Transactions",
+            "Status",
+        ]
+        for idx, text in enumerate(steps):
+            row = QHBoxLayout()
+            circle = QFrame()
+            circle.setObjectName("step-circle")
+            circle.setProperty("current", idx == 0)
+            row.addWidget(circle)
+            row.addSpacing(8)
+            label = QLabel(f"{idx+1}. {text}")
+            label.setObjectName("step-label")
+            if idx == 0:
+                label.setProperty("current", True)
+            row.addWidget(label)
+            row.addStretch()
+            sidebar_layout.addLayout(row)
+            if idx < len(steps) - 1:
+                connector = QFrame()
+                connector.setObjectName("step-connector")
+                connector.setFixedHeight(24)
+                sidebar_layout.addWidget(connector, 0, Qt.AlignLeft)
+        sidebar_layout.addStretch(1)
+        body_layout.addWidget(sidebar)
+        
+        main_pane = QFrame()
+        main_pane.setObjectName("main-pane")
+        main_layout = QVBoxLayout(main_pane)
+        main_layout.setContentsMargins(40, 40, 40, 40)
+        main_layout.setSpacing(12)
+        
         title = QLabel("Import NBG or Revolut Statement")
-        title.setProperty('role', 'title')
-        card_layout.addWidget(title)
-
-        # Drop zone
+        title.setObjectName("main-title")
+        main_layout.addWidget(title)
+        
+        subtitle = QLabel("Supported formats: .xlsx, .csv")
+        subtitle.setObjectName("subtext")
+        main_layout.addWidget(subtitle)
+        
         self.drop_zone = DropZone()
         self.drop_zone.setObjectName("drop-zone")
-        drop_zone_layout = QVBoxLayout(self.drop_zone)
-        drop_zone_layout.setContentsMargins(16, 16, 16, 16)
-        drop_zone_layout.setSpacing(8)
-        # Supported formats label
-        self.supported_label = QLabel("Supported formats: .xlsx, .csv")
-        self.supported_label.setObjectName("supported-label")
-        self.supported_label.setAlignment(Qt.AlignCenter)
-        drop_zone_layout.addWidget(self.supported_label)
-        # Browse button inside drop zone
-        self.browse_button = QPushButton("Browse Files")
+        self.drop_zone.setFixedSize(320, 200)
+        drop_layout = QVBoxLayout(self.drop_zone)
+        drop_layout.setContentsMargins(16, 40, 16, 16)
+        drop_layout.setSpacing(8)
+        
+        self.browse_button = QPushButton("Browse files…")
         self.browse_button.setObjectName("browse-btn")
         self.browse_button.setCursor(Qt.PointingHandCursor)
-        self.browse_button.clicked.connect(self.browse_file) # From click
-        drop_zone_layout.addWidget(self.browse_button, alignment=Qt.AlignCenter)
-        # Need help? link
-        self.help_link = QLabel('<a href="#">Need help?</a>')
-        self.help_link.setObjectName("helper-link")
-        self.help_link.setAlignment(Qt.AlignCenter)
-        self.help_link.setOpenExternalLinks(False)
-        self.help_link.linkActivated.connect(self.show_help_modal)
-        drop_zone_layout.addWidget(self.help_link)
-        card_layout.addWidget(self.drop_zone)
-
-        # File display (filename and clear button)
+        self.browse_button.clicked.connect(self.browse_file)
+        drop_layout.addStretch(1)
+        drop_layout.addWidget(self.browse_button, alignment=Qt.AlignCenter)
+        drop_layout.addStretch(1)
+        
+        main_layout.addWidget(self.drop_zone, alignment=Qt.AlignHCenter)
+        
         self.file_display_widget = QWidget()
         file_display_layout = QHBoxLayout(self.file_display_widget)
-        file_display_layout.setContentsMargins(0, 5, 0, 0)
+        file_display_layout.setContentsMargins(0, 0, 0, 0)
         file_display_layout.setSpacing(6)
-        # File type icon
-        self.file_icon_label = QLabel()
-        self.file_icon_label.setObjectName("file-icon-label")
-        self.file_icon_label.setFixedSize(20, 20)
-        file_display_layout.addWidget(self.file_icon_label)
         self.file_name_label = QLabel("")
         self.file_name_label.setObjectName("file-name-label")
-        self.file_name_label.setAlignment(Qt.AlignCenter)
-        self.file_name_label.setCursor(Qt.PointingHandCursor)
-        self.file_name_label.mousePressEvent = self.toggle_file_path
-        self.showing_full_path = False
         file_display_layout.addWidget(self.file_name_label, 1)
         self.clear_btn = QPushButton("×")
         self.clear_btn.setObjectName("clear-btn")
         self.clear_btn.setFixedSize(20, 20)
-        self.clear_btn.setCursor(Qt.PointingHandCursor)
         self.clear_btn.clicked.connect(self.clear_file)
         file_display_layout.addWidget(self.clear_btn)
         self.file_display_widget.hide()
-        card_layout.addWidget(self.file_display_widget)
-
-        # Error label
+        main_layout.addWidget(self.file_display_widget)
+        
         self.error_label = QLabel("")
         self.error_label.setObjectName("error-label")
-        self.error_label.setAlignment(Qt.AlignCenter)
         self.error_label.hide()
-        card_layout.addWidget(self.error_label)
-
-        # Spacer
-        card_layout.addStretch(1)
-
-        # Navigation Buttons
-        button_layout = QHBoxLayout()
-        button_layout.setSpacing(12)
+        main_layout.addWidget(self.error_label)
+        
+        main_layout.addStretch(1)
+        body_layout.addWidget(main_pane, 1)
+        
+        footer = QHBoxLayout()
+        footer.setContentsMargins(20, 12, 20, 12)
         exit_text = "Quit" if sys.platform.startswith('darwin') else "Exit"
         self.exit_button = QPushButton(exit_text)
         self.exit_button.setObjectName("exit-btn")
-        self.exit_button.setFixedWidth(100)
-        self.exit_button.setFixedHeight(40)
-        self.exit_button.setCursor(Qt.PointingHandCursor)
         self.exit_button.clicked.connect(lambda: self.wizard().reject())
-        button_layout.addWidget(self.exit_button)
+        footer.addWidget(self.exit_button)
+        footer.addStretch(1)
         self.continue_button = QPushButton("Continue")
         self.continue_button.setObjectName("continue-btn")
-        self.continue_button.setFixedWidth(100)
-        self.continue_button.setFixedHeight(40)
-        self.continue_button.setCursor(Qt.PointingHandCursor)
+        self.continue_button.setEnabled(False)
         self.continue_button.clicked.connect(self.validate_and_proceed)
-        self.continue_button.setEnabled(False) # Initially disabled
-        self.continue_button.setToolTip("Please select a file first")
-        button_layout.addStretch(1)
-        button_layout.addWidget(self.continue_button)
-        card_layout.addLayout(button_layout)
-
-        # State
+        footer.addWidget(self.continue_button)
+        root_layout.addLayout(footer)
+        
         self.file_path = None
         self.file_type = None
         self.error_text = ""
         self.last_folder = self.load_last_folder()
-
-        # Connect signals
-        # Connect drop event signal
+        
         self.drop_zone.fileDropped.connect(self.handle_file_selected)
-        self.drop_zone.fileClicked.connect(self.browse_file) # From click
-
-        # Initial UI state
+        self.drop_zone.fileClicked.connect(self.browse_file)
+        
         self.update_ui_state()
-        # === End of restored code ===
-
-        main_layout = QVBoxLayout()
-        main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.addWidget(card)
-        self.setLayout(main_layout)
-        self.setMinimumSize(0, 0)
-        self.setMaximumSize(16777215, 16777215)
-
     def browse_file(self):
         folder = self.last_folder if self.last_folder else os.path.expanduser("~")
         file_path, _ = QFileDialog.getOpenFileName(self, "Select Export File", folder, "CSV/Excel Files (*.csv *.xlsx *.xls)")
