@@ -430,3 +430,67 @@ QPushButton#continue-btn:disabled {
   --gray-7: #A0A3A6;
   --blue-500: #1976d2;
 }
+
+/* MacOS Step 1 overrides */
+QListWidget#sidebar {
+    border: none;
+    font-size: 13px;
+    color: #888888;
+}
+QListWidget#sidebar::item { padding: 6px; }
+QListWidget#sidebar::item:selected {
+    background: #007aff;
+    color: #ffffff;
+    font-weight: bold;
+}
+
+#main-pane QLabel#main-title {
+    font-size: 20px;
+    font-weight: bold;
+    color: #222222;
+}
+#main-pane QLabel#subtext {
+    font-size: 13px;
+    color: #666666;
+}
+
+#drop-widget {
+    background: #F9F9F9;
+    border: 1px dashed #CCCCCC;
+    border-radius: 8px;
+}
+#drop-widget[drag="true"] {
+    background: #EFF8FF;
+    border-color: #888888;
+}
+#drop-widget QLabel {
+    color: #555555;
+    font-size: 14px;
+}
+
+QPushButton#browse-btn {
+    min-width: 120px;
+    max-width: 120px;
+    min-height: 32px;
+    max-height: 32px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+QPushButton#continue-btn {
+    min-width: 100px;
+    max-width: 100px;
+    min-height: 32px;
+    max-height: 32px;
+    font-size: 13px;
+    font-weight: 600;
+}
+QPushButton#continue-btn:enabled {
+    background: #0a84ff;
+    color: #ffffff;
+}
+QPushButton#continue-btn:disabled {
+    background: #c0c0c0;
+    color: #ffffff;
+}
+

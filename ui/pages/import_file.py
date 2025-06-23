@@ -1,119 +1,85 @@
 from PyQt5.QtWidgets import (
-    QWizardPage, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame, QFileDialog,
-    QSizePolicy, QWidget, QMessageBox
+    QWizardPage, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
+    QFileDialog, QListWidget, QListWidgetItem, QWidget, QFrame
 )
-from PyQt5.QtCore import Qt, QMimeData, pyqtSignal
-from PyQt5.QtGui import QIcon, QPixmap, QColor, QCursor
-from PyQt5.QtSvg import QSvgWidget
+from PyQt5.QtCore import Qt, pyqtSignal
+from PyQt5.QtGui import QPixmap
 import os
-import sys  # for platform checks
+import sys
 from config import SETTINGS_FILE
 
-class DropZone(QFrame):
-    fileClicked = pyqtSignal()
+class FileDropWidget(QFrame):
     fileDropped = pyqtSignal(str)
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setObjectName("drop-zone")
+    clicked = pyqtSignal()
+
+    def __init__(self):
+        super().__init__()
+        self.setObjectName("drop-widget")
         self.setAcceptDrops(True)
-        self.setCursor(QCursor(Qt.PointingHandCursor))
-        self.setMinimumHeight(120)
-        self.setStyleSheet("")
+        self.setFixedSize(320, 200)
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignCenter)
-        layout.setSpacing(8)
-        layout.setContentsMargins(16, 16, 16, 16)
-        # Upload icon
+
+        self.icon = QLabel()
         icon_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../resources/upload.svg'))
         if os.path.exists(icon_path):
-            self.upload_icon = QSvgWidget(icon_path)
-            self.upload_icon.setFixedSize(32, 32)
-            layout.addWidget(self.upload_icon, alignment=Qt.AlignHCenter)
-        # Default text
-        self.text_label = QLabel("Drag & drop file here, or click to browse")
-        self.text_label.setStyleSheet("color:#1976d2;font-size:15px;font-weight:500;")
-        layout.addWidget(self.text_label, alignment=Qt.AlignHCenter)
-        # Supported formats label
-        self.supported_label = QLabel("Supported formats: .xlsx, .csv")
-        self.supported_label.setObjectName("supported-label")
-        self.supported_label.setAlignment(Qt.AlignCenter)
-        layout.addWidget(self.supported_label)
-        # Browse button inside drop zone
-        self.browse_button = QPushButton("Browse Files")
-        self.browse_button.setObjectName("browse-btn")
-        self.browse_button.setCursor(Qt.PointingHandCursor)
-        self.browse_button.clicked.connect(self.fileClicked.emit)
-        layout.addWidget(self.browse_button, alignment=Qt.AlignCenter)
+            self.icon.setPixmap(QPixmap(icon_path).scaled(48, 48, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        layout.addWidget(self.icon)
 
-    def setText(self, text, color="#1976d2"):
-        self.text_label.setText(text)
-        self.text_label.setStyleSheet(f"color:{color};font-size:15px;font-weight:500;")
+        self.text = QLabel("Drag & drop your file here,\nor click \u201cBrowse files\u2026\u201d")
+        self.text.setAlignment(Qt.AlignCenter)
+        layout.addWidget(self.text)
+
+        self.file_label = QLabel("")
+        self.file_label.setAlignment(Qt.AlignCenter)
+        self.file_label.hide()
+        layout.addWidget(self.file_label)
 
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():
-            urls = event.mimeData().urls()
-            if urls and self._is_valid_file(urls[0].toLocalFile()):
-                self.setProperty("drag", True)
-                self.setStyleSheet("border:2px dashed #3897f0;background:#f9f9f9;border-radius:8px;")
+            path = event.mimeData().urls()[0].toLocalFile()
+            if path.lower().endswith((".csv", ".xlsx")):
                 event.acceptProposedAction()
+                self.setProperty("drag", True)
+                self.style().unpolish(self)
+                self.style().polish(self)
             else:
-                self.setStyleSheet("border:2px dashed #d32f2f;background:#f9f9f9;border-radius:8px;")
                 event.ignore()
         else:
             event.ignore()
 
     def dragLeaveEvent(self, event):
         self.setProperty("drag", False)
-        self.setStyleSheet("")
-        event.accept()
+        self.style().polish(self)
 
     def dropEvent(self, event):
         self.setProperty("drag", False)
-        self.setStyleSheet("")
+        self.style().polish(self)
         if event.mimeData().hasUrls():
-            url = event.mimeData().urls()[0]
-            file_path = url.toLocalFile()
-            if self._is_valid_file(file_path):
-                self.fileDropped.emit(file_path)
-            else:
-                self.fileDropped.emit("")
+            path = event.mimeData().urls()[0].toLocalFile()
+            self.fileDropped.emit(path)
         event.accept()
 
     def mousePressEvent(self, event):
-        self.fileClicked.emit()
-
-    @staticmethod
-    def _is_valid_file(path):
-        return path.lower().endswith((".csv", ".xlsx", ".xls"))
+        self.clicked.emit()
 
 class ImportFilePage(QWizardPage):
-    def __init__(self, controller):
+    def __init__(self, controller=None):
         super().__init__()
         self.controller = controller
+        self.selected_file = None
         self.setTitle("")
 
-        # === Restore commented out code ===
-        self.setFinalPage(False)
-        # self.setButtonLayout([])  # Keep default buttons hidden via wizard options
-        self.setCommitPage(True)
-        self.setObjectName("import-file-page")
-        self.setMinimumSize(0, 0)
-        self.setMaximumSize(16777215, 16777215)
+        root = QVBoxLayout(self)
+        root.setContentsMargins(0, 0, 0, 0)
+        body = QHBoxLayout()
+        body.setContentsMargins(0, 0, 0, 0)
+        root.addLayout(body, 1)
 
-        
-        root_layout = QVBoxLayout(self)
-        root_layout.setContentsMargins(0, 0, 0, 0)
-        root_layout.setSpacing(0)
-        
-        body_layout = QHBoxLayout()
-        body_layout.setContentsMargins(0, 0, 0, 0)
-        root_layout.addLayout(body_layout, 1)
-        
-        sidebar = QFrame()
-        sidebar.setObjectName("sidebar")
-        sidebar_layout = QVBoxLayout(sidebar)
-        sidebar_layout.setContentsMargins(20, 20, 20, 20)
-        sidebar_layout.setSpacing(6)
+        # Sidebar
+        self.sidebar = QListWidget()
+        self.sidebar.setObjectName("sidebar")
+        self.sidebar.setFixedWidth(200)
         steps = [
             "Import NBG or Revolut Statement",
             "Authorize with YNAB",
@@ -122,82 +88,43 @@ class ImportFilePage(QWizardPage):
             "Review New Transactions",
             "Status",
         ]
-        for idx, text in enumerate(steps):
-            row = QHBoxLayout()
-            circle = QFrame()
-            circle.setObjectName("step-circle")
-            circle.setProperty("current", idx == 0)
-            row.addWidget(circle)
-            row.addSpacing(8)
-            label = QLabel(f"{idx+1}. {text}")
-            label.setObjectName("step-label")
-            if idx == 0:
-                label.setProperty("current", True)
-            row.addWidget(label)
-            row.addStretch()
-            sidebar_layout.addLayout(row)
-            if idx < len(steps) - 1:
-                connector = QFrame()
-                connector.setObjectName("step-connector")
-                connector.setFixedHeight(24)
-                sidebar_layout.addWidget(connector, 0, Qt.AlignLeft)
-        sidebar_layout.addStretch(1)
-        body_layout.addWidget(sidebar)
-        
-        main_pane = QFrame()
-        main_pane.setObjectName("main-pane")
-        main_layout = QVBoxLayout(main_pane)
-        main_layout.setContentsMargins(40, 40, 40, 40)
-        main_layout.setSpacing(12)
-        
+        for i, step in enumerate(steps):
+            item = QListWidgetItem(f"{i + 1}. {step}")
+            self.sidebar.addItem(item)
+        self.sidebar.setCurrentRow(0)
+        body.addWidget(self.sidebar)
+
+        # Main pane
+        pane_widget = QWidget()
+        pane_widget.setObjectName("main-pane")
+        pane = QVBoxLayout(pane_widget)
+        pane.setContentsMargins(40, 40, 40, 40)
+        pane.setSpacing(12)
+        body.addWidget(pane_widget, 1)
+
         title = QLabel("Import NBG or Revolut Statement")
         title.setObjectName("main-title")
-        main_layout.addWidget(title)
-        
+        pane.addWidget(title)
+
         subtitle = QLabel("Supported formats: .xlsx, .csv")
         subtitle.setObjectName("subtext")
-        main_layout.addWidget(subtitle)
-        
-        self.drop_zone = DropZone()
-        self.drop_zone.setObjectName("drop-zone")
-        self.drop_zone.setFixedSize(320, 200)
-        drop_layout = QVBoxLayout(self.drop_zone)
-        drop_layout.setContentsMargins(16, 40, 16, 16)
-        drop_layout.setSpacing(8)
-        
-        self.browse_button = QPushButton("Browse files…")
-        self.browse_button.setObjectName("browse-btn")
-        self.browse_button.setCursor(Qt.PointingHandCursor)
-        self.browse_button.clicked.connect(self.browse_file)
-        drop_layout.addStretch(1)
-        drop_layout.addWidget(self.browse_button, alignment=Qt.AlignCenter)
-        drop_layout.addStretch(1)
-        
-        main_layout.addWidget(self.drop_zone, alignment=Qt.AlignHCenter)
-        
-        self.file_display_widget = QWidget()
-        file_display_layout = QHBoxLayout(self.file_display_widget)
-        file_display_layout.setContentsMargins(0, 0, 0, 0)
-        file_display_layout.setSpacing(6)
-        self.file_name_label = QLabel("")
-        self.file_name_label.setObjectName("file-name-label")
-        file_display_layout.addWidget(self.file_name_label, 1)
-        self.clear_btn = QPushButton("×")
-        self.clear_btn.setObjectName("clear-btn")
-        self.clear_btn.setFixedSize(20, 20)
-        self.clear_btn.clicked.connect(self.clear_file)
-        file_display_layout.addWidget(self.clear_btn)
-        self.file_display_widget.hide()
-        main_layout.addWidget(self.file_display_widget)
-        
+        pane.addWidget(subtitle)
+
+        pane.addSpacing(20)
+
+        self.drop_widget = FileDropWidget()
+        pane.addWidget(self.drop_widget, alignment=Qt.AlignHCenter)
+
+        self.browse_btn = QPushButton("Browse files…")
+        self.browse_btn.setObjectName("browse-btn")
+        pane.addWidget(self.browse_btn, alignment=Qt.AlignCenter)
+
         self.error_label = QLabel("")
         self.error_label.setObjectName("error-label")
-        self.error_label.hide()
-        main_layout.addWidget(self.error_label)
-        
-        main_layout.addStretch(1)
-        body_layout.addWidget(main_pane, 1)
-        
+        pane.addWidget(self.error_label)
+
+        pane.addStretch(1)
+
         footer = QHBoxLayout()
         footer.setContentsMargins(20, 12, 20, 12)
         exit_text = "Quit" if sys.platform.startswith('darwin') else "Exit"
@@ -211,91 +138,20 @@ class ImportFilePage(QWizardPage):
         self.continue_button.setEnabled(False)
         self.continue_button.clicked.connect(self.validate_and_proceed)
         footer.addWidget(self.continue_button)
-        root_layout.addLayout(footer)
-        
-        self.file_path = None
-        self.file_type = None
-        self.error_text = ""
+        root.addLayout(footer)
+
+        self.drop_widget.fileDropped.connect(self.on_file_selected)
+        self.drop_widget.clicked.connect(self.browse_file)
+
         self.last_folder = self.load_last_folder()
-        
-        self.drop_zone.fileDropped.connect(self.handle_file_selected)
-        self.drop_zone.fileClicked.connect(self.browse_file)
-        
-        self.update_ui_state()
-    def browse_file(self):
-        folder = self.last_folder if self.last_folder else os.path.expanduser("~")
-        file_path, _ = QFileDialog.getOpenFileName(self, "Select Export File", folder, "CSV/Excel Files (*.csv *.xlsx *.xls)")
-        if file_path:
-            self.handle_file_selected(file_path)
-
-    def handle_drop_file(self, file_path):
-        if file_path:
-            self.on_file_selected(file_path)
-        else:
-            self.show_error("Please select a valid CSV or XLSX file.")
-
-    def on_file_selected(self, file_path):
-        if not file_path.lower().endswith((".csv", ".xlsx", ".xls")):
-            self.show_error("Please select a valid CSV or XLSX file.")
-            return
-        self.selected_file_path = file_path
-        self.error_text = ""
-        self.update_file_display()
-        self.validate_file()
-
-    def clear_file(self):
-        self.selected_file_path = None
-        self.update_file_display()
-        self.validate_file()
-
-    def show_error(self, msg):
-        self.error_text = msg
-        self.error_label.setText(msg)
-        self.continue_button.setEnabled(False)
-        self.continue_button.setStyleSheet("background:#1976d2;color:#fff;font-weight:600;opacity:0.5;")
-
-    def update_file_display(self):
-        if self.selected_file_path:
-            self.file_name_label.setText(os.path.basename(self.selected_file_path))
-            self.file_display_widget.show()
-            self.drop_zone.setText("File selected:", color="#1976d2")
-        else:
-            self.file_name_label.setText("")
-            self.file_display_widget.hide()
-            self.drop_zone.setText("Drag & drop file here, or click to browse", color="#1976d2")
-
-    def validate_file(self):
-        if not self.selected_file_path:
-            self.error_label.setText("")
-            self.continue_button.setEnabled(False)
-            self.continue_button.setStyleSheet("background:#1976d2;color:#fff;font-weight:600;opacity:0.5;")
-        elif not self.selected_file_path.lower().endswith((".csv", ".xlsx", ".xls")):
-            self.show_error("Please select a valid CSV or XLSX file.")
-        else:
-            self.error_label.setText("")
-            self.continue_button.setEnabled(True)
-            self.continue_button.setStyleSheet("background:#1976d2;color:#fff;font-weight:600;opacity:1;")
-
-    def isComplete(self):
-        # Allow navigation if a valid file path is set, even if there are warnings
-        return self.file_path is not None
-
-    def on_continue(self):
-        if not self.isComplete():
-            return
-        self.wizard().next()
-
-    def go_back(self):
-        self.wizard().back()
 
     def load_last_folder(self):
         if os.path.exists(SETTINGS_FILE):
             try:
                 with open(SETTINGS_FILE, "r") as f:
-                    lines = f.readlines()
-                for line in lines:
-                    if line.startswith("FOLDER:"):
-                        return line.strip().split("FOLDER:",1)[1]
+                    for line in f:
+                        if line.startswith("FOLDER:"):
+                            return line.strip().split("FOLDER:", 1)[1]
             except Exception:
                 pass
         return ""
@@ -311,132 +167,35 @@ class ImportFilePage(QWizardPage):
         with open(SETTINGS_FILE, "w") as f:
             f.writelines(lines)
 
-    def handle_file_selected(self, file_path):
-        print(f"[ImportFilePage] handle_file_selected: {file_path}")
-        if not file_path:
-            return
-        self.file_path = file_path
-        _, ext = os.path.splitext(file_path)
-        # Set file icon
-        if ext.lower() == ".csv":
-            icon_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../resources/csv_icon.png'))
-        else:
-            icon_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../resources/excel_icon.png'))
-        if os.path.exists(icon_path):
-            self.file_icon_label.setPixmap(QPixmap(icon_path).scaled(20, 20, Qt.KeepAspectRatio, Qt.SmoothTransformation))
-        else:
-            self.file_icon_label.clear()
-        # Validation: check if file can be opened and has at least 1 data row
-        try:
-            if ext.lower() == ".csv":
-                import csv
-                with open(file_path, newline='', encoding='utf-8') as f:
-                    reader = csv.reader(f)
-                    headers = next(reader, None)
-                    first_row = next(reader, None)
-                    if not headers:
-                        raise ValueError("File appears empty or missing headers.")
-                    if not first_row:
-                        self.error_text = f"Found columns: {', '.join(headers)}. No data rows found."
-                    else:
-                        self.error_text = f"Found columns: {', '.join(headers)}. Preview OK."
-            elif ext.lower() in [".xlsx", ".xls"]:
-                import openpyxl
-                wb = openpyxl.load_workbook(file_path, read_only=True)
-                sheet = wb.active
-                headers = [cell.value for cell in next(sheet.iter_rows(min_row=1, max_row=1))]
-                first_row = next(sheet.iter_rows(min_row=2, max_row=2), None)
-                if not headers:
-                    raise ValueError("Excel file appears empty or missing headers.")
-                if not first_row:
-                    self.error_text = f"Found columns: {', '.join(str(h) for h in headers if h)}. No data rows found."
-                else:
-                    self.error_text = f"Found columns: {', '.join(str(h) for h in headers if h)}. Preview OK."
-            else:
-                self.error_text = "Invalid file type. Please select a CSV or Excel file."
-                self.file_path = None
-        except Exception as e:
-            self.error_text = f"Error reading file: {str(e)}"
-            print(f"[ImportFilePage] Validation error: {self.error_text}")
-            self.file_path = None
-        else:
-            self.file_type = 'csv' if ext.lower() == '.csv' else 'excel'
-        self.update_ui_state()
-        self.completeChanged.emit() # Notify wizard about completeness change
+    def browse_file(self):
+        folder = self.last_folder if self.last_folder else os.path.expanduser("~")
+        path, _ = QFileDialog.getOpenFileName(self, "Select file", folder, "CSV/Excel (*.csv *.xlsx)")
+        if path:
+            self.on_file_selected(path)
 
-    def update_ui_state(self):
-        if self.file_path:
-            self.drop_zone.hide()
-            self.drop_zone.browse_button.hide()
-            self.file_name_label.setText(os.path.basename(self.file_path))
-            self.file_display_widget.show()
+    def on_file_selected(self, path):
+        if path.lower().endswith((".csv", ".xlsx")):
+            self.selected_file = path
+            self.drop_widget.icon.hide()
+            self.drop_widget.text.hide()
+            self.drop_widget.file_label.setText(os.path.basename(path))
+            self.drop_widget.file_label.show()
+            self.error_label.setText("")
             self.continue_button.setEnabled(True)
-            self.error_label.hide()
+            folder = os.path.dirname(path)
+            self.last_folder = folder
+            self.save_last_folder(folder)
         else:
-            self.drop_zone.show()
-            self.drop_zone.browse_button.show()
-            self.file_display_widget.hide()
+            self.selected_file = None
+            self.error_label.setText("Unsupported format. Please use .csv or .xlsx.")
+            self.drop_widget.file_label.hide()
+            self.drop_widget.icon.show()
+            self.drop_widget.text.show()
             self.continue_button.setEnabled(False)
-            if self.error_text:
-                self.error_label.setText(self.error_text)
-                self.error_label.show()
-            else:
-                self.error_label.hide()
 
     def validate_and_proceed(self):
-        if self.isComplete():
-            # Store file path in controller or shared state if needed later
-            # For now, just proceed
-            print(f"[ImportFilePage] Proceeding with file: {self.file_path}")
-            # Optionally: Trigger file processing/validation in controller here
-            # self.controller.set_import_file(self.file_path, self.file_type)
+        if self.selected_file:
             self.wizard().next()
-        else:
-            print("[ImportFilePage] Validation failed. Cannot proceed.")
-            if not self.error_text:
-                self.error_text = "Please select a valid file."
-                self.update_ui_state()
-
-    def initializePage(self):
-        print(f"[Wizard] initializePage called for page id {self.wizard().currentId()} ({type(self).__name__})")
-        # Reset state when page is shown
-        # self.clear_file() # Optional: uncomment to always clear file on revisit
-        self.update_ui_state()
-
-    def cleanupPage(self):
-        print(f"[Wizard] cleanupPage called for page id {self.wizard().currentId()} ({type(self).__name__})")
-        # Called when leaving the page
-        pass
 
     def nextId(self):
-        # Determine the next page ID based on logic if needed
-        # For now, linear progression
-        print("[Wizard] nextId called. Next page id: 1")
-        return 1 # Assuming YNABAuthPage is always next
-
-    def show_help_modal(self):
-        msg = QMessageBox(self)
-        msg.setWindowTitle("How to format your NBG/Revolut export")
-        msg.setText(
-            """
-To import your file, export your transactions from NBG or Revolut as .xlsx or .csv.\n\n
-- The file should have columns like Date, Description, Amount, etc.\n
-- Example (CSV):\n
-Date,Description,Amount\n
-2025-04-01,Supermarket,-20.00\n
-2025-04-02,Coffee,-3.50\n\n
-For more details, see the documentation or contact support.
-"""
-        )
-        msg.setIcon(QMessageBox.Information)
-        msg.exec_()
-
-    def toggle_file_path(self, event):
-        if not self.file_path:
-            return
-        if self.showing_full_path:
-            self.file_name_label.setText(os.path.basename(self.file_path))
-            self.showing_full_path = False
-        else:
-            self.file_name_label.setText(self.file_path)
-            self.showing_full_path = True
+        return 1
