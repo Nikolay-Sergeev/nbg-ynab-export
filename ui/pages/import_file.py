@@ -8,28 +8,6 @@ import os
 import sys  # for platform checks
 from config import SETTINGS_FILE
 
-class StepperWidget(QFrame):
-    def __init__(self, step_idx=0, total_steps=4, parent=None):
-        super().__init__(parent)
-        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        self.setObjectName("stepper")
-        layout = QHBoxLayout(self)
-        layout.setSpacing(4)
-        layout.setContentsMargins(0, 0, 0, 16)
-        layout.addStretch(1)
-        for i in range(total_steps):
-            dot = QLabel(str(i+1))
-            dot.setFixedSize(24, 24)
-            dot.setAlignment(Qt.AlignCenter)
-            if i < step_idx:
-                dot.setStyleSheet("background:#3B82F6;color:#fff;border-radius:12px;font-size:12px;")
-            elif i == step_idx:
-                dot.setStyleSheet("background:#fff;color:#3B82F6;border:2px solid #3B82F6;border-radius:12px;font-size:12px;font-weight:bold;")
-            else:
-                dot.setStyleSheet("background:transparent;color:#aaa;border:2px solid #E5E7EB;border-radius:12px;font-size:12px;")
-            layout.addWidget(dot)
-        layout.addStretch()
-
 class DropZone(QFrame):
     fileClicked = pyqtSignal()
     fileDropped = pyqtSignal(str)
@@ -51,9 +29,10 @@ class DropZone(QFrame):
             self.upload_icon.setFixedSize(32, 32)
             layout.addWidget(self.upload_icon, alignment=Qt.AlignHCenter)
         # Default text
-        self.text_label = QLabel("Drag & drop file here, or click to browse")
-        self.text_label.setStyleSheet("color:#1976d2;font-size:15px;font-weight:500;")
-        layout.addWidget(self.text_label, alignment=Qt.AlignHCenter)
+        self.text_label = QLabel("Drag & drop your file here,\nor click 'Browse files…'")
+        self.text_label.setStyleSheet("color:#333;font-size:13pt;")
+        self.text_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(self.text_label)
         # Supported formats label
         self.supported_label = QLabel("Supported formats: .xlsx, .csv")
         self.supported_label.setObjectName("supported-label")
@@ -66,9 +45,9 @@ class DropZone(QFrame):
         self.browse_button.clicked.connect(self.fileClicked.emit)
         layout.addWidget(self.browse_button, alignment=Qt.AlignCenter)
 
-    def setText(self, text, color="#1976d2"):
+    def setText(self, text, color="#333"):
         self.text_label.setText(text)
-        self.text_label.setStyleSheet(f"color:{color};font-size:15px;font-weight:500;")
+        self.text_label.setStyleSheet(f"color:{color};font-size:13pt;")
 
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():
@@ -127,14 +106,6 @@ class ImportFilePage(QWizardPage):
         card_layout = QVBoxLayout(card)
         card_layout.setContentsMargins(32, 32, 32, 32)
         card_layout.setSpacing(16)
-
-        # Stepper (1/6)
-        stepper = StepperWidget(step_idx=0, total_steps=6)
-        card_layout.addWidget(stepper, alignment=Qt.AlignHCenter)
-        indicator = QLabel("1/6")
-        indicator.setAlignment(Qt.AlignRight)
-        indicator.setStyleSheet("font-size:14px;color:#888;margin-bottom:8px;")
-        card_layout.addWidget(indicator)
 
         title = QLabel("Import NBG or Revolut Statement")
         title.setProperty('role', 'title')
@@ -283,11 +254,11 @@ class ImportFilePage(QWizardPage):
         if self.selected_file_path:
             self.file_name_label.setText(os.path.basename(self.selected_file_path))
             self.file_display_widget.show()
-            self.drop_zone.setText("File selected:", color="#1976d2")
+            self.drop_zone.setText("File selected:", color="#333")
         else:
             self.file_name_label.setText("")
             self.file_display_widget.hide()
-            self.drop_zone.setText("Drag & drop file here, or click to browse", color="#1976d2")
+            self.drop_zone.setText("Drag & drop your file here,\nor click 'Browse files…'", color="#333")
 
     def validate_file(self):
         if not self.selected_file_path:

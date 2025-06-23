@@ -6,26 +6,6 @@ from PyQt5.QtGui import QIcon, QPixmap, QColor
 import traceback
 import sys  # for platform checks
 
-class StepperWidget(QFrame):
-    def __init__(self, step_idx=2, total_steps=4, parent=None):
-        super().__init__(parent)
-        self.setObjectName("stepper")
-        layout = QHBoxLayout(self)
-        layout.setSpacing(4)
-        layout.setContentsMargins(0, 0, 0, 16)
-        for i in range(total_steps):
-            dot = QLabel(str(i+1))
-            dot.setFixedSize(24, 24)
-            dot.setAlignment(Qt.AlignCenter)
-            if i < step_idx:
-                dot.setStyleSheet("background:#3B82F6;color:#fff;border-radius:12px;font-size:12px;")
-            elif i == step_idx:
-                dot.setStyleSheet("background:#fff;color:#3B82F6;border:2px solid #3B82F6;border-radius:12px;font-size:12px;font-weight:bold;")
-            else:
-                dot.setStyleSheet("background:transparent;color:#aaa;border:2px solid #E5E7EB;border-radius:12px;font-size:12px;")
-            layout.addWidget(dot)
-        layout.addStretch()
-
 class AccountSelectionPage(QWizardPage):
     def __init__(self, controller):
         super().__init__()
@@ -50,14 +30,6 @@ class AccountSelectionPage(QWizardPage):
         card_layout = QVBoxLayout(card)
         card_layout.setContentsMargins(32, 32, 32, 32)
         card_layout.setSpacing(16)
-
-        # Stepper (3/6)
-        stepper = StepperWidget(step_idx=2, total_steps=6)
-        card_layout.addWidget(stepper, alignment=Qt.AlignHCenter)
-        indicator = QLabel("3/6")
-        indicator.setAlignment(Qt.AlignRight)
-        indicator.setStyleSheet("font-size:14px;color:#888;margin-bottom:8px;")
-        card_layout.addWidget(indicator)
 
         title = QLabel("Select YNAB Budget and Account")
         title.setProperty('role', 'title')

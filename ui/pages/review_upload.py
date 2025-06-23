@@ -13,7 +13,6 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt
 from PyQt5.QtSvg import QSvgWidget
-from .account_select import StepperWidget
 import os
 import functools
 import logging
@@ -32,14 +31,6 @@ class ReviewAndUploadPage(QWizardPage):
         card_layout = QVBoxLayout(card)
         card_layout.setContentsMargins(32, 32, 32, 32)
         card_layout.setSpacing(16)
-
-        # Stepper (5/6)
-        self.stepper = StepperWidget(step_idx=4, total_steps=6)
-        card_layout.insertWidget(0, self.stepper, 0, Qt.AlignHCenter)
-        indicator = QLabel("5/6")
-        indicator.setAlignment(Qt.AlignRight)
-        indicator.setStyleSheet("font-size:14px;color:#888;margin-bottom:8px;")
-        card_layout.insertWidget(1, indicator)
 
         self.label = QLabel("Review new transactions and upload to YNAB:")
         self.label.setProperty('role', 'title')

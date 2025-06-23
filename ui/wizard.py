@@ -31,8 +31,10 @@ class StepLabel(QLabel):
 
     def __init__(self, text: str):
         super().__init__(text)
-        self.setAlignment(Qt.AlignCenter)
-        self.setFixedHeight(32)
+        # Allow wrapping for long titles and align to top-left
+        self.setWordWrap(True)
+        self.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        self.setContentsMargins(0, 4, 0, 4)
         self.set_selected(False)
 
     def set_selected(self, selected: bool):
@@ -112,7 +114,7 @@ class SidebarWizardWindow(QMainWindow):
         sidebar_layout.addStretch()
         side_widget = QWidget()
         side_widget.setLayout(sidebar_layout)
-        side_widget.setFixedWidth(160)
+        side_widget.setFixedWidth(220)
         side_widget.setStyleSheet("background:#F7F7F7;")
         main_layout.addWidget(side_widget)
 
@@ -165,6 +167,7 @@ class SidebarWizardWindow(QMainWindow):
 
 
 def load_style(app: QApplication):
+    """Load QSS and apply a light macOS-like palette."""
     if os.path.exists(STYLE_PATH):
         try:
             with open(STYLE_PATH, "r") as f:
@@ -188,6 +191,18 @@ def load_style(app: QApplication):
             print(f"[Icon] Failed to load app_icon.svg: {e}")
     else:
         print(f"[Icon] app_icon.svg not found at {ICON_PATH}. Using default icon.")
+
+    # Use Fusion style with a light palette for consistency
+    from PyQt5.QtGui import QPalette, QColor
+    app.setStyle("Fusion")
+    pal = app.palette()
+    pal.setColor(QPalette.Window, QColor("#F7F7F7"))
+    pal.setColor(QPalette.WindowText, Qt.black)
+    pal.setColor(QPalette.Base, QColor("#FFFFFF"))
+    pal.setColor(QPalette.Button, QColor("#FFFFFF"))
+    pal.setColor(QPalette.Text, Qt.black)
+    pal.setColor(QPalette.ButtonText, Qt.black)
+    app.setPalette(pal)
 
 def main():
     try:
