@@ -1,6 +1,5 @@
 import unittest
 import pandas as pd
-import os
 from datetime import datetime
 from main import (
     convert_amount,
@@ -12,8 +11,7 @@ from main import (
     process_revolut_operations,  # Add this import
     validate_dataframe,
     validate_revolut_currency,  # Add this
-    REVOLUT_REQUIRED_COLUMNS,   # Add this
-    REVOLUT_CURRENCY_COLUMN     # Add this
+    REVOLUT_REQUIRED_COLUMNS   # Add this
 )
 
 class TestNBGToYNAB(unittest.TestCase):

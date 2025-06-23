@@ -14,7 +14,6 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt
 from PyQt5.QtSvg import QSvgWidget
 import os
-import functools
 import logging
 
 class ReviewAndUploadPage(QWizardPage):
@@ -228,7 +227,6 @@ class ReviewAndUploadPage(QWizardPage):
                         wizard.upload_stats = {}
                     wizard.upload_stats['uploaded'] = 0
                     # Save account name
-                    from ui.pages.account_select import AccountSelectionPage
                     acct_page = wizard.page(2)
                     if hasattr(acct_page, 'account_combo'):
                         idx = acct_page.account_combo.currentIndex()
@@ -248,7 +246,6 @@ class ReviewAndUploadPage(QWizardPage):
             if not hasattr(wizard, 'upload_stats'):
                 wizard.upload_stats = {}
             wizard.upload_stats['uploaded'] = 0
-            from ui.pages.account_select import AccountSelectionPage
             acct_page = wizard.page(2)
             if hasattr(acct_page, 'account_combo'):
                 idx = acct_page.account_combo.currentIndex()
@@ -278,7 +275,6 @@ class ReviewAndUploadPage(QWizardPage):
             wizard.upload_stats = {}
         wizard.upload_stats['uploaded'] = count
         # Save account name
-        from ui.pages.account_select import AccountSelectionPage
         acct_page = wizard.page(2)
         if hasattr(acct_page, 'account_combo'):
             idx = acct_page.account_combo.currentIndex()

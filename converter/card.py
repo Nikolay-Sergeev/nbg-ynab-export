@@ -1,7 +1,5 @@
 # converter/card.py
 import pandas as pd
-import re
-from typing import List
 from config import DATE_FMT_ACCOUNT, DATE_FMT_YNAB, get_logger
 from .utils import validate_dataframe, convert_amount
 

@@ -1,8 +1,8 @@
 from PyQt5.QtWidgets import (
-    QWizardPage, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame, QFileDialog, QSizePolicy, QGraphicsDropShadowEffect, QWidget, QMessageBox
+    QWizardPage, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame, QFileDialog, QSizePolicy, QWidget, QMessageBox
 )
-from PyQt5.QtCore import Qt, QMimeData, pyqtSignal
-from PyQt5.QtGui import QIcon, QPixmap, QColor, QCursor
+from PyQt5.QtCore import Qt, pyqtSignal
+from PyQt5.QtGui import QPixmap, QCursor
 from PyQt5.QtSvg import QSvgWidget
 import os
 import sys  # for platform checks

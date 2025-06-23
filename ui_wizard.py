@@ -3,12 +3,10 @@ import sys
 from PyQt5.QtWidgets import QApplication, QWizard, QWizardPage, QLabel, QVBoxLayout, QPushButton, QFileDialog, QLineEdit, QMessageBox, QComboBox, QCheckBox, QTableWidget, QTableWidgetItem, QHeaderView, QHBoxLayout, QMainWindow
 from PyQt5.QtSvg import QSvgWidget, QSvgRenderer
 from PyQt5.QtGui import QIcon, QPixmap, QPainter
-from PyQt5.QtCore import Qt, QTimer, QThread, pyqtSignal
+from PyQt5.QtCore import Qt, QThread, pyqtSignal
 import requests
-import pandas as pd
 from cryptography.fernet import Fernet
 from services.ynab_client import YnabClient
-from services.conversion_service import ConversionService
 import logging
 from config import SETTINGS_DIR, SETTINGS_FILE, KEY_FILE
 

@@ -60,20 +60,6 @@ class YnabClient:
         resp.raise_for_status()
         return resp.json()['data']['transactions']
 
-    def get_all_transactions(self, budget_id: str, account_id: str) -> list:
-        """Fetch all transactions with automatic pagination."""
-        all_tx = []
-        page = 1
-        per_page = 200
-        while True:
-            txs = self.get_transactions(budget_id, account_id, count=per_page, page=page)
-            if not txs:
-                break
-            all_tx.extend(txs)
-            if len(txs) < per_page:
-                break
-            page += 1
-        return all_tx
 
     def get_account_name(self, budget_id: str, account_id: str) -> str:
         # Use cached accounts list if available

@@ -1,5 +1,4 @@
 from PyQt5.QtWidgets import QWizardPage, QVBoxLayout, QLabel, QWizard, QHBoxLayout, QPushButton, QFrame, QSizePolicy
-from PyQt5.QtCore import Qt
 import sys
 
 class FinishPage(QWizardPage):
