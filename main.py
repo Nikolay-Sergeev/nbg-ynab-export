@@ -1,3 +1,7 @@
+import converter.revolut as _revolut
+import converter.card as _card
+import converter.account as _account
+import converter.utils as _utils
 import pandas as pd
 import os
 import sys
@@ -73,22 +77,16 @@ REVOLUT_REQUIRED_COLUMNS = [
 ]
 
 # Cleanup pattern for transaction descriptions
-MEMO_CLEANUP_PATTERN = r'\s*\([^)]*\)'  # Removes text in parentheses with whitespace
- # Add new cleanup patterns after the existing MEMO_CLEANUP_PATTERN
+# Removes text in parentheses with whitespace
+MEMO_CLEANUP_PATTERN = r'\s*\([^)]*\)'
+# Add new cleanup patterns after the existing MEMO_CLEANUP_PATTERN
 ECOMMERCE_CLEANUP_PATTERN = r'E-COMMERCE ΑΓΟΡΑ - '
 # Add new cleanup patterns after ECOMMERCE_CLEANUP_PATTERN
 SECURE_ECOMMERCE_CLEANUP_PATTERN = r'3D SECURE E-COMMERCE ΑΓΟΡΑ - '
 
-import converter.utils as _utils
-import converter.account as _account
-import converter.card as _card
-import converter.revolut as _revolut
 
 # Facade overrides to support legacy imports
 convert_amount = _utils.convert_amount
-extract_date_from_filename = _utils.extract_date_from_filename
-generate_output_filename = _utils.generate_output_filename
-exclude_existing_transactions = _utils.exclude_existing
 validate_dataframe = _utils.validate_dataframe
 process_card_operations = _card.process_card
 process_account_operations = _account.process_account
@@ -97,12 +95,13 @@ validate_revolut_currency = _revolut.validate_revolut_currency
 REVOLUT_REQUIRED_COLUMNS = _revolut.REQUIRED
 REVOLUT_CURRENCY_COLUMN = 'Currency'
 
+
 def load_previous_transactions(csv_file: str) -> pd.DataFrame:
     """Load previously exported transactions from YNAB CSV file.
-    
+
     Args:
         csv_file: Path to previous YNAB export CSV
-        
+
     Returns:
         pd.DataFrame: DataFrame with previous transactions
     """
@@ -112,45 +111,51 @@ def load_previous_transactions(csv_file: str) -> pd.DataFrame:
         logging.warning(f"Could not load previous transactions: {str(e)}")
         return pd.DataFrame(columns=['Date', 'Payee', 'Memo', 'Amount'])
 
-def exclude_existing_transactions(new_df: pd.DataFrame, prev_df: pd.DataFrame) -> pd.DataFrame:
+
+def exclude_existing_transactions(
+    new_df: pd.DataFrame,
+    prev_df: pd.DataFrame,
+) -> pd.DataFrame:
     """Remove duplicate and older transactions."""
     if prev_df.empty:
         return new_df
-        
+
     new_df = new_df.copy()
     new_df['Date'] = pd.to_datetime(new_df['Date'])
     prev_df['Date'] = pd.to_datetime(prev_df['Date'])
-    
+
     latest_prev_date = prev_df['Date'].max()
-    
+
     # Allow same-day transactions if they're not duplicates
     mask_newer = new_df['Date'] >= latest_prev_date
-    
+
     # Create unique transaction identifier
     def create_key(df: pd.DataFrame) -> pd.Series:
-        return (df['Date'].dt.strftime('%Y-%m-%d') + '_' + 
-                df['Payee'] + '_' + 
+        return (df['Date'].dt.strftime('%Y-%m-%d') + '_' +
+                df['Payee'] + '_' +
                 df['Amount'].astype(str))
-    
+
     new_keys = create_key(new_df)
     prev_keys = create_key(prev_df)
     mask_unique = ~new_keys.isin(prev_keys)
-    
+
     filtered_df = new_df[mask_newer & mask_unique].copy()
     filtered_df['Date'] = filtered_df['Date'].dt.strftime(DATE_FORMAT_YNAB)
-    
+
     excluded_count = len(new_df) - len(filtered_df)
     if excluded_count > 0:
-        logging.info(f"Excluded {excluded_count} duplicate or older transactions")
-    
+        logging.info(
+            f"Excluded {excluded_count} duplicate or older transactions")
+
     return filtered_df
+
 
 def extract_date_from_filename(filename: str) -> str:
     """Extract date from filename if present.
-    
+
     Args:
         filename: Name of the file to check
-        
+
     Returns:
         str: Date in YYYY-MM-DD format if found, empty string otherwise
     """
@@ -160,7 +165,7 @@ def extract_date_from_filename(filename: str) -> str:
         r'(\d{2})-(\d{2})-(\d{4})',  # DD-MM-YYYY
         r'(\d{4})-(\d{2})-(\d{2})'   # YYYY-MM-DD
     ]
-    
+
     for pattern in patterns:
         match = re.search(pattern, filename)
         if match:
@@ -171,18 +176,19 @@ def extract_date_from_filename(filename: str) -> str:
                 return f"{groups[2]}-{groups[1]}-{groups[0]}"
     return ""
 
+
 def generate_output_filename(input_file: str, is_revolut: bool = False) -> str:
     """Generate output filename with appropriate date.
-    
+
     Args:
         input_file: Path to the input file
         is_revolut: Whether the file is a Revolut export
-        
+
     Returns:
         str: Path to the output CSV file
     """
     base_name = os.path.splitext(os.path.basename(input_file))[0]
-    
+
     # For Revolut exports, always use current date
     if is_revolut:
         date_str = datetime.now().strftime('%Y-%m-%d')
@@ -192,10 +198,15 @@ def generate_output_filename(input_file: str, is_revolut: bool = False) -> str:
         if not date_str:
             # If no date in filename, use current date
             date_str = datetime.now().strftime('%Y-%m-%d')
-    
-    # Remove any existing date from base_name (supports DD-MM-YYYY and YYYY-MM-DD)
-    base_name = re.sub(r'_?(\d{2}-\d{2}-\d{4}|\d{4}-\d{2}-\d{2})', '', base_name)
-    
+
+    # Remove any trailing date from base_name
+    # (supports DD-MM-YYYY and YYYY-MM-DD)
+    base_name = re.sub(
+        r'_?(\d{2}-\d{2}-\d{4}|\d{4}-\d{2}-\d{2})',
+        '',
+        base_name,
+    )
+
     return os.path.join(
         os.path.dirname(input_file),
         f"{base_name}_{date_str}_ynab.{OUTPUT_FORMAT}"
@@ -204,31 +215,40 @@ def generate_output_filename(input_file: str, is_revolut: bool = False) -> str:
 
 def validate_input_file(file_path: str) -> None:
     """Validate input file existence and format.
-    
+
     Args:
         file_path: Path to input file
-        
+
     Raises:
         FileNotFoundError: If file doesn't exist
         ValueError: If file format is not supported
     """
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"File not found: '{file_path}'")
-    
+
     ext = os.path.splitext(file_path)[1].lower()
     if ext not in SUPPORTED_EXTENSIONS:
-        raise ValueError(f"Unsupported file type: '{ext}' (must be {', '.join(SUPPORTED_EXTENSIONS)})")
+        raise ValueError(
+            (
+                f"Unsupported file type: '{ext}' (must be "
+                f"{', '.join(SUPPORTED_EXTENSIONS)})"
+            )
+        )
 
-def convert_nbg_to_ynab(xlsx_file: str, previous_ynab: str = None) -> pd.DataFrame:
+
+def convert_nbg_to_ynab(
+    xlsx_file: str,
+    previous_ynab: str | None = None,
+) -> pd.DataFrame:
     """Convert bank export file to YNAB CSV format.
-    
+
     Args:
         xlsx_file: Path to the input file
         previous_ynab: Optional path to previous YNAB export
-        
+
     Returns:
         pd.DataFrame: DataFrame with converted transactions
-    
+
     Raises:
         FileNotFoundError: If input file doesn't exist
         ValueError: If file format is not recognized
@@ -236,7 +256,7 @@ def convert_nbg_to_ynab(xlsx_file: str, previous_ynab: str = None) -> pd.DataFra
     """
     try:
         validate_input_file(xlsx_file)
-        
+
         file_ext = os.path.splitext(xlsx_file)[1].lower()
         df = None
         if file_ext in ['.xlsx', '.xls']:
@@ -253,10 +273,10 @@ def convert_nbg_to_ynab(xlsx_file: str, previous_ynab: str = None) -> pd.DataFra
                 raise ValueError(f"Could not read CSV file: {csv_err}")
         else:
             raise ValueError(f"Unsupported file extension: {file_ext}")
-        
+
         # Add debug logging
         logging.debug(f"Found columns in file: {list(df.columns)}")
-        
+
         # Determine file type and process accordingly
         is_revolut = False
         if set(REVOLUT_REQUIRED_COLUMNS).issubset(df.columns):
@@ -271,17 +291,18 @@ def convert_nbg_to_ynab(xlsx_file: str, previous_ynab: str = None) -> pd.DataFra
             ynab_df = process_card_operations(df)
         else:
             raise ValueError("File format not recognized")
-            
+
         # After creating ynab_df but before saving:
         if previous_ynab:
             prev_df = load_previous_transactions(previous_ynab)
             ynab_df = exclude_existing_transactions(ynab_df, prev_df)
-            
+
         # Generate output filename with file type info
         csv_file = generate_output_filename(xlsx_file, is_revolut)
-        
+
         ynab_df.to_csv(csv_file, index=False, quoting=csv.QUOTE_MINIMAL)
-        logging.info(f"Conversion complete. The CSV file is saved as: {csv_file}")
+        logging.info(
+            f"Conversion complete. The CSV file is saved as: {csv_file}")
         return ynab_df
 
     except FileNotFoundError:
@@ -293,28 +314,37 @@ def convert_nbg_to_ynab(xlsx_file: str, previous_ynab: str = None) -> pd.DataFra
     except Exception as e:
         logging.error(f"Unexpected error: {str(e)}")
 
+
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        logging.error("Usage: python main.py <path_to_statement_file> [path_to_previous_ynab.csv]")
+        logging.error(
+            "Usage: python main.py <path_to_statement_file> "
+            "[path_to_previous_ynab.csv]"
+        )
         logging.error("Supported formats:")
         logging.error("  - NBG statements: .xlsx, .xls")
         logging.error("  - Revolut exports: .csv")
         sys.exit(1)
-    
+
     input_file_path = sys.argv[1]
     previous_ynab_path = sys.argv[2] if len(sys.argv) > 2 else None
-    
+
     # Check if file exists
     if not os.path.exists(input_file_path):
         logging.error(f"File not found: '{input_file_path}'")
         sys.exit(1)
-    
+
     # Check file extension
     file_ext = os.path.splitext(input_file_path)[1].lower()
     if file_ext not in SUPPORTED_EXTENSIONS:
-        logging.error(f"Unsupported file type: '{file_ext}' (must be .xlsx, .xls, or .csv)")
+        logging.error(
+            (
+                f"Unsupported file type: '{file_ext}' "
+                f"(must be .xlsx, .xls, or .csv)"
+            )
+        )
         sys.exit(1)
-        
+
     convert_nbg_to_ynab(input_file_path, previous_ynab_path)
 
 __all__ = [

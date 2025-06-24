@@ -7,6 +7,7 @@ The major runtime dependencies are:
 - **openpyxl** – Excel file support for `pandas`
 - **PyQt5** (>=5.15) – GUI wizard implementation
 - **requests** – used by the YNAB API client, though not pinned in `requirements.txt`
+- **cryptography** – secure storage of the YNAB token
 
 For development and testing the following tools are used:
 

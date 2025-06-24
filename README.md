@@ -55,14 +55,19 @@ This Python script converts transaction data from National Bank of Greece (NBG) 
 
 - Python 3.6+
 - pandas
-- PyQt5
+- openpyxl
+- PyQt5>=5.15
+- requests
+- cryptography
+- flake8 (development)
+- pytest (development)
 
 ## Installation
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/Nikolay-Sergeev/nbg-to-ynab.git
-cd nbg-to-ynab
+git clone https://github.com/Nikolay-Sergeev/nbg-ynab-export.git
+cd nbg-ynab-export
 ```
 
 2. Create and activate a virtual environment:
