@@ -136,7 +136,7 @@ The script generates a YNAB-compatible CSV file in the same directory as the inp
 Run tests:
 ```bash
 # Using unittest (default)
-python -m unittest test_main.py -v
+python -m unittest discover -s test -v
 
 # Or using pytest
 pytest
@@ -144,7 +144,7 @@ pytest
 
 Check code style (linting):
 ```bash
-flake8 main.py test_main.py
+flake8 main.py test
 ```
 
 ## GUI Wizard
