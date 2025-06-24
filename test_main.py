@@ -1,6 +1,11 @@
+# flake8: noqa
+import os
+import tempfile
 import unittest
 import pandas as pd
 from datetime import datetime
+from PyQt5.QtWidgets import QApplication
+from ui.wizard import StepLabel, load_style
 from main import (
     convert_amount,
     extract_date_from_filename,
@@ -11,8 +16,10 @@ from main import (
     process_revolut_operations,  # Add this import
     validate_dataframe,
     validate_revolut_currency,  # Add this
-    REVOLUT_REQUIRED_COLUMNS   # Add this
+    REVOLUT_REQUIRED_COLUMNS,
+    validate_input_file,
 )
+
 
 class TestNBGToYNAB(unittest.TestCase):
     def setUp(self):
@@ -96,7 +103,7 @@ class TestNBGToYNAB(unittest.TestCase):
 
     def test_convert_amount(self):
         """Test amount conversion with different formats.
-        
+
         Test cases:
         - Simple integer values
         - Negative integers
@@ -178,9 +185,9 @@ class TestNBGToYNAB(unittest.TestCase):
             'Payee': ['OLD'],
             'Amount': [-10.00]
         })
-        
+
         result = exclude_existing_transactions(new_df, prev_df)
-        
+
         # Should keep all transactions after 2025-02-24
         self.assertEqual(len(result), 3)
         self.assertTrue(all(pd.to_datetime(result['Date']) > pd.to_datetime('2025-02-24')))
@@ -189,42 +196,42 @@ class TestNBGToYNAB(unittest.TestCase):
     def test_process_card_operations(self):
         """Test card operations processing."""
         result = process_card_operations(self.card_data)
-        
+
         # Test expense transaction
         self.assertEqual(result.iloc[0]['Date'], '2025-02-21')
         self.assertEqual(result.iloc[0]['Payee'], 'SHOP.EXAMPLE.COM')
         self.assertEqual(result.iloc[0]['Amount'], -12.34)
-        
+
         # Test income transaction
         self.assertEqual(result.iloc[1]['Date'], '2025-02-14')
         self.assertEqual(result.iloc[1]['Payee'], 'ΦΟΡΤΙΣΗ')
         self.assertEqual(result.iloc[1]['Amount'], 100.0)
-        
+
         self.assertEqual(list(result.columns), ['Date', 'Payee', 'Memo', 'Amount'])
 
     def test_process_account_operations(self):
         """Test account operations processing."""
         result = process_account_operations(self.account_data)
-        
+
         # Test expense transaction
         self.assertEqual(result.iloc[0]['Date'], '2025-02-17')
         self.assertEqual(result.iloc[0]['Payee'], 'SHOP.EXAMPLE.COM')
         self.assertEqual(result.iloc[0]['Amount'], -12.34)
         self.assertEqual(result.iloc[0]['Memo'], 'SHOP.EXAMPLE.COM')
-        
+
         # Test income transaction
         self.assertEqual(result.iloc[1]['Date'], '2025-01-31')
         self.assertEqual(result.iloc[1]['Payee'], 'JOHN DOE')
         self.assertEqual(result.iloc[1]['Amount'], 1234.56)
         self.assertEqual(result.iloc[1]['Memo'], 'EXAMPLE COMPANY LTD')
-        
+
         self.assertEqual(list(result.columns), ['Date', 'Payee', 'Memo', 'Amount'])
 
     def test_validate_dataframe(self):
         """Test DataFrame validation."""
         # Valid case
         validate_dataframe(self.card_data, ['Ημερομηνία/Ώρα Συναλλαγής', 'Περιγραφή Κίνησης'])
-        
+
         # Invalid case
         with self.assertRaises(ValueError):
             validate_dataframe(self.card_data, ['NonExistentColumn'])
@@ -232,31 +239,31 @@ class TestNBGToYNAB(unittest.TestCase):
     def test_process_revolut_operations(self):
         """Test Revolut operations processing."""
         result = process_revolut_operations(self.revolut_data)
-        
+
         # Test expense transaction with fee
         self.assertEqual(result.iloc[0]['Date'], '2024-12-22')
         self.assertEqual(result.iloc[0]['Payee'], 'OpenAI')
         self.assertEqual(result.iloc[0]['Amount'], -19.45)  # -19.26 - 0.19
         self.assertEqual(result.iloc[0]['Memo'], 'CARD_PAYMENT')
-        
+
         # Test another expense with fee
         self.assertEqual(result.iloc[1]['Date'], '2024-11-24')
         self.assertEqual(result.iloc[1]['Payee'], 'Yandex Plus')
         self.assertEqual(result.iloc[1]['Amount'], -28.00)  # -27.72 - 0.28
         self.assertEqual(result.iloc[1]['Memo'], 'CARD_PAYMENT')
-        
+
         # Test incoming transfer without fee
         self.assertEqual(result.iloc[2]['Date'], '2024-11-27')
         self.assertEqual(result.iloc[2]['Payee'], 'From JOHN DOE')
         self.assertEqual(result.iloc[2]['Amount'], 8.00)
         self.assertEqual(result.iloc[2]['Memo'], 'TRANSFER')
-        
-        # Test another incoming transfer without fee 
+
+        # Test another incoming transfer without fee
         self.assertEqual(result.iloc[3]['Date'], '2025-02-02')
         self.assertEqual(result.iloc[3]['Payee'], 'From JANE DOE')
         self.assertEqual(result.iloc[3]['Amount'], 500.00)
         self.assertEqual(result.iloc[3]['Memo'], 'TRANSFER')
-        
+
         # Check columns
         self.assertEqual(list(result.columns), ['Date', 'Payee', 'Memo', 'Amount'])
 
@@ -268,36 +275,36 @@ class TestNBGToYNAB(unittest.TestCase):
             'CARD_PAYMENT', 'Current', '2024-11-08 09:32:33', '',
             'Uber', '-21.36', '0.00', 'EUR', 'REVERTED', ''
         ]
-        
+
         result = process_revolut_operations(reverted_data)
-        
+
         # Check that reverted transaction was filtered out
         self.assertEqual(len(result), len(self.revolut_data))
         self.assertFalse(any(result['Payee'] == 'Uber'))
 
     def test_validate_revolut_currency(self):
         """Test Revolut currency validation.
-        
+
         Test cases:
         - Valid: All EUR transactions
         - Invalid: Contains non-EUR transaction
         """
         # Valid case - all EUR
         validate_revolut_currency(self.revolut_data)
-        
+
         # Invalid case - mixed currencies
         invalid_data = self.revolut_data.copy()
         invalid_data.loc[len(invalid_data)] = [
             'CARD_PAYMENT', 'Current', '2024-11-08 09:32:33', '',
             'Foreign Payment', '-21.36', '0.00', 'USD', 'COMPLETED', ''
         ]
-        
+
         with self.assertRaises(ValueError):
             validate_revolut_currency(invalid_data)
 
     def test_empty_file_handling(self):
         """Test handling of empty input files.
-        
+
         Test cases:
         - Completely empty DataFrame (no columns, no data)
         - DataFrame with required columns but no data
@@ -307,16 +314,50 @@ class TestNBGToYNAB(unittest.TestCase):
         empty_df = pd.DataFrame()
         with self.assertRaisesRegex(ValueError, "Empty DataFrame provided"):
             validate_dataframe(empty_df, REVOLUT_REQUIRED_COLUMNS)
-        
+
         # Case 2: DataFrame with required columns but no data
         df_no_data = pd.DataFrame(columns=REVOLUT_REQUIRED_COLUMNS)
         with self.assertRaisesRegex(ValueError, "DataFrame contains no data"):
             validate_dataframe(df_no_data, REVOLUT_REQUIRED_COLUMNS)
-        
+
         # Case 3: DataFrame with missing required columns
         df_missing_cols = pd.DataFrame({'Type': ['CARD_PAYMENT']})
         with self.assertRaisesRegex(ValueError, "Missing required columns"):
             validate_dataframe(df_missing_cols, REVOLUT_REQUIRED_COLUMNS)
+
+
+class TestUIComponents(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
+        cls.app = QApplication.instance() or QApplication([])
+
+    def test_step_label_selection(self):
+        label = StepLabel("Step")
+        label.set_selected(True)
+        self.assertIn("background-color", label.styleSheet())
+        label.set_selected(False)
+        self.assertIn("color:#333", label.styleSheet())
+
+    def test_load_style_applies_stylesheet(self):
+        load_style(self.app)
+        self.assertTrue(self.app.styleSheet())
+
+
+class TestValidateInputFile(unittest.TestCase):
+    def test_validate_input_file_success(self):
+        with tempfile.NamedTemporaryFile(suffix='.csv') as tmp:
+            validate_input_file(tmp.name)
+
+    def test_validate_input_file_missing(self):
+        with self.assertRaises(FileNotFoundError):
+            validate_input_file('nonexistent.csv')
+
+    def test_validate_input_file_bad_ext(self):
+        with tempfile.NamedTemporaryFile(suffix='.txt') as tmp:
+            with self.assertRaises(ValueError):
+                validate_input_file(tmp.name)
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

@@ -4,12 +4,16 @@ import os
 
 # Setup YNAB API debug logging
 ynab_log_file = os.path.expanduser('~/.nbg-ynab-export/ynab_api.log')
+# Ensure the log directory exists to avoid FileNotFoundError in tests
+os.makedirs(os.path.dirname(ynab_log_file), exist_ok=True)
 # Dedicated logger for YNAB API calls
 api_logger = logging.getLogger('ynab_api')
 api_logger.setLevel(logging.DEBUG)
 # File handler for YNAB API log
 api_file_handler = logging.FileHandler(ynab_log_file, mode='a')
-api_file_handler.setFormatter(logging.Formatter('%(asctime)s %(levelname)s %(message)s'))
+api_file_handler.setFormatter(
+    logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+)
 api_logger.addHandler(api_file_handler)
 
 # Root logger for general application logging
@@ -45,9 +49,19 @@ class YnabClient:
         resp.raise_for_status()
         return resp.json()['data']['accounts']
 
-    def get_transactions(self, budget_id: str, account_id: str, count: int = None, page: int = None, since_date: str = None) -> list:
+    def get_transactions(
+        self,
+        budget_id: str,
+        account_id: str,
+        count: int = None,
+        page: int = None,
+        since_date: str = None,
+    ) -> list:
         """Fetch transactions; supports optional count and page parameters."""
-        url = f"{self.BASE_URL}/budgets/{budget_id}/accounts/{account_id}/transactions"
+        url = (
+            f"{self.BASE_URL}/budgets/{budget_id}/accounts/"
+            f"{account_id}/transactions"
+        )
         params = {}
         if count is not None:
             params['count'] = count
@@ -55,11 +69,15 @@ class YnabClient:
             params['page'] = page
         if since_date is not None:
             params['since_date'] = since_date
-        resp = requests.get(url, headers=self.headers, params=params, timeout=15)
+        resp = requests.get(
+            url,
+            headers=self.headers,
+            params=params,
+            timeout=15,
+        )
         self._log_api('GET', url, resp, params)
         resp.raise_for_status()
         return resp.json()['data']['transactions']
-
 
     def get_account_name(self, budget_id: str, account_id: str) -> str:
         # Use cached accounts list if available
@@ -75,7 +93,12 @@ class YnabClient:
         """Upload new transactions to a budget."""
         url = f"{self.BASE_URL}/budgets/{budget_id}/transactions"
         data = {"transactions": transactions}
-        resp = requests.post(url, headers={**self.headers, "Content-Type": "application/json"}, json=data, timeout=20)
+        resp = requests.post(
+            url,
+            headers={**self.headers, "Content-Type": "application/json"},
+            json=data,
+            timeout=20,
+        )
         self._log_api('POST', url, resp, json=data)
         resp.raise_for_status()
         return resp.json()
