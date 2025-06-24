@@ -3,3 +3,5 @@ flake8
 pytest
 openpyxl
 PyQt5>=5.15
+requests
+cryptography
