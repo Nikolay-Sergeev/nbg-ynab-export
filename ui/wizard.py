@@ -61,20 +61,16 @@ class StepLabel(QLabel):
 
     def set_selected(self, selected: bool):
         if selected:
-            if sys.platform.startswith('darwin'):
-                # Use standard macOS accent color
-                self.setStyleSheet(
-                    "background-color:#007AFF;color:white;border-radius:6px;"
-                    "padding:8px 16px;font-size:13pt;"
-                )
-            else:
-                self.setStyleSheet(
-                    "background-color:#007AFF;color:white;border-radius:20px;"
-                    "padding:8px 16px;font-size:13pt;"
-                )
+            # Use more prominent styling for selected step
+            self.setStyleSheet(
+                "background-color:#0066cc;color:white;border-radius:6px;"
+                "padding:8px 16px;font-size:13pt;font-weight:bold;"
+                "margin:2px 0px;border-left:4px solid #0066cc;"
+            )
         else:
             self.setStyleSheet(
-                "color:#333;padding:8px 16px;font-size:13pt;"
+                "color:#555;padding:8px 16px;font-size:13pt;margin:2px 0px;"
+                "border-left:4px solid transparent;"
             )
 
 class MacOSProxyStyle(QProxyStyle):
@@ -175,13 +171,9 @@ class SidebarWizardWindow(QMainWindow):
         side_widget = QWidget()
         side_widget.setLayout(sidebar_layout)
         
-        # Use macOS-style sidebar width and color
-        if sys.platform.startswith('darwin'):
-            side_widget.setFixedWidth(230)
-            side_widget.setStyleSheet("background:#F5F5F7;")
-        else:
-            side_widget.setFixedWidth(220)
-            side_widget.setStyleSheet("background:#F7F7F7;")
+        # Use consistent styling for sidebar - narrower to save space
+        side_widget.setFixedWidth(180)
+        side_widget.setStyleSheet("background:#F0F0F0;border-right:1px solid #E0E0E0;")
             
         main_layout.addWidget(side_widget)
 

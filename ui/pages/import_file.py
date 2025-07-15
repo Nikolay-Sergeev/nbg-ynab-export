@@ -133,7 +133,7 @@ class ImportFilePage(QWizardPage):
         # File type icon
         self.file_icon_label = QLabel()
         self.file_icon_label.setObjectName("file-icon-label")
-        self.file_icon_label.setFixedSize(20, 20)
+        self.file_icon_label.setFixedSize(24, 24)
         file_display_layout.addWidget(self.file_icon_label)
         self.file_name_label = QLabel("")
         self.file_name_label.setObjectName("file-name-label")
@@ -207,6 +207,10 @@ class ImportFilePage(QWizardPage):
         self.setMaximumSize(16777215, 16777215)
 
     def browse_file(self):
+        # Don't show dialog if we already have a file
+        if hasattr(self, 'file_path') and self.file_path:
+            return
+            
         folder = self.last_folder if self.last_folder else os.path.expanduser("~")
         file_path, _ = QFileDialog.getOpenFileName(self, "Select Export File", folder, "CSV/Excel Files (*.csv *.xlsx *.xls)")
         if file_path:
@@ -307,7 +311,7 @@ class ImportFilePage(QWizardPage):
         else:
             icon_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../resources/excel_icon.png'))
         if os.path.exists(icon_path):
-            self.file_icon_label.setPixmap(QPixmap(icon_path).scaled(20, 20, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            self.file_icon_label.setPixmap(QPixmap(icon_path).scaled(24, 24, Qt.KeepAspectRatio, Qt.SmoothTransformation))
         else:
             self.file_icon_label.clear()
         # Validation: check if file can be opened and has at least 1 data row

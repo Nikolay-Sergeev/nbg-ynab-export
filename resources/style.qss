@@ -70,7 +70,10 @@ QPushButton#browse-btn:disabled {
 QLabel#file-name-label {
     font-size: 15px;
     color: #222;
-    padding-left: 6px;
+    padding: 6px;
+    background: #f2f9fe;
+    border: 1px solid #d0e6fd;
+    border-radius: 4px;
 }
 QPushButton#clear-btn {
     background: transparent;
@@ -105,9 +108,10 @@ QPushButton#continue-btn, QPushButton#exit-btn, QPushButton#back-btn {
     border: none;
 }
 QPushButton#exit-btn {
-    background: transparent;
+    background: #f0f0f0;
     color: #333;
-    border: none;
+    border: 1px solid #cccccc;
+    border-radius: 6px;
 }
 QPushButton#continue-btn {
     background: #0066cc;
