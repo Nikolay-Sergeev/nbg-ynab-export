@@ -13,13 +13,27 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtGui import QIcon, QPixmap, QPainter, QFont
 from PyQt5.QtCore import Qt
 from PyQt5.QtSvg import QSvgRenderer
-from .controller import WizardController
-from .pages.import_file import ImportFilePage
-from .pages.auth import YNABAuthPage
-from .pages.account_select import AccountSelectionPage
-from .pages.transactions import TransactionsPage
-from .pages.review_upload import ReviewAndUploadPage
-from .pages.finish_page import FinishPage
+
+# Fix relative imports when running directly
+if __name__ == "__main__":
+    # Add parent directory to path so imports work
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from ui.controller import WizardController
+    from ui.pages.import_file import ImportFilePage
+    from ui.pages.auth import YNABAuthPage
+    from ui.pages.account_select import AccountSelectionPage
+    from ui.pages.transactions import TransactionsPage
+    from ui.pages.review_upload import ReviewAndUploadPage
+    from ui.pages.finish_page import FinishPage
+else:
+    # Normal relative imports when imported as a module
+    from .controller import WizardController
+    from .pages.import_file import ImportFilePage
+    from .pages.auth import YNABAuthPage
+    from .pages.account_select import AccountSelectionPage
+    from .pages.transactions import TransactionsPage
+    from .pages.review_upload import ReviewAndUploadPage
+    from .pages.finish_page import FinishPage
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 STYLE_PATH = os.path.join(PROJECT_ROOT, "resources", "style.qss")
