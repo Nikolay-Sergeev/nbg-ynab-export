@@ -22,18 +22,8 @@ class FinishPage(QWizardPage):
         card_layout.addWidget(self.label)
         card_layout.addStretch(1)
 
-        # Navigation buttons now handled by main window
-        # Only keep a custom exit button for the finish page
-        btn_layout = QHBoxLayout()
-        btn_layout.addStretch(1)
-        exit_text = "Quit" if sys.platform.startswith('darwin') else "Exit"
-        self.exit_btn = QPushButton(exit_text)
-        self.exit_btn.setObjectName("exit-btn")
-        self.exit_btn.setFixedWidth(100)
-        self.exit_btn.setFixedHeight(40)
-        self.exit_btn.clicked.connect(lambda: self.window().close())
-        btn_layout.addWidget(self.exit_btn)
-        card_layout.addLayout(btn_layout)
+        # Navigation buttons are completely handled by main window
+        # No local buttons to avoid duplication
 
         main_layout = QVBoxLayout()
         main_layout.setContentsMargins(0, 0, 0, 0)
