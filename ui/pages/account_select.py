@@ -1,14 +1,17 @@
 from PyQt5.QtWidgets import (
-    QWizardPage, QWizard, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QPushButton, QFrame, QSizePolicy,
-    QWidget, QApplication
+    QVBoxLayout, QLabel, QComboBox, QFrame, QSizePolicy, QWidget
 )
-from PyQt5.QtCore import Qt, QEvent
+from PyQt5.QtCore import Qt, pyqtSignal
+
+
 
 class AccountSelectionPage(QWidget):
+    # Class-level signal definition
+    completeChanged = pyqtSignal()
+    
     def __init__(self, controller):
         super().__init__()
         self.controller = controller
-        self.setTitle("")
 
         self.budgets = []
         self.accounts = []
@@ -97,7 +100,7 @@ class AccountSelectionPage(QWidget):
             self.account_combo.currentIndexChanged.disconnect()
             self.controller.budgetsFetched.disconnect(self.on_budgets_fetched)
             self.controller.accountsFetched.disconnect(self.on_accounts_fetched)
-        except:
+        except Exception:
             pass  # Ignore if not connected
             
         # Connect signals
@@ -249,7 +252,7 @@ class AccountSelectionPage(QWidget):
             self.helper_label.setText("")
 
     def validate_fields(self):
-        valid = bool(self.selected_budget_id and self.selected_account_id)
+        # Check if both budget and account are selected
         self.completeChanged.emit()  # Signal main window to update button states
 
     def isComplete(self):

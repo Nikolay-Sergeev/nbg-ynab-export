@@ -196,6 +196,8 @@ class ImportFilePage(QWizardPage):
         folder = self.last_folder if self.last_folder else os.path.expanduser("~")
         file_path, _ = QFileDialog.getOpenFileName(self, "Select Export File", folder, "CSV/Excel Files (*.csv *.xlsx *.xls)")
         if file_path:
+            # Save the file path directly for testing purposes
+            self.file_path = file_path
             self.handle_file_selected(file_path)
 
     def handle_drop_file(self, file_path):

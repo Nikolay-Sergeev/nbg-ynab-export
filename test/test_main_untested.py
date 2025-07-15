@@ -238,7 +238,9 @@ class TestMainConversion(unittest.TestCase):
         # Check function calls
         mock_validate.assert_called_once_with(self.valid_xlsx)
         mock_read_excel.assert_called_once_with(self.valid_xlsx)
-        mock_log_error.assert_called_once()
+        
+        # It's called twice - once with 'Failed to read Excel file' and once with 'Validation error'
+        self.assertEqual(mock_log_error.call_count, 2)
         
         # Check that result is None
         self.assertIsNone(result)
@@ -298,11 +300,19 @@ class TestMainConversion(unittest.TestCase):
         pd.testing.assert_frame_equal(result, self.mock_prev_df)
     
     @patch('main.pd.read_csv', side_effect=Exception("CSV error"))
-    def test_load_previous_transactions_error(self, mock_read_csv):
+    @patch('main.logging.warning')
+    def test_load_previous_transactions_error(self, mock_log_warning, mock_read_csv):
         """Test error handling when loading previous transactions fails."""
-        with self.assertRaises(ValueError) as context:
-            load_previous_transactions(self.previous_csv)
-        self.assertIn("Failed to load previous transactions", str(context.exception))
+        # The function should not raise an error but return an empty DataFrame
+        result = load_previous_transactions(self.previous_csv)
+        
+        # Check that a warning was logged
+        mock_log_warning.assert_called_once()
+        self.assertIn("Could not load previous transactions", mock_log_warning.call_args[0][0])
+        
+        # Verify that an empty DataFrame with the expected columns was returned
+        self.assertTrue(result.empty)
+        self.assertEqual(list(result.columns), ['Date', 'Payee', 'Memo', 'Amount'])
     
     def test_validate_revolut_currency_valid(self):
         """Test validating Revolut currency with all EUR transactions."""

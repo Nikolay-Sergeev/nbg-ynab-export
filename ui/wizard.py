@@ -35,7 +35,7 @@ else:
     from .controller import WizardController
     from .pages.import_file import ImportFilePage
     from .pages.auth import YNABAuthPage
-    from .pages.account_select_new import AccountSelectionPage  # Using the new implementation
+    from .pages.account_select import AccountSelectionPage  # Using the standard implementation
     from .pages.transactions import TransactionsPage
     from .pages.review_upload import ReviewAndUploadPage
     from .pages.finish_page import FinishPage
