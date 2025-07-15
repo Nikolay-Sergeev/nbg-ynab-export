@@ -141,7 +141,7 @@ class SidebarWizardWindow(QMainWindow):
         central = QWidget()
         main_layout = QHBoxLayout(central)
         
-        # Remove outer padding to eliminate white space outside the window
+        # Remove all padding to eliminate white space
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
 
@@ -158,10 +158,10 @@ class SidebarWizardWindow(QMainWindow):
         
         # Use macOS-style margins and spacing
         if sys.platform.startswith('darwin'):
-            sidebar_layout.setContentsMargins(18, 18, 18, 18)
+            sidebar_layout.setContentsMargins(10, 18, 0, 18)
             sidebar_layout.setSpacing(10)
         else:
-            sidebar_layout.setContentsMargins(16, 16, 16, 16)
+            sidebar_layout.setContentsMargins(10, 16, 0, 16)
             sidebar_layout.setSpacing(12)
             
         for t in step_titles:
@@ -217,7 +217,12 @@ class SidebarWizardWindow(QMainWindow):
 
         self.wizard.currentIdChanged.connect(self.update_sidebar)
 
-        main_layout.addWidget(self.wizard, 1)
+        # Add wizard with stretch factor 1 to make it fill the available space
+        wizard_container = QWidget()
+        wizard_container_layout = QVBoxLayout(wizard_container)
+        wizard_container_layout.setContentsMargins(0, 0, 0, 0)
+        wizard_container_layout.addWidget(self.wizard)
+        main_layout.addWidget(wizard_container, 1)
         self.setCentralWidget(central)
         self.update_sidebar(self.wizard.currentId())
 
