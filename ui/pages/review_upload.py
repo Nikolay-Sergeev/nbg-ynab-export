@@ -180,7 +180,10 @@ class ReviewAndUploadPage(QWizardPage):
         header.setSectionResizeMode(skip_col, QHeaderView.ResizeToContents)
         self.table.resizeRowsToContents()
         # Enable Continue button
-        self.continue_btn.setEnabled(True)
+        # Button is now handled by the main window
+        parent = self.window()
+        if hasattr(parent, "next_button"):
+            parent.next_button.setEnabled(True)
 
     def on_skip_item_changed(self, item):
         # Track Skip column changes
