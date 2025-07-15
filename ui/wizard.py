@@ -174,7 +174,8 @@ class SidebarWizardWindow(QMainWindow):
         
         # Use consistent styling for sidebar - narrower to save space
         side_widget.setFixedWidth(180)
-        side_widget.setStyleSheet("background:#F0F0F0;")
+        side_widget.setLayoutDirection(Qt.RightToLeft)
+        side_widget.setStyleSheet("background:white;")
             
         main_layout.addWidget(side_widget)
 
