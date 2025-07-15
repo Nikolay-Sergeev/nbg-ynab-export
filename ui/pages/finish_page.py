@@ -2,8 +2,9 @@ from PyQt5.QtWidgets import QWizardPage, QVBoxLayout, QLabel, QWizard, QHBoxLayo
 import sys
 
 class FinishPage(QWizardPage):
-    def __init__(self, parent=None):
+    def __init__(self, controller=None, parent=None):
         super().__init__(parent)
+        self.controller = controller
         self.setTitle("Step 6: Import Complete")
         self.setMinimumSize(0, 0)
         self.setMaximumSize(16777215, 16777215)

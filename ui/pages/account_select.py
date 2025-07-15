@@ -1,5 +1,5 @@
 from PyQt5.QtWidgets import (
-    QVBoxLayout, QLabel, QComboBox, QFrame, QSizePolicy, QWidget
+    QVBoxLayout, QLabel, QComboBox, QFrame, QSizePolicy, QWidget, QWizard
 )
 from PyQt5.QtCore import Qt, pyqtSignal
 
