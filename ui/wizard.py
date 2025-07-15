@@ -69,7 +69,7 @@ class StepLabel(QLabel):
             )
         else:
             self.setStyleSheet(
-                "color:#555;padding:8px 16px;font-size:13pt;margin:2px 0px;"
+                "color:#333;padding:8px 16px;font-size:13pt;margin:2px 0px;"
                 "border-left:4px solid transparent;"
             )
 
@@ -133,16 +133,17 @@ class SidebarWizardWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("NBG/Revolut to YNAB Wizard")
         
-        # Use standard dimensions for all platforms
-        fixed_w, fixed_h = 900, 600
+        # Use wider dimensions to prevent truncation
+        fixed_w, fixed_h = 960, 600
             
         self.setFixedSize(fixed_w, fixed_h)
 
         central = QWidget()
         main_layout = QHBoxLayout(central)
         
-        # Use standard margins for all platforms
+        # Use adequate margins with more space on sides
         main_layout.setContentsMargins(16, 16, 16, 16)
+        main_layout.setSpacing(10)
 
         step_titles = [
             "Import File",
