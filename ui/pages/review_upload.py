@@ -91,22 +91,7 @@ class ReviewAndUploadPage(QWizardPage):
         card_layout.addWidget(self.table)
         card_layout.addStretch(1)
 
-        # Navigation Buttons (Back/Continue, same size, Continue on right)
-        nav_layout = QHBoxLayout()
-        self.back_btn = QPushButton("Back")
-        self.back_btn.setObjectName("back-btn")
-        self.back_btn.setFixedWidth(100)
-        self.back_btn.setFixedHeight(40)
-        self.back_btn.clicked.connect(lambda: self.wizard().back())
-        nav_layout.addWidget(self.back_btn)
-        nav_layout.addStretch(1)
-        self.continue_btn = QPushButton("Continue")
-        self.continue_btn.setObjectName("continue-btn")
-        self.continue_btn.setFixedWidth(100)
-        self.continue_btn.setFixedHeight(40)
-        self.continue_btn.clicked.connect(self.on_continue)
-        nav_layout.addWidget(self.continue_btn)
-        card_layout.addLayout(nav_layout)
+        # Navigation buttons now handled by main window
 
         main_layout = QVBoxLayout()
         main_layout.setContentsMargins(0, 0, 0, 0)
@@ -127,8 +112,24 @@ class ReviewAndUploadPage(QWizardPage):
         if not self.controller.ynab:
             QMessageBox.critical(self, "Error", "YNAB client not initialized. Please re-enter your token.")
             return
-        file_path = self.wizard().page(0).file_path
-        budget_id, account_id = self.wizard().page(2).get_selected_ids()
+        # Get file path from import page
+        parent = self.window()
+        if not hasattr(parent, "pages_stack"):
+            print("[ReviewUploadPage] Cannot access pages stack")
+            return
+            
+        import_page = parent.pages_stack.widget(0)
+        if not hasattr(import_page, "file_path"):
+            print("[ReviewUploadPage] Cannot access file path from import page")
+            return
+        file_path = import_page.file_path
+        
+        # Get selected IDs from account selection page
+        account_page = parent.pages_stack.widget(2)
+        if not hasattr(account_page, "get_selected_ids"):
+            print("[ReviewUploadPage] Cannot access account selection method")
+            return
+        budget_id, account_id = account_page.get_selected_ids()
         self.skipped_rows = set()
         if file_path and budget_id and account_id:
             try:
@@ -221,47 +222,68 @@ class ReviewAndUploadPage(QWizardPage):
                 else:
                     print("[DEBUG] No valid transactions after formatting. Advancing to finish page.")
                     QMessageBox.information(self, "No Valid Transactions", "No valid transactions to upload after formatting.")
-                    # Set stats for FinishPage and advance wizard
-                    wizard = self.wizard()
-                    if not hasattr(wizard, 'upload_stats'):
-                        wizard.upload_stats = {}
-                    wizard.upload_stats['uploaded'] = 0
+                    # Set stats for FinishPage and advance to next page
+                    parent = self.window()
+                    if not hasattr(parent, 'upload_stats'):
+                        parent.upload_stats = {}
+                    parent.upload_stats['uploaded'] = 0
+                    
                     # Save account name
-                    acct_page = wizard.page(2)
-                    if hasattr(acct_page, 'account_combo'):
+                    acct_page = parent.pages_stack.widget(2) if hasattr(parent, 'pages_stack') else None
+                    if acct_page and hasattr(acct_page, 'account_combo'):
                         idx = acct_page.account_combo.currentIndex()
                         acct_name = acct_page.account_combo.itemText(idx)
-                        wizard.uploaded_account_name = acct_name
+                        parent.uploaded_account_name = acct_name
                     else:
-                        wizard.uploaded_account_name = None
-                    self.continue_btn.setEnabled(True)
-                    self.wizard().next()
+                        parent.uploaded_account_name = None
+                        
+                    # Re-enable navigation and go to next page
+                    if hasattr(parent, "next_button"):
+                        parent.next_button.setEnabled(True)
+                    
+                    if hasattr(parent, "go_to_page") and hasattr(parent, "pages_stack"):
+                        current_index = parent.pages_stack.indexOf(self)
+                        if current_index >= 0:
+                            parent.go_to_page(current_index + 1)
             except Exception as e:
                 print(f"[DEBUG] Exception in upload_transactions: {e}")
                 QMessageBox.critical(self, "Error", f"Error uploading transactions: {str(e)}")
         else:
             print("[DEBUG] No budget/account selected or nothing to upload. Advancing to finish page.")
-            # Set stats for FinishPage and advance wizard
-            wizard = self.wizard()
-            if not hasattr(wizard, 'upload_stats'):
-                wizard.upload_stats = {}
-            wizard.upload_stats['uploaded'] = 0
-            acct_page = wizard.page(2)
-            if hasattr(acct_page, 'account_combo'):
+            # Set stats for FinishPage and advance to next page
+            parent = self.window()
+            if not hasattr(parent, 'upload_stats'):
+                parent.upload_stats = {}
+            parent.upload_stats['uploaded'] = 0
+            
+            # Save account name
+            acct_page = parent.pages_stack.widget(2) if hasattr(parent, 'pages_stack') else None
+            if acct_page and hasattr(acct_page, 'account_combo'):
                 idx = acct_page.account_combo.currentIndex()
                 acct_name = acct_page.account_combo.itemText(idx)
-                wizard.uploaded_account_name = acct_name
+                parent.uploaded_account_name = acct_name
             else:
-                wizard.uploaded_account_name = None
-            self.continue_btn.setEnabled(True)
-            self.wizard().next()
+                parent.uploaded_account_name = None
+                
+            # Re-enable navigation and go to next page
+            if hasattr(parent, "next_button"):
+                parent.next_button.setEnabled(True)
+            
+            if hasattr(parent, "go_to_page") and hasattr(parent, "pages_stack"):
+                current_index = parent.pages_stack.indexOf(self)
+                if current_index >= 0:
+                    parent.go_to_page(current_index + 1)
 
-    def on_continue(self):
-        print("[DEBUG] Continue button clicked on Step 5")
-        # Disable continue button to avoid double submission
-        self.continue_btn.setEnabled(False)
-        print(f"[DEBUG] Records: {len(getattr(self, 'records', []))}, Duplicates: {len(getattr(self, 'dup_idx', []))}, Skipped: {len(getattr(self, 'skipped_rows', []))}")
+    def validate_and_proceed(self):
+        print("[ReviewUploadPage] validate_and_proceed called")
+        # Disable navigation to prevent double submission
+        parent = self.window()
+        if hasattr(parent, "next_button"):
+            parent.next_button.setEnabled(False)
+            
+        print(f"[ReviewUploadPage] Records: {len(getattr(self, 'records', []))}, Duplicates: {len(getattr(self, 'dup_idx', []))}, Skipped: {len(getattr(self, 'skipped_rows', []))}")
         self.upload_transactions()
+        return True
 
     def on_upload_finished(self, count):
         self.success_icon.show()
@@ -269,21 +291,29 @@ class ReviewAndUploadPage(QWizardPage):
         self.info_icon.hide()
         self.table.setRowCount(0)
         self.info_label.setText(f"Upload complete. {count} transactions uploaded.")
-        # Save upload stats and account name to wizard for FinishPage
-        wizard = self.wizard()
-        if not hasattr(wizard, 'upload_stats'):
-            wizard.upload_stats = {}
-        wizard.upload_stats['uploaded'] = count
+        # Save upload stats and account name to parent window for FinishPage
+        parent = self.window()
+        if not hasattr(parent, 'upload_stats'):
+            parent.upload_stats = {}
+        parent.upload_stats['uploaded'] = count
+        
         # Save account name
-        acct_page = wizard.page(2)
-        if hasattr(acct_page, 'account_combo'):
+        acct_page = parent.pages_stack.widget(2) if hasattr(parent, 'pages_stack') else None
+        if acct_page and hasattr(acct_page, 'account_combo'):
             idx = acct_page.account_combo.currentIndex()
             acct_name = acct_page.account_combo.itemText(idx)
-            wizard.uploaded_account_name = acct_name
+            parent.uploaded_account_name = acct_name
         else:
-            wizard.uploaded_account_name = None
-        self.continue_btn.setEnabled(True)
-        self.wizard().next()
+            parent.uploaded_account_name = None
+            
+        # Re-enable navigation and go to next page
+        if hasattr(parent, "next_button"):
+            parent.next_button.setEnabled(True)
+        
+        if hasattr(parent, "go_to_page") and hasattr(parent, "pages_stack"):
+            current_index = parent.pages_stack.indexOf(self)
+            if current_index >= 0:
+                parent.go_to_page(current_index + 1)
 
     def on_error(self, msg):
         self.success_icon.hide()

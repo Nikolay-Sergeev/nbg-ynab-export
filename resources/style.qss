@@ -1,20 +1,15 @@
 QWizard, QStackedWidget {
     background: #F7F8FA;
-    font-family: system-ui, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
     border: none;
     margin: 0;
     padding: 0;
 }
 
-/* Target QWizard's internal frames and layouts */
+/* Target QWizard's internal frames */
 QWizard > QWidget > QFrame {
     margin: 0;
     border: none;
-    padding: 0;
-}
-
-QWizard > QWidget > QFrame > QVBoxLayout {
-    margin: 0;
     padding: 0;
 }
 
@@ -30,17 +25,20 @@ QWizard QLayoutItem {
 }
 
 #macOS QWidget {
-    font-family: system-ui, "Helvetica Neue";
+    font-family: -apple-system, "Helvetica Neue", sans-serif;
 }
-QWizardPage {
+/* All pages */
+QWizardPage, QWidget#import-file-page, QWidget#auth-page, QWidget#account-select-page, 
+QWidget#transactions-page, QWidget#review-page, QWidget#finish-page {
     background: transparent;
     border-radius: 0;
     padding: 12px 12px 12px 12px;
     margin: 0;
 }
+/* Card panel styling for all pages */
 #card-panel, .card-panel, QFrame#card-panel {
     background: #fff;
-    border-radius: 0;
+    border-radius: 8px;
     border: none;
     padding: 0;
     margin: 0;
@@ -110,7 +108,7 @@ QPushButton#clear-btn:hover {
     color: #b71c1c;
 }
 
-/* Error label */
+/* Primary Error label */
 #error-label {
     color: #d32f2f;
     font-size: 12px;
@@ -120,10 +118,10 @@ QPushButton#clear-btn:hover {
 
 /* Action buttons row */
 QPushButton#continue-btn, QPushButton#exit-btn, QPushButton#back-btn {
-    min-width: 100px;
-    max-width: 100px;
-    min-height: 36px;
-    max-height: 36px;
+    min-width: 120px;
+    max-width: 120px;
+    min-height: 40px;
+    max-height: 40px;
     font-size: 15px;
     font-weight: 600;
     border-radius: 8px;
@@ -134,20 +132,36 @@ QPushButton#exit-btn {
     background: #0066cc;
     color: white;
     border: none;
-    border-radius: 6px;
+    border-radius: 8px;
     font-weight: bold;
+    font-size: 15px;
 }
 QPushButton#continue-btn {
     background: #0066cc;
     color: #fff;
-    border-radius: 6px;
+    border-radius: 8px;
     padding: 8px 16px;
     font-weight: bold;
     border: none;
+    font-size: 15px;
 }
 QPushButton#exit-btn:disabled, QPushButton#continue-btn:disabled, QPushButton#back-btn:disabled {
     background: #e0e0e0;
     color: #A0A3A6;
+}
+
+/* Navigation container */
+#nav-button-container {
+    background-color: #F7F8FA;
+    border-top: 1px solid #E1E3E5;
+    min-height: 60px;
+    padding: 10px 20px;
+}
+
+#nav-separator {
+    height: 1px;
+    background-color: #E1E3E5;
+    border: none;
 }
 QPushButton#exit-btn:hover, QPushButton#continue-btn:hover, QPushButton#back-btn:hover {
     background: #1976d2;
@@ -210,9 +224,9 @@ QPushButton {
     background: #0066cc;
     color: #fff;
     border: none;
-    border-radius: 6px;
+    border-radius: 8px;
     padding: 10px 24px;
-    font-size: 16px;
+    font-size: 15px;
     font-weight: bold;
     margin-top: 8px;
     margin-bottom: 8px;
@@ -233,7 +247,7 @@ QLabel[objectName="helper-link"] {
 QLabel {
     color: #222;
     font-size: 15px;
-    font-family: system-ui, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
 }
 QLabel[role='title'] {
     font-size: 14pt;
@@ -315,17 +329,74 @@ QLabel[style*="font-size:14px"] {
 }
 
 /* Dropdowns */
-QComboBox#budget-combo, QComboBox#account-combo {
+QComboBox {
     min-height: 40px;
     font-size: 15px;
-    border: 1px solid #ccc;
+    border: 2px solid #0066cc;
     border-radius: 6px;
     color: #222;
-    background: #fff;
-    padding: 6px 32px 6px 12px;
-    width: 60%;
-    min-width: 240px;
-    max-width: 360px;
+    background-color: white;
+    padding: 6px 12px;
+    min-width: 280px;
+    selection-background-color: #0066cc;
+    margin: 4px 0;
+}
+
+QComboBox:hover {
+    border: 2px solid #1976d2;
+    background-color: #f0f7ff;
+}
+
+QComboBox:focus {
+    border: 3px solid #1976d2;
+    background-color: #e6f0ff;
+}
+
+QComboBox::down-arrow {
+    /* Larger, more visible triangle */
+    image: none; /* Clear any default image */
+    border: 8px solid transparent;
+    border-top: 8px solid #0066cc;
+    width: 0;
+    height: 0;
+    margin-top: 5px;
+}
+
+QComboBox::drop-down {
+    subcontrol-origin: padding;
+    subcontrol-position: center right;
+    width: 40px; /* Even wider clickable area */
+    border-left: 2px solid #0066cc;
+    border-top-right-radius: 6px;
+    border-bottom-right-radius: 6px;
+    background-color: #e6f0ff;
+    margin-right: 2px;
+}
+
+QComboBox QAbstractItemView {
+    border: 2px solid #0066cc;
+    background-color: white;
+    selection-background-color: #0066cc;
+    selection-color: white;
+    outline: none;
+    padding: 4px 0px;
+    font-size: 15px;
+}
+
+QComboBox QAbstractItemView::item {
+    min-height: 40px;  /* Taller items */
+    padding: 10px;     /* More padding */
+    border-bottom: 1px solid #e0e0e0;  /* Separator between items */
+}
+
+QComboBox QAbstractItemView::item:hover {
+    background-color: #e6f0ff;
+}
+
+QComboBox QAbstractItemView::item:selected {
+    background-color: #0066cc;
+    color: white;
+    font-weight: bold;
 }
 QComboBox#budget-combo QAbstractItemView, QComboBox#account-combo QAbstractItemView {
     font-size: 15px;
@@ -356,24 +427,23 @@ QPushButton#back-btn {
     color: #222;
     border: 1px solid #E1E3E5;
     font-weight: 500;
-    border-radius: 10px;
+    border-radius: 8px;
     padding: 10px 24px;
-    font-size: 16px;
-    min-width: 100px;
+    font-size: 15px;
+    min-width: 120px;
     min-height: 40px;
 }
+/* Continue button for pages */
 QPushButton#continue-btn {
-    background: #1976d2;
+    background: #0066cc;
     color: #fff;
     font-weight: 600;
-    border-radius: 20px;
+    border-radius: 8px;
     padding: 8px 16px;
-    font-size: 16px;
-    min-width: 100px;
+    font-size: 15px;
+    min-width: 120px;
     min-height: 40px;
-    opacity: 1;
     border: none;
-    /* box-shadow not supported in QSS */
 }
 
 /* We use the same style for all platforms now */
@@ -424,10 +494,4 @@ QPushButton#continue-btn:disabled {
     margin-bottom: 0;
 }
 
-:root {
-  --gray-0: #FFFFFF;
-  --gray-1: #F7F8FA;
-  --gray-2: #E1E3E5;
-  --gray-7: #A0A3A6;
-  --blue-500: #1976d2;
-}
+/* CSS variables not supported in QSS, using direct colors instead */

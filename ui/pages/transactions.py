@@ -82,22 +82,7 @@ class TransactionsPage(QWizardPage):
         self.refresh_btn.clicked.connect(self.on_refresh_clicked)
         card_layout.addStretch(1)
 
-        # Navigation Buttons (Back/Continue, same size, Continue on right)
-        nav_layout = QHBoxLayout()
-        self.back_btn = QPushButton("Back")
-        self.back_btn.setObjectName("back-btn")
-        self.back_btn.setFixedWidth(100)
-        self.back_btn.setFixedHeight(40)
-        self.back_btn.clicked.connect(lambda: self.wizard().back())
-        nav_layout.addWidget(self.back_btn)
-        nav_layout.addStretch(1)
-        self.continue_btn = QPushButton("Continue")
-        self.continue_btn.setObjectName("continue-btn")
-        self.continue_btn.setFixedWidth(100)
-        self.continue_btn.setFixedHeight(40)
-        self.continue_btn.clicked.connect(self.on_continue)
-        nav_layout.addWidget(self.continue_btn)
-        card_layout.addLayout(nav_layout)
+        # Navigation buttons now handled by main window
 
         main_layout = QVBoxLayout()
         main_layout.setContentsMargins(0, 0, 0, 0)
@@ -122,7 +107,18 @@ class TransactionsPage(QWizardPage):
         if not self.controller.ynab:
             QMessageBox.critical(self, "Error", "YNAB client not initialized. Please re-enter your token.")
             return
-        budget_id, account_id = self.wizard().page(2).get_selected_ids()
+        # Get selected IDs from the account selection page
+        parent = self.window()
+        if hasattr(parent, "pages_stack") and parent.pages_stack.count() > 2:
+            account_page = parent.pages_stack.widget(2)
+            if hasattr(account_page, "get_selected_ids"):
+                budget_id, account_id = account_page.get_selected_ids()
+            else:
+                print("[TransactionsPage] Cannot get selected IDs, account page missing method")
+                return
+        else:
+            print("[TransactionsPage] Cannot get selected IDs, pages_stack not found")
+            return
         if budget_id and account_id:
             # Use cache if possible
             if self._cache and self._cache_ids == (budget_id, account_id):
@@ -143,7 +139,18 @@ class TransactionsPage(QWizardPage):
         try:
             self.spinner.hide()
             # Cache for session
-            budget_id, account_id = self.wizard().page(2).get_selected_ids()
+            # Get selected IDs from the account selection page
+        parent = self.window()
+        if hasattr(parent, "pages_stack") and parent.pages_stack.count() > 2:
+            account_page = parent.pages_stack.widget(2)
+            if hasattr(account_page, "get_selected_ids"):
+                budget_id, account_id = account_page.get_selected_ids()
+            else:
+                print("[TransactionsPage] Cannot get selected IDs, account page missing method")
+                return
+        else:
+            print("[TransactionsPage] Cannot get selected IDs, pages_stack not found")
+            return
             self._cache = txns
             self._cache_ids = (budget_id, account_id)
             # Only show last 5, sorted by date desc if possible
@@ -207,8 +214,19 @@ class TransactionsPage(QWizardPage):
         self.spinner.show()
         self.fetch_transactions()
 
-    def on_continue(self):
-        self.wizard().next()
+    def validate_and_proceed(self):
+        """Validate page and proceed to next step if valid"""
+        print("[TransactionsPage] validate_and_proceed called")
+        # Navigation now handled by parent window
+        parent = self.window()
+        if hasattr(parent, "go_to_page") and hasattr(parent, "pages_stack"):
+            current_index = parent.pages_stack.indexOf(self)
+            if current_index >= 0:
+                parent.go_to_page(current_index + 1)
+                return True
+                
+        print("[TransactionsPage] No navigation method found")
+        return False
 
     def isComplete(self):
         # Always allow navigation

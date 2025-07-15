@@ -26,7 +26,7 @@ if __name__ == "__main__":
     from ui.controller import WizardController
     from ui.pages.import_file import ImportFilePage
     from ui.pages.auth import YNABAuthPage
-    from ui.pages.account_select import AccountSelectionPage
+    from ui.pages.account_select_simple import AccountSelectionPage  # Using the simplified implementation
     from ui.pages.transactions import TransactionsPage
     from ui.pages.review_upload import ReviewAndUploadPage
     from ui.pages.finish_page import FinishPage
@@ -35,7 +35,7 @@ else:
     from .controller import WizardController
     from .pages.import_file import ImportFilePage
     from .pages.auth import YNABAuthPage
-    from .pages.account_select import AccountSelectionPage
+    from .pages.account_select_new import AccountSelectionPage  # Using the new implementation
     from .pages.transactions import TransactionsPage
     from .pages.review_upload import ReviewAndUploadPage
     from .pages.finish_page import FinishPage
@@ -59,7 +59,7 @@ class StepLabel(QLabel):
         if sys.platform.startswith('darwin'):
             self.setFont(QFont(".AppleSystemUIFont", 13))
         else:
-            self.setFont(QFont("San Francisco", 13))
+            self.setFont(QFont("Segoe UI", 13)) # Replace San Francisco with Segoe UI
             
         # Store index for navigation
         self.step_index = -1
@@ -209,6 +209,7 @@ class SidebarWizardWindow(QMainWindow):
         page_container = QWidget()
         page_container_layout = QVBoxLayout(page_container)
         page_container_layout.setContentsMargins(0, 0, 0, 0)  # No margins
+        page_container_layout.setSpacing(0)  # No spacing between elements
         
         # Create stacked widget for pages
         self.pages_stack = QStackedWidget()
@@ -216,12 +217,15 @@ class SidebarWizardWindow(QMainWindow):
         
         # Create navigation buttons
         nav_button_container = QWidget()
+        nav_button_container.setObjectName("nav-button-container")
+        nav_button_container.setMinimumHeight(60) # Ensure consistent height
         nav_button_layout = QHBoxLayout(nav_button_container)
+        nav_button_layout.setContentsMargins(20, 10, 20, 10)  # Add some padding
         
         # Back button
         self.back_button = QPushButton("Back")
         self.back_button.setObjectName("back-btn")
-        self.back_button.setFixedWidth(100)
+        self.back_button.setFixedWidth(120)
         self.back_button.setFixedHeight(40)
         self.back_button.clicked.connect(self.go_back)
         nav_button_layout.addWidget(self.back_button)
@@ -232,10 +236,18 @@ class SidebarWizardWindow(QMainWindow):
         # Next/Continue button
         self.next_button = QPushButton("Continue")
         self.next_button.setObjectName("continue-btn")
-        self.next_button.setFixedWidth(100)
+        self.next_button.setFixedWidth(120)
         self.next_button.setFixedHeight(40)
         self.next_button.clicked.connect(self.go_forward)
         nav_button_layout.addWidget(self.next_button)
+        
+        # Add a separator line above buttons
+        separator = QFrame()
+        separator.setFrameShape(QFrame.HLine)
+        separator.setFrameShadow(QFrame.Sunken)
+        separator.setObjectName("nav-separator")
+        separator.setStyleSheet("background-color: #E1E3E5; max-height: 1px;")
+        page_container_layout.addWidget(separator)
         
         # Add buttons to page container layout
         page_container_layout.addWidget(nav_button_container)
@@ -258,6 +270,25 @@ class SidebarWizardWindow(QMainWindow):
         self.pages_stack.addWidget(self.transactions_page)
         self.pages_stack.addWidget(self.review_page)
         self.pages_stack.addWidget(self.finish_page)
+        
+        # Connect page signals - ensure all pages emit completeChanged signal
+        # Create an empty signal handler for pages that might not have completeChanged yet
+        for i in range(self.pages_stack.count()):
+            page = self.pages_stack.widget(i)
+            try:
+                page.completeChanged.connect(self.update_nav_buttons)
+                print(f"[SidebarWizardWindow] Connected completeChanged for {type(page).__name__}")
+            except (AttributeError, TypeError) as e:
+                print(f"[SidebarWizardWindow] Could not connect completeChanged for {type(page).__name__}: {e}")
+        
+        # Add extra safety to connect specific pages we know should have the signal
+        for page in [self.import_page, self.auth_page, self.account_page, 
+                    self.transactions_page, self.review_page, self.finish_page]:
+            try:
+                if not page.receivers(page.completeChanged):
+                    page.completeChanged.connect(self.update_nav_buttons)
+            except (AttributeError, TypeError):
+                pass
         
         # Add content widget to main layout
         main_layout.addWidget(content_widget, 1)  # Stretch factor of 1
@@ -302,19 +333,60 @@ class SidebarWizardWindow(QMainWindow):
             # Get current page
             page = self.pages_stack.currentWidget()
             
+            # Check if page is complete before proceeding
+            if hasattr(page, 'isComplete') and not page.isComplete():
+                print(f"[SidebarWizardWindow] Page {current} is not complete, cannot proceed")
+                return
+            
             # Check if page has a validate_and_proceed method
             if hasattr(page, 'validate_and_proceed'):
-                page.validate_and_proceed()
+                print(f"[SidebarWizardWindow] Using validate_and_proceed for page {current}")
+                result = page.validate_and_proceed()
+                if not result:
+                    print(f"[SidebarWizardWindow] validate_and_proceed returned False for page {current}")
             else:
                 # If no validation needed, proceed to next page
+                print(f"[SidebarWizardWindow] No validate_and_proceed method for page {current}, proceeding")
                 self.go_to_page(current + 1)
+        elif current == self.pages_stack.count() - 1:
+            # On the last page, check if we should close the app
+            page = self.pages_stack.currentWidget()
+            if hasattr(page, 'validate_and_proceed'):
+                print(f"[SidebarWizardWindow] Calling validate_and_proceed on final page")
+                page.validate_and_proceed()
+            else:
+                print(f"[SidebarWizardWindow] Closing application from final page")
+                self.close()
                 
     def update_nav_buttons(self):
         """Update navigation buttons based on current page"""
         current = self.pages_stack.currentIndex()
         
-        # Back button is enabled except on first page
-        self.back_button.setEnabled(current > 0)
+        # First page has Exit button instead of Back
+        if current == 0:
+            self.back_button.setText("Exit")
+            self.back_button.setEnabled(True)
+            try:
+                self.back_button.clicked.disconnect()
+            except Exception as e:
+                print(f"[SidebarWizardWindow] Error disconnecting back button: {e}")
+                pass
+            self.back_button.clicked.connect(self.close)
+        else:
+            self.back_button.setText("Back")
+            self.back_button.setEnabled(True)
+            try:
+                self.back_button.clicked.disconnect()
+            except Exception as e:
+                print(f"[SidebarWizardWindow] Error disconnecting back button: {e}")
+                pass
+            self.back_button.clicked.connect(self.go_back)
+        
+        # Hide back button on last page
+        if current == self.pages_stack.count() - 1:
+            self.back_button.hide()
+        else:
+            self.back_button.show()
         
         # Next button text changes on last page
         if current == self.pages_stack.count() - 1:
@@ -325,8 +397,15 @@ class SidebarWizardWindow(QMainWindow):
         # Check if current page has isComplete method to determine if next is enabled
         page = self.pages_stack.currentWidget()
         if hasattr(page, 'isComplete'):
-            self.next_button.setEnabled(page.isComplete())
+            try:
+                is_complete = page.isComplete()
+                self.next_button.setEnabled(is_complete)
+                print(f"[SidebarWizardWindow] Page {current} isComplete: {is_complete}")
+            except Exception as e:
+                print(f"[SidebarWizardWindow] Error checking isComplete: {e}")
+                self.next_button.setEnabled(False)
         else:
+            print(f"[SidebarWizardWindow] Page {current} has no isComplete method")
             self.next_button.setEnabled(True)
 
 
@@ -384,7 +463,7 @@ def load_style(app: QApplication):
     else:
         # For other platforms use Fusion with light palette
         app.setStyle("Fusion")
-        app.setFont(QFont("San Francisco", 13))
+        app.setFont(QFont("Segoe UI", 13)) # Replace San Francisco with Segoe UI
         pal = app.palette()
         pal.setColor(QPalette.Window, QColor("#F7F7F7"))
         pal.setColor(QPalette.WindowText, Qt.black)

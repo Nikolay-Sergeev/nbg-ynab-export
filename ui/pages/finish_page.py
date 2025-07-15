@@ -5,6 +5,13 @@ class FinishPage(QWizardPage):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setTitle("Step 6: Import Complete")
+        
+    def validate_and_proceed(self):
+        """Implementation for consistency with other pages"""
+        print("[FinishPage] validate_and_proceed called")
+        # This is the final page, so just close the application
+        self.window().close()
+        return True
         self.setMinimumSize(0, 0)
         self.setMaximumSize(16777215, 16777215)
 
@@ -23,14 +30,9 @@ class FinishPage(QWizardPage):
         card_layout.addWidget(self.label)
         card_layout.addStretch(1)
 
-        # Navigation Buttons (Back/Exit, same size, Exit on right)
+        # Navigation buttons now handled by main window
+        # Only keep a custom exit button for the finish page
         btn_layout = QHBoxLayout()
-        self.back_btn = QPushButton("Back")
-        self.back_btn.setObjectName("back-btn")
-        self.back_btn.setFixedWidth(100)
-        self.back_btn.setFixedHeight(40)
-        self.back_btn.clicked.connect(lambda: self.wizard().back())
-        btn_layout.addWidget(self.back_btn)
         btn_layout.addStretch(1)
         exit_text = "Quit" if sys.platform.startswith('darwin') else "Exit"
         self.exit_btn = QPushButton(exit_text)
@@ -47,9 +49,11 @@ class FinishPage(QWizardPage):
         self.setLayout(main_layout)
 
     def initializePage(self):
-        w = self.wizard()
-        stats = getattr(w, 'upload_stats', None)
-        acct = getattr(w, 'uploaded_account_name', None)
+        # Get stats from parent window instead of wizard
+        parent = self.window()
+        stats = getattr(parent, 'upload_stats', None)
+        acct = getattr(parent, 'uploaded_account_name', None)
+        
         if stats and acct:
             uploaded = stats.get('uploaded', 0)
             if uploaded == 0:
@@ -59,7 +63,13 @@ class FinishPage(QWizardPage):
                 text += f"<span style='font-size:18px;color:#1976d2;'><b>{uploaded}</b> transaction{'s' if uploaded != 1 else ''} uploaded to <b>{acct}</b>.</span><br><br>You may now close the wizard."
         else:
             text = "<b>Import complete!</b> You may now close the wizard."
+            
         self.label.setText(text)
-        finish_text = "Finish & Quit" if sys.platform.startswith('darwin') else "Finish & Exit"
-        w.setButtonText(QWizard.FinishButton, finish_text)
-        w.setOption(QWizard.NoCancelButtonOnLastPage, False)
+        
+        # Update parent window next button if possible
+        if hasattr(parent, "next_button"):
+            parent.next_button.setText("Finish & Quit" if sys.platform.startswith('darwin') else "Finish & Exit")
+            
+        # Hide back button on last page if possible
+        if hasattr(parent, "back_button"):
+            parent.back_button.hide()
