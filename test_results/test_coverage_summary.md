@@ -86,10 +86,29 @@ The test suite has successfully achieved high coverage in several key areas:
 
 Some areas still require improved test coverage:
 
-- **CLI Module**: 0% coverage - needs comprehensive testing
-- **Services/conversion_service.py**: 29% coverage - significant gaps remain
-- **UI Components**: 10-38% coverage - particularly UI pages need more tests
-- **Main Module**: 59% coverage - several functions remain untested
+- **CLI Module (0% coverage)**: 
+  - The entire command-line interface functionality in `cli.py` lacks testing
+  - Missing tests for argument parsing, input file validation, statement type detection, and error handling
+  - Critical path for processing different statement types via CLI remains untested
+  - Error conditions for invalid files and formats need verification
+
+- **Services/conversion_service.py (29% coverage)**: 
+  - Core currency conversion functions are poorly covered
+  - Data normalization and transformation functions missing tests
+  - Major untested sections in lines 60-222 including format detection, data validation, and transaction processing
+  - Key functionality for handling different bank formats needs verification
+
+- **UI Components (10-38% coverage)**: 
+  - UI controller at only 20% coverage with most event handlers untested
+  - UI pages at approximately 10% coverage with minimal testing of user interactions
+  - Key wizard workflow transitions lack verification
+  - Event handling and data validation in UI forms need testing
+
+- **Main Module (59% coverage)**: 
+  - Several critical functions in `main.py` remain untested (lines 109-113, 122, 195, 258-316, 320-349)
+  - Key error handling paths missing tests
+  - Edge cases for different file formats need validation
+  - Integration points between components require testing
 
 ## Test Results
 
