@@ -8,13 +8,6 @@ class FinishPage(QWizardPage):
         self.setMinimumSize(0, 0)
         self.setMaximumSize(16777215, 16777215)
         
-    def validate_and_proceed(self):
-        """Implementation for consistency with other pages"""
-        print("[FinishPage] validate_and_proceed called")
-        # This is the final page, so just close the application
-        self.window().close()
-        return True
-
         card = QFrame()
         card.setObjectName("card-panel")
         card.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
@@ -23,7 +16,6 @@ class FinishPage(QWizardPage):
         card_layout.setSpacing(16)
 
         # Final message
-
         self.label = QLabel()
         self.label.setProperty('role', 'title')
         self.label.setWordWrap(True)
@@ -47,6 +39,13 @@ class FinishPage(QWizardPage):
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.addWidget(card)
         self.setLayout(main_layout)
+    
+    def validate_and_proceed(self):
+        """Implementation for consistency with other pages"""
+        print("[FinishPage] validate_and_proceed called")
+        # This is the final page, so just close the application
+        self.window().close()
+        return True
 
     def initializePage(self):
         # Get stats from parent window instead of wizard
