@@ -21,7 +21,7 @@ class DropZone(QFrame):
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignCenter)
         layout.setSpacing(8)
-        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setContentsMargins(16, 16, 16, 16)  # Original padding restored for drop zone functionality
         # Upload icon
         icon_path = os.path.abspath(
             os.path.join(os.path.dirname(__file__), '../../resources/cloud_download.svg')
@@ -106,7 +106,7 @@ class ImportFilePage(QWizardPage):
         card.setObjectName("card-panel")
         card.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         card_layout = QVBoxLayout(card)
-        card_layout.setContentsMargins(8, 8, 8, 8)
+        card_layout.setContentsMargins(8, 8, 8, 8)  # Original padding restored
         card_layout.setSpacing(16)
 
         title = QLabel("Import NBG or Revolut Statement")
@@ -201,6 +201,7 @@ class ImportFilePage(QWizardPage):
 
         main_layout = QVBoxLayout()
         main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
         main_layout.addWidget(card)
         self.setLayout(main_layout)
         self.setMinimumSize(0, 0)

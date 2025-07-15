@@ -143,7 +143,7 @@ class SidebarWizardWindow(QMainWindow):
         central.setStyleSheet("QWidget { border: none; }")  # Ensure no borders anywhere
         main_layout = QHBoxLayout(central)
         main_layout.setContentsMargins(0, 0, 0, 0)  # No margins
-        main_layout.setSpacing(0)  # No spacing
+        main_layout.setSpacing(0)  # No spacing between widgets
 
         step_titles = [
             "Import File",
@@ -175,7 +175,6 @@ class SidebarWizardWindow(QMainWindow):
         # Use consistent styling for sidebar - narrower to save space
         side_widget.setFixedWidth(180)
         side_widget.setLayoutDirection(Qt.RightToLeft)
-        side_widget.setStyleSheet("background:white;")
             
         main_layout.addWidget(side_widget)
 
@@ -220,6 +219,8 @@ class SidebarWizardWindow(QMainWindow):
 
         # Add wizard directly with no container and stretch factor 1 to make it fill all available space
         main_layout.addWidget(self.wizard, 1)
+        # Remove any margins between wizard and sidebar
+        self.wizard.setContentsMargins(0, 0, 0, 0)
         self.setCentralWidget(central)
         self.update_sidebar(self.wizard.currentId())
 
