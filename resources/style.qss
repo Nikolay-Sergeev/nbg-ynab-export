@@ -34,14 +34,13 @@ QWizardPage {
 
 /* Drop zone styles */
 #drop-zone {
-    background: rgba(225, 227, 229, 0.12); /* #E1E3E5 at 12% opacity */
-    border: 2px dashed #E1E3E5;
+    background: #f2f9fe; /* Light blue background */
+    border: 2px dashed #75baff;
     border-radius: 14px;
-    /* transition not supported in QSS */
 }
 #drop-zone[drag="true"], #drop-zone:hover, #drop-zone:focus {
-    background: #fff;
-    border-color: #1976d2; /* Brand blue */
+    background: #e1f0ff;
+    border-color: #0066cc;
 }
 #drop-zone QLabel {
     background: transparent;
@@ -50,12 +49,12 @@ QWizardPage {
 
 /* Browse button */
 QPushButton#browse-btn {
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #2196f3, stop:1 #64b5f6);
+    background: #0066cc;
     color: #fff;
     border: none;
-    border-radius: 8px;
+    border-radius: 6px;
     font-size: 16px;
-    font-weight: 500;
+    font-weight: bold;
     width: 70%;
     min-width: 220px;
     margin-top: 0;
@@ -111,11 +110,12 @@ QPushButton#exit-btn {
     border: none;
 }
 QPushButton#continue-btn {
-    background: #1976d2;
+    background: #0066cc;
     color: #fff;
-    border-radius: 20px;
+    border-radius: 6px;
     padding: 8px 16px;
-    /* box-shadow not supported in QSS */
+    font-weight: bold;
+    border: none;
 }
 QPushButton#exit-btn:disabled, QPushButton#continue-btn:disabled, QPushButton#back-btn:disabled {
     background: #e0e0e0;
@@ -179,13 +179,13 @@ QCheckBox, QCheckBox QLabel {
 }
 
 QPushButton {
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #2196f3, stop:1 #64b5f6);
+    background: #0066cc;
     color: #fff;
     border: none;
-    border-radius: 10px;
+    border-radius: 6px;
     padding: 10px 24px;
     font-size: 16px;
-    font-weight: 500;
+    font-weight: bold;
     margin-top: 8px;
     margin-bottom: 8px;
 }
@@ -349,21 +349,11 @@ QPushButton#continue-btn {
     /* box-shadow not supported in QSS */
 }
 
-/* macOS style for continue button */
-#macOS QPushButton#continue-btn {
-    background: #0071E3;
-    border-radius: 6px;
-    font-weight: 500;
-    padding: 6px 14px;
-    font-size: 14px;
-    min-height: 32px;
-    /* box-shadow not supported in QSS */
-}
+/* We use the same style for all platforms now */
 QPushButton#continue-btn:disabled {
-    background: #e0e0e0;
-    color: #A0A3A6;
-    opacity: 0.6;
-    /* cursor not supported in QSS */
+    background: #cccccc;
+    color: #888888;
+    border: none;
 }
 
 /* 8px grid for vertical spacing */
