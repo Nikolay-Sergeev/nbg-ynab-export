@@ -12,3 +12,6 @@ __pycache__/
 venv/
 .venv/
 env/
+.claude/settings.local.json
+.coverage
+.gitignore
