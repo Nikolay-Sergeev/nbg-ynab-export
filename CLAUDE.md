@@ -9,6 +9,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Use clear and concise commit messages
 - Don't include generation mention in commit messages (no "Generated with Claude" or "Co-Authored-By: Claude")
 - Don't batch multiple changes - commit each significant change separately
+- ALWAYS run tests before committing and ensure ALL tests pass
+- NEVER introduce failing tests or code that breaks existing tests
 
 ### Environment Setup
 ```bash
@@ -35,15 +37,22 @@ python3 ui/wizard.py
 
 ### Development Commands
 ```bash
-# Run tests (unittest)
+# Run all tests - ALL tests must pass
 python3 -m unittest discover -s test -v
 
-# Run tests (pytest)
+# Run tests using pytest - ALL tests must pass
 python3 -m pytest
 
 # Check code style
 python3 -m flake8 main.py test
 ```
+
+### Testing Guidelines
+- Tests are a critical part of this codebase - ALL tests must pass at all times
+- If you're making changes, you MUST ensure all tests continue to pass
+- Never delete or comment out tests to make them pass
+- Always fix the implementation to match the test expectations
+- Add new tests for any new functionality
 
 ## Code Architecture
 
