@@ -140,17 +140,17 @@ class TransactionsPage(QWizardPage):
             self.spinner.hide()
             # Cache for session
             # Get selected IDs from the account selection page
-        parent = self.window()
-        if hasattr(parent, "pages_stack") and parent.pages_stack.count() > 2:
-            account_page = parent.pages_stack.widget(2)
-            if hasattr(account_page, "get_selected_ids"):
-                budget_id, account_id = account_page.get_selected_ids()
+            parent = self.window()
+            if hasattr(parent, "pages_stack") and parent.pages_stack.count() > 2:
+                account_page = parent.pages_stack.widget(2)
+                if hasattr(account_page, "get_selected_ids"):
+                    budget_id, account_id = account_page.get_selected_ids()
+                else:
+                    print("[TransactionsPage] Cannot get selected IDs, account page missing method")
+                    return
             else:
-                print("[TransactionsPage] Cannot get selected IDs, account page missing method")
+                print("[TransactionsPage] Cannot get selected IDs, pages_stack not found")
                 return
-        else:
-            print("[TransactionsPage] Cannot get selected IDs, pages_stack not found")
-            return
             self._cache = txns
             self._cache_ids = (budget_id, account_id)
             # Only show last 5, sorted by date desc if possible
