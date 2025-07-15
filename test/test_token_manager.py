@@ -2,12 +2,15 @@ import unittest
 import os
 import tempfile
 import shutil
+import services.token_manager
 from services.token_manager import (
     generate_key,
     save_key,
     load_key,
     encrypt_token,
-    decrypt_token
+    decrypt_token,
+    save_token,
+    load_token
 )
 
 
@@ -33,39 +36,57 @@ class TestTokenManager(unittest.TestCase):
 
     def test_save_load_key(self):
         """Test saving and loading a key."""
-        # Create temp key file for this test only
-        key_file = os.path.join(self.test_dir, "test.key")
+        # Mock the key file path
+        original_key_file = services.token_manager.KEY_FILE
+        test_key_path = os.path.join(self.test_dir, "test.key")
+        services.token_manager.KEY_FILE = test_key_path
 
-        # Generate and save a key directly to our test file
-        key = generate_key()
-        with open(key_file, 'wb') as f:
-            f.write(key)
-        os.chmod(key_file, 0o600)
+        try:
+            # Generate and save a key
+            key = generate_key()
+            save_key(key)
 
-        # Generate and save a key
-        key = generate_key()
-        save_key(key)
+            # Verify file exists with correct permissions
+            self.assertTrue(os.path.exists(test_key_path))
+            file_mode = os.stat(test_key_path).st_mode & 0o777
+            self.assertEqual(file_mode, 0o600)
 
-        # Verify file exists with correct permissions
-        self.assertTrue(os.path.exists(self.test_key_file))
-        file_mode = os.stat(self.test_key_file).st_mode & 0o777
-        self.assertEqual(file_mode, 0o600)
-
-        # Load the key and verify it matches
-        loaded_key = load_key()
-        self.assertEqual(key, loaded_key)
+            # Load the key and verify it matches
+            loaded_key = load_key()
+            self.assertEqual(key, loaded_key)
+        finally:
+            # Restore the original KEY_FILE path
+            services.token_manager.KEY_FILE = original_key_file
 
     def test_load_key_generates_if_missing(self):
         """Test that load_key generates a key correctly."""
-        # Simply verify a key can be generated
-        key = generate_key()
-        self.assertIsInstance(key, bytes)
-        self.assertEqual(len(key), 44)  # Fernet keys are 44 bytes
+        # Mock the key file path
+        original_key_file = services.token_manager.KEY_FILE
+        test_key_path = os.path.join(self.test_dir, "missing.key")
+        # Set mock path
+        services.token_manager.KEY_FILE = test_key_path
+
+        try:
+            # Ensure the file does not exist
+            if os.path.exists(test_key_path):
+                os.remove(test_key_path)
+
+            # Call load_key which should generate and save a new key
+            key = load_key()
+
+            # Verify results
+            self.assertIsInstance(key, bytes)
+            self.assertEqual(len(key), 44)  # Fernet keys are 44 bytes
+            exists = os.path.exists(test_key_path)
+            self.assertTrue(exists, "Key file should be created")
+        finally:
+            # Restore the original KEY_FILE path
+            services.token_manager.KEY_FILE = original_key_file
 
     def test_encrypt_decrypt_token(self):
         """Test token encryption and decryption."""
         # Encrypt a token
-        test_token = "test_secret_token_123"
+        test_token = "test_secret_token"
         encrypted = encrypt_token(test_token)
 
         # Verify it's not the same as original
@@ -77,29 +98,56 @@ class TestTokenManager(unittest.TestCase):
 
     def test_save_load_token(self):
         """Test token encryption and decryption functionality."""
-        # Test with direct encryption/decryption without files
-        # Generate a key
-        key = generate_key()
+        # Mock paths
+        original_key_file = services.token_manager.KEY_FILE
+        original_settings_file = services.token_manager.SETTINGS_FILE
+        # Create test paths
+        test_key_path = os.path.join(self.test_dir, "token_test.key")
+        test_settings_path = os.path.join(self.test_dir, "settings.txt")
+        # Set the mocked paths
+        services.token_manager.KEY_FILE = test_key_path
+        services.token_manager.SETTINGS_FILE = test_settings_path
 
-        # Create Fernet object directly for testing
-        from cryptography.fernet import Fernet
-        f = Fernet(key)
+        try:
+            # Generate a test token
+            test_token = "my_ynab_api_token_123"
 
-        # Test encryption/decryption
-        test_token = "my_ynab_api_token_123"
-        encrypted = f.encrypt(test_token.encode())
-        decrypted = f.decrypt(encrypted).decode()
+            # Save the token using our system
+            save_token(test_token)
 
-        self.assertEqual(test_token, decrypted)
+            # Verify file exists with correct permissions
+            self.assertTrue(os.path.exists(test_settings_path))
+            file_mode = os.stat(test_settings_path).st_mode & 0o777
+            self.assertEqual(file_mode, 0o600)
+
+            # Load the token back and verify it matches
+            loaded_token = load_token()
+            self.assertEqual(test_token, loaded_token)
+        finally:
+            # Restore the original paths
+            services.token_manager.KEY_FILE = original_key_file
+            services.token_manager.SETTINGS_FILE = original_settings_file
 
     def test_load_token_missing_file(self):
         """Test error handling for file operations."""
-        # Test that accessing a nonexistent file raises the expected error
-        nonexistent_file = os.path.join(self.test_dir, "nonexistent_file.txt")
+        # Mock the settings file path
+        original_settings_file = services.token_manager.SETTINGS_FILE
+        nonexistent_file = os.path.join(
+            self.test_dir, "nonexistent_settings.txt"
+        )
+        services.token_manager.SETTINGS_FILE = nonexistent_file
 
-        with self.assertRaises(FileNotFoundError):
-            with open(nonexistent_file, 'rb') as f:
-                f.read()
+        try:
+            # Ensure the file does not exist
+            if os.path.exists(nonexistent_file):
+                os.remove(nonexistent_file)
+
+            # Attempt to load token from nonexistent file
+            with self.assertRaises(FileNotFoundError):
+                load_token()
+        finally:
+            # Restore the original SETTINGS_FILE path
+            services.token_manager.SETTINGS_FILE = original_settings_file
 
 
 if __name__ == '__main__':

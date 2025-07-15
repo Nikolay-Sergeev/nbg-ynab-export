@@ -133,21 +133,25 @@ class TestErrorHandling(unittest.TestCase):
 
     def test_invalid_date_format_revolut(self):
         """Test handling of invalid date format in Revolut export."""
-        # Create a different test that doesn't require date parsing
-        # We'll test that REVERTED transactions are filtered properly
+        # Create test with invalid date format
         df = pd.DataFrame({
             'Type': ['CARD_PAYMENT'],
-            'Started Date': ['2025-07-01'],  # Valid date format
+            'Started Date': ['not-a-date'],  # Invalid date format
             'Description': ['Coffee'],
             'Amount': ['-5.00'],
             'Fee': ['0.00'],
-            'State': ['REVERTED'],  # REVERTED transactions are filtered out
+            'State': ['COMPLETED'],
             'Currency': ['EUR']
         })
 
-        # Should filter out the row due to REVERTED state
-        result_df = process_revolut(df)
-        self.assertEqual(len(result_df), 0)
+        # Mock the pandas to_datetime function to raise an exception
+        with patch('pandas.to_datetime') as mock_to_datetime:
+            err_msg = "Invalid date format"
+            mock_to_datetime.side_effect = pd.errors.ParserError(err_msg)
+            # Process should raise ValueError for invalid date format
+            with self.assertRaises(ValueError) as cm:
+                process_revolut(df)
+            self.assertIn("date parsing failed", str(cm.exception).lower())
 
     def test_reverted_transactions_filtering(self):
         """Test filtering of REVERTED transactions from Revolut export."""

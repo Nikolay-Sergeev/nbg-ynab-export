@@ -27,7 +27,10 @@ def process_revolut(df: pd.DataFrame) -> pd.DataFrame:
 
     df_copy = df.copy()
     # Parse and format date
-    df_copy['Date'] = pd.to_datetime(df_copy['Started Date']).dt.strftime(DATE_FMT_YNAB)
+    try:
+        df_copy['Date'] = pd.to_datetime(df_copy['Started Date']).dt.strftime(DATE_FMT_YNAB)
+    except pd.errors.ParserError as e:
+        raise ValueError(f"Date parsing failed: {str(e)}")
     # Amount minus fee
     amounts = df_copy['Amount'].apply(convert_amount)
     fees = df_copy['Fee'].apply(convert_amount)

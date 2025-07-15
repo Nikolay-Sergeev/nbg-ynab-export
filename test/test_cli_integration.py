@@ -85,7 +85,8 @@ class TestCLIIntegration(unittest.TestCase):
             'Currency': ['EUR', 'EUR']
         })
         mock_read_input.return_value = test_df
-
+        # Ensure test_df is of the correct type
+        self.assertIsInstance(test_df, pd.DataFrame)
         # Process the data directly using the converter function
         result_df = process_revolut(test_df)
 
