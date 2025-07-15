@@ -11,6 +11,7 @@ from PyQt5.QtWidgets import (
     QVBoxLayout,
     QProxyStyle,
     QStyleFactory,
+    QFrame,
 )
 from PyQt5.QtGui import QIcon, QPixmap, QPainter, QFont, QFontDatabase
 from PyQt5.QtCore import Qt
@@ -221,6 +222,12 @@ class SidebarWizardWindow(QMainWindow):
         main_layout.addWidget(self.wizard, 1)
         # Remove any margins between wizard and sidebar
         self.wizard.setContentsMargins(0, 0, 0, 0)
+        
+        # Find and remove margins from the wizard's internal widgets
+        for frame in self.wizard.findChildren(QFrame):
+            frame.setContentsMargins(0, 0, 0, 0)
+            if frame.layout():
+                frame.layout().setContentsMargins(0, 0, 0, 0)
         self.setCentralWidget(central)
         self.update_sidebar(self.wizard.currentId())
 

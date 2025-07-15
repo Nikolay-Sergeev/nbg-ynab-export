@@ -6,6 +6,24 @@ QWizard {
     padding: 0;
 }
 
+/* Target QWizard's internal frames and layouts */
+QWizard > QWidget > QFrame {
+    margin: 0;
+    border: none;
+    padding: 0;
+}
+
+QWizard > QWidget > QFrame > QVBoxLayout {
+    margin: 0;
+    padding: 0;
+}
+
+/* Force QWizard's internal layouts to have no margins */
+QWizard QLayoutItem {
+    margin: 0;
+    padding: 0;
+}
+
 /* macOS specific style overrides */
 #macOS QWizard {
     background: #F5F5F7;
