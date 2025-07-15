@@ -28,7 +28,7 @@ class TransactionsPage(QWizardPage):
         card.setObjectName("card-panel")
         card.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         card_layout = QVBoxLayout(card)
-        card_layout.setContentsMargins(32, 32, 32, 32)
+        card_layout.setContentsMargins(8, 8, 8, 8)
         card_layout.setSpacing(16)
 
         self.label = QLabel("Recent transactions in this account:")
@@ -100,7 +100,7 @@ class TransactionsPage(QWizardPage):
         card_layout.addLayout(nav_layout)
 
         main_layout = QVBoxLayout()
-        main_layout.setContentsMargins(24, 24, 24, 24)
+        main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.addWidget(card)
         self.setLayout(main_layout)
 

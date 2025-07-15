@@ -28,7 +28,7 @@ class YNABAuthPage(QWizardPage):
 
         # --- Outer layout for centering ---
         outer_layout = QVBoxLayout(self)
-        outer_layout.setContentsMargins(24, 24, 24, 24)
+        outer_layout.setContentsMargins(0, 0, 0, 0)
 
         card = QFrame()
         card.setObjectName("card-panel")
@@ -36,7 +36,7 @@ class YNABAuthPage(QWizardPage):
         card.setMaximumWidth(500)
         card.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
         card_layout = QVBoxLayout(card)
-        card_layout.setContentsMargins(36, 36, 36, 36)
+        card_layout.setContentsMargins(8, 8, 8, 8)
         card_layout.setSpacing(0)
 
         title = QLabel("Authorize with YNAB")

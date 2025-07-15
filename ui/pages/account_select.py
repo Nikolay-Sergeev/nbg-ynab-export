@@ -18,13 +18,13 @@ class AccountSelectionPage(QWizardPage):
 
         # --- Outer layout ---
         outer_layout = QVBoxLayout(self)
-        outer_layout.setContentsMargins(24, 24, 24, 24)
+        outer_layout.setContentsMargins(0, 0, 0, 0)
 
         card = QFrame()
         card.setObjectName("card-panel")
         card.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         card_layout = QVBoxLayout(card)
-        card_layout.setContentsMargins(32, 32, 32, 32)
+        card_layout.setContentsMargins(8, 8, 8, 8)
         card_layout.setSpacing(16)
 
         title = QLabel("Select YNAB Budget and Account")
