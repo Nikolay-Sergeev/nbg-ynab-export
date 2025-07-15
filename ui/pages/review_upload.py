@@ -196,7 +196,18 @@ class ReviewAndUploadPage(QWizardPage):
 
     def upload_transactions(self):
         print("[DEBUG] upload_transactions called")
-        budget_id, account_id = self.wizard().page(2).get_selected_ids()
+        # Get selected IDs from account selection page
+        parent = self.window()
+        if not hasattr(parent, "pages_stack") or parent.pages_stack.count() <= 2:
+            print("[ReviewUploadPage] Cannot access pages stack or account page")
+            return
+            
+        account_page = parent.pages_stack.widget(2)
+        if not hasattr(account_page, "get_selected_ids"):
+            print("[ReviewUploadPage] Account page has no get_selected_ids method")
+            return
+            
+        budget_id, account_id = account_page.get_selected_ids()
         to_upload = [r for i, r in enumerate(self.records) if i not in self.dup_idx and i not in self.skipped_rows]
         print(f"[DEBUG] to_upload: {len(to_upload)} transactions")
         if not self.controller.ynab:
