@@ -70,10 +70,16 @@ The application is structured with the following components:
 3. **GUI Wizard** (`ui/wizard.py`): PyQt5-based wizard interface with step-by-step guidance
    - Multiple pages for file selection, authentication, account selection, etc.
    - Uses QThread workers for non-blocking operations
+   - Custom RobustWizard class extends QWizard with thread cleanup capabilities
+   - SidebarWizardWindow provides a modern UI with navigation sidebar
+   - Pages are organized in a logical flow with styled components
 
 4. **Controller** (`ui/controller.py`): Manages interaction between UI and backend services
-   - Contains worker classes for background processing
-   - Handles signals between UI components
+   - Contains worker classes for background processing in separate QThreads
+   - Handles signals between UI components and backend services
+   - Uses PyQt signals/slots pattern for asynchronous communication
+   - Worker classes: BudgetFetchWorker, AccountFetchWorker, TransactionFetchWorker, DuplicateCheckWorker, UploadWorker
+   - WizardController class orchestrates the wizard workflow
 
 5. **Services**:
    - `services/ynab_client.py`: API client for YNAB integration with request caching
@@ -90,3 +96,24 @@ The application is structured with the following components:
 - User settings stored in `~/.nbg-ynab-export/nbg_ynab_settings.txt`
 - YNAB token securely stored using cryptography
 - API logs in `~/.nbg-ynab-export/ynab_api.log`
+
+### UI Architecture
+
+#### Wizard Structure
+- **Main Window Class** (`SidebarWizardWindow`): Houses the wizard with a modern sidebar navigation
+- **Custom Wizard Class** (`RobustWizard`): Extends QWizard with thread safety features
+- **Page Flow**: Import File → Authorization → Account Selection → Transactions → Review & Upload → Finish
+
+#### UI Pages
+1. **ImportFilePage**: File selection with drag-and-drop support and validation
+2. **YNABAuthPage**: YNAB API token entry with secure storage
+3. **AccountSelectionPage**: Budget and account selection using YNAB API data
+4. **TransactionsPage**: Displays and manages transaction data with duplicate detection
+5. **ReviewAndUploadPage**: Final review and upload transactions to YNAB
+6. **FinishPage**: Confirmation and success information
+
+#### Controller Logic
+- **WizardController**: Central coordinator connecting UI and services
+- **Worker Pattern**: Background tasks run in QThreads to prevent UI freezing
+- **Signal/Slot Communication**: Asynchronous data flow between components
+- **Error Handling**: Comprehensive error reporting throughout the UI
