@@ -137,22 +137,16 @@ class SidebarWizardWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("NBG/Revolut to YNAB Wizard")
         
-        # Use slightly different dimensions on macOS to match standard window sizes
-        if sys.platform.startswith('darwin'):
-            fixed_w, fixed_h = 910, 610
-        else:
-            fixed_w, fixed_h = 900, 600
+        # Use standard dimensions for all platforms
+        fixed_w, fixed_h = 900, 600
             
         self.setFixedSize(fixed_w, fixed_h)
 
         central = QWidget()
         main_layout = QHBoxLayout(central)
         
-        # Use standard macOS margins on macOS
-        if sys.platform.startswith('darwin'):
-            main_layout.setContentsMargins(20, 20, 20, 20)
-        else:
-            main_layout.setContentsMargins(16, 16, 16, 16)
+        # Use standard margins for all platforms
+        main_layout.setContentsMargins(16, 16, 16, 16)
 
         step_titles = [
             "Import File",

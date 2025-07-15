@@ -21,7 +21,7 @@ QWizardPage {
     background: #fff;
     border-radius: 10px;
     border: none;
-    box-shadow: none;
+    /* box-shadow not supported in QSS */
     padding: 0;
 }
 
@@ -37,7 +37,7 @@ QWizardPage {
     background: rgba(225, 227, 229, 0.12); /* #E1E3E5 at 12% opacity */
     border: 2px dashed #E1E3E5;
     border-radius: 14px;
-    transition: background 0.2s, border-color 0.2s;
+    /* transition not supported in QSS */
 }
 #drop-zone[drag="true"], #drop-zone:hover, #drop-zone:focus {
     background: #fff;
@@ -115,7 +115,7 @@ QPushButton#continue-btn {
     color: #fff;
     border-radius: 20px;
     padding: 8px 16px;
-    box-shadow: 0 2px 4px rgba(25, 118, 210, 0.08);
+    /* box-shadow not supported in QSS */
 }
 QPushButton#exit-btn:disabled, QPushButton#continue-btn:disabled, QPushButton#back-btn:disabled {
     background: #e0e0e0;
@@ -246,7 +246,7 @@ QSvgWidget {
     background: rgba(244, 67, 54, 0.06);
     padding: 8px 12px;
     margin-bottom: 8px;
-    animation: fadeIn 0.7s;
+    /* animation not supported in QSS */
 }
 .success-label {
     color: #388e3c;
@@ -256,12 +256,9 @@ QSvgWidget {
     background: rgba(56, 142, 60, 0.06);
     padding: 8px 12px;
     margin-bottom: 8px;
-    animation: fadeIn 0.7s;
+    /* animation not supported in QSS */
 }
-@keyframes fadeIn {
-    0% { opacity: 0; }
-    100% { opacity: 1; }
-}
+/* @keyframes not supported in QSS */
 
 /* AccountSelectionPage styles */
 #card-panel {
@@ -349,7 +346,7 @@ QPushButton#continue-btn {
     min-height: 40px;
     opacity: 1;
     border: none;
-    box-shadow: 0 2px 4px rgba(25, 118, 210, 0.08);
+    /* box-shadow not supported in QSS */
 }
 
 /* macOS style for continue button */
@@ -360,13 +357,13 @@ QPushButton#continue-btn {
     padding: 6px 14px;
     font-size: 14px;
     min-height: 32px;
-    box-shadow: none;
+    /* box-shadow not supported in QSS */
 }
 QPushButton#continue-btn:disabled {
     background: #e0e0e0;
     color: #A0A3A6;
     opacity: 0.6;
-    cursor: not-allowed;
+    /* cursor not supported in QSS */
 }
 
 /* 8px grid for vertical spacing */
