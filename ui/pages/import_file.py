@@ -1,5 +1,5 @@
 from PyQt5.QtWidgets import (
-    QWizardPage, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame, QFileDialog, QSizePolicy, QWidget, QMessageBox
+    QWizardPage, QWizard, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame, QFileDialog, QSizePolicy, QWidget, QMessageBox
 )
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QPixmap, QCursor
@@ -371,6 +371,14 @@ class ImportFilePage(QWizardPage):
                 self.error_label.show()
             else:
                 self.error_label.hide()
+                
+    def wizard(self):
+        """Return the wizard containing this page, or None if not in a wizard."""
+        # Try to get the wizard, otherwise return None
+        parent = self.parent()
+        if isinstance(parent, QWizard):
+            return parent
+        return None
 
     def validate_and_proceed(self):
         if self.isComplete():
@@ -379,7 +387,25 @@ class ImportFilePage(QWizardPage):
             print(f"[ImportFilePage] Proceeding with file: {self.file_path}")
             # Optionally: Trigger file processing/validation in controller here
             # self.controller.set_import_file(self.file_path, self.file_type)
-            self.wizard().next()
+            
+            # Try different navigation methods
+            # First check if we're in a stacked widget with a parent window
+            parent = self.window()
+            if hasattr(parent, "go_to_page") and hasattr(parent, "pages_stack"):
+                # Use our custom navigation system
+                current_index = parent.pages_stack.indexOf(self)
+                if current_index >= 0:
+                    parent.go_to_page(current_index + 1)
+                    return
+                    
+            # If not in stacked widget, try using wizard navigation
+            wizard = self.wizard()
+            if wizard is not None:
+                wizard.next()
+                return
+                
+            # If we got here, we couldn't navigate
+            print("[ImportFilePage] Navigation failed: no parent widget supporting navigation found.")
         else:
             print("[ImportFilePage] Validation failed. Cannot proceed.")
             if not self.error_text:
@@ -387,7 +413,7 @@ class ImportFilePage(QWizardPage):
                 self.update_ui_state()
 
     def initializePage(self):
-        print(f"[Wizard] initializePage called for page id {self.wizard().currentId()} ({type(self).__name__})")
+        print(f"[Wizard] initializePage called for {type(self).__name__}")
         # Reset state when page is shown
         # self.clear_file() # Optional: uncomment to always clear file on revisit
         self.update_ui_state()

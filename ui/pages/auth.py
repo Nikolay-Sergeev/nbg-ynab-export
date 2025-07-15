@@ -1,6 +1,7 @@
 # ui/pages/auth.py
 from PyQt5.QtWidgets import (
     QWizardPage,
+    QWizard,
     QVBoxLayout,
     QHBoxLayout,
     QLabel,
@@ -116,7 +117,7 @@ class YNABAuthPage(QWizardPage):
         self.back_button.setObjectName("back-btn")
         self.back_button.setFixedWidth(100)
         self.back_button.setFixedHeight(40)
-        self.back_button.clicked.connect(lambda: self.wizard().back())
+        self.back_button.clicked.connect(self.go_back)
         button_layout.addWidget(self.back_button)
         self.continue_button = QPushButton("Continue")
         self.continue_button.setObjectName("continue-btn")
@@ -187,7 +188,7 @@ class YNABAuthPage(QWizardPage):
             with open(SETTINGS_FILE, "w") as f:
                 f.writelines(lines)
         self.controller.authorize(token, save)
-        self.wizard().next()
+        self.go_forward()
 
     def load_saved_token(self):
         if os.path.exists(SETTINGS_FILE):
@@ -224,3 +225,45 @@ class YNABAuthPage(QWizardPage):
             with open(KEY_FILE, "rb") as f:
                 key = f.read()
         return key
+        
+    def go_back(self):
+        """Navigate to the previous page."""
+        # Try different navigation methods
+        # First check if we're in a stacked widget with a parent window
+        parent = self.window()
+        if hasattr(parent, "go_to_page") and hasattr(parent, "pages_stack"):
+            # Use our custom navigation system
+            current_index = parent.pages_stack.indexOf(self)
+            if current_index > 0:
+                parent.go_to_page(current_index - 1)
+                return
+                
+        # If not in stacked widget, try using wizard navigation
+        wizard = self.wizard()
+        if wizard is not None:
+            wizard.back()
+    
+    def go_forward(self):
+        """Navigate to the next page."""
+        # Try different navigation methods
+        # First check if we're in a stacked widget with a parent window
+        parent = self.window()
+        if hasattr(parent, "go_to_page") and hasattr(parent, "pages_stack"):
+            # Use our custom navigation system
+            current_index = parent.pages_stack.indexOf(self)
+            if current_index >= 0:
+                parent.go_to_page(current_index + 1)
+                return
+                
+        # If not in stacked widget, try using wizard navigation
+        wizard = self.wizard()
+        if wizard is not None:
+            wizard.next()
+    
+    def wizard(self):
+        """Return the wizard containing this page, or None if not in a wizard."""
+        # Try to get the wizard, otherwise return None
+        parent = self.parent()
+        if isinstance(parent, QWizard):
+            return parent
+        return None

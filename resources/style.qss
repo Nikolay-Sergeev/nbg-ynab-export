@@ -1,4 +1,4 @@
-QWizard {
+QWizard, QStackedWidget {
     background: #F7F8FA;
     font-family: system-ui, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
     border: none;
@@ -232,6 +232,7 @@ QLabel[objectName="helper-link"] {
 QLabel {
     color: #222;
     font-size: 15px;
+    font-family: system-ui, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
 }
 QLabel[role='title'] {
     font-size: 14pt;
@@ -298,9 +299,6 @@ QSvgWidget {
 
 
 /* Title */
-QLabel {
-    font-family: -apple-system, system-ui, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
-}
 QLabel[style*="font-size:20px"] {
     font-size: 20px;
     font-weight: bold;

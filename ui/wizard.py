@@ -12,6 +12,8 @@ from PyQt5.QtWidgets import (
     QProxyStyle,
     QStyleFactory,
     QFrame,
+    QStackedWidget,
+    QPushButton,
 )
 from PyQt5.QtGui import QIcon, QPixmap, QPainter, QFont, QFontDatabase
 from PyQt5.QtCore import Qt
@@ -44,13 +46,14 @@ ICON_PATH = os.path.join(PROJECT_ROOT, "resources", "app_icon.svg")
 
 
 class StepLabel(QLabel):
-    """Sidebar step label with selectable style."""
+    """Sidebar step label with selectable style and click handling."""
 
     def __init__(self, text: str):
         super().__init__(text)
         self.setWordWrap(True)
         self.setAlignment(Qt.AlignLeft | Qt.AlignTop)
         self.setContentsMargins(0, 4, 0, 4)
+        self.setCursor(Qt.PointingHandCursor)  # Show hand cursor for clickable items
         
         # Use system font on macOS
         if sys.platform.startswith('darwin'):
@@ -58,6 +61,8 @@ class StepLabel(QLabel):
         else:
             self.setFont(QFont("San Francisco", 13))
             
+        # Store index for navigation
+        self.step_index = -1
         self.set_selected(False)
 
     def set_selected(self, selected: bool):
@@ -73,6 +78,15 @@ class StepLabel(QLabel):
                 "color:#333;padding:8px 16px;font-size:13pt;margin:2px 0px;"
                 "border-left:4px solid transparent;"
             )
+    
+    def mousePressEvent(self, event):
+        # Notify parent window to navigate to this step
+        window = self.window()
+        if hasattr(window, "go_to_page") and self.step_index >= 0:
+            window.go_to_page(self.step_index)
+        
+        # Call parent implementation
+        super().mousePressEvent(event)
 
 class MacOSProxyStyle(QProxyStyle):
     """
@@ -128,7 +142,7 @@ class RobustWizard(QWizard):
 
 
 class SidebarWizardWindow(QMainWindow):
-    """Main window embedding the wizard with a navigation sidebar."""
+    """Custom wizard window with navigation sidebar and stacked widget content."""
 
     def __init__(self):
         super().__init__()
@@ -146,6 +160,7 @@ class SidebarWizardWindow(QMainWindow):
         main_layout.setContentsMargins(0, 0, 0, 0)  # No margins
         main_layout.setSpacing(0)  # No spacing between widgets
 
+        # Setup sidebar with step indicators
         step_titles = [
             "Import File",
             "Authorize",
@@ -165,75 +180,80 @@ class SidebarWizardWindow(QMainWindow):
             sidebar_layout.setContentsMargins(10, 16, 0, 16)
             sidebar_layout.setSpacing(12)
             
-        for t in step_titles:
+        for i, t in enumerate(step_titles):
             lbl = StepLabel(t)
+            lbl.step_index = i  # Store the index for navigation
             self.step_labels.append(lbl)
             sidebar_layout.addWidget(lbl)
+        
         sidebar_layout.addStretch()
         side_widget = QWidget()
         side_widget.setLayout(sidebar_layout)
         
-        # Use consistent styling for sidebar - narrower to save space
+        # Use consistent styling for sidebar - fixed width
         side_widget.setFixedWidth(180)
-        side_widget.setLayoutDirection(Qt.RightToLeft)
+        side_widget.setStyleSheet("background-color: #F7F8FA;")  # Light gray background
             
+        # Add sidebar to main layout
         main_layout.addWidget(side_widget)
 
-        self.controller = WizardController()
-        self.wizard = RobustWizard()
-        if sys.platform.startswith("darwin"):
-            self.wizard.setWizardStyle(QWizard.MacStyle)
-        else:
-            self.wizard.setWizardStyle(QWizard.ModernStyle)
-        self.wizard.setButtonLayout([])
-
-        self.wizard.addPage(ImportFilePage(self.controller))
-        self.wizard.addPage(YNABAuthPage(self.controller))
-        self.wizard.addPage(AccountSelectionPage(self.controller))
-        self.wizard.addPage(TransactionsPage(self.controller))
-        self.wizard.addPage(ReviewAndUploadPage(self.controller))
-        self.wizard.addPage(FinishPage())
-
-        resource_dir = os.path.abspath(
-            os.path.join(os.path.dirname(__file__), "../resources")
-        )
-        icon_names = [
-            "upload.svg",
-            "info.svg",
-            "info.svg",
-            "spinner.svg",
-            "error.svg",
-            "success.svg",
-        ]
-        for pid, name in zip(self.wizard.pageIds(), icon_names):
-            icon_path = os.path.join(resource_dir, name)
-            if os.path.exists(icon_path):
-                renderer_page = QSvgRenderer(icon_path)
-                pixmap_page = QPixmap(24, 24)
-                pixmap_page.fill(Qt.transparent)
-                painter = QPainter(pixmap_page)
-                renderer_page.render(painter)
-                painter.end()
-                self.wizard.page(pid).setPixmap(QWizard.BannerPixmap, pixmap_page)
-
-        self.wizard.currentIdChanged.connect(self.update_sidebar)
-
-        # Add wizard directly with no container and stretch factor 1 to make it fill all available space
-        main_layout.addWidget(self.wizard, 1)
-        # Remove any margins between wizard and sidebar
-        self.wizard.setContentsMargins(0, 0, 0, 0)
+        # Create content widget
+        content_widget = QWidget()
+        content_widget.setStyleSheet("background-color: white;")  # White background
+        content_layout = QVBoxLayout(content_widget)
+        content_layout.setContentsMargins(0, 0, 0, 0)  # No margins
         
-        # Find and remove margins from the wizard's internal widgets
-        for frame in self.wizard.findChildren(QFrame):
-            frame.setContentsMargins(0, 0, 0, 0)
-            if frame.layout():
-                frame.layout().setContentsMargins(0, 0, 0, 0)
+        # Create controller for business logic
+        self.controller = WizardController()
+        
+        # Create stacked widget for pages
+        self.pages_stack = QStackedWidget()
+        
+        # Create all pages (original pages from QWizard)
+        self.import_page = ImportFilePage(self.controller)
+        self.auth_page = YNABAuthPage(self.controller)
+        self.account_page = AccountSelectionPage(self.controller)
+        self.transactions_page = TransactionsPage(self.controller)
+        self.review_page = ReviewAndUploadPage(self.controller)
+        self.finish_page = FinishPage()
+        
+        # Add pages to stacked widget
+        self.pages_stack.addWidget(self.import_page)
+        self.pages_stack.addWidget(self.auth_page)
+        self.pages_stack.addWidget(self.account_page)
+        self.pages_stack.addWidget(self.transactions_page)
+        self.pages_stack.addWidget(self.review_page)
+        self.pages_stack.addWidget(self.finish_page)
+        
+        # Add stacked widget to content layout
+        content_layout.addWidget(self.pages_stack)
+        
+        # Add content widget to main layout
+        main_layout.addWidget(content_widget, 1)  # Stretch factor of 1
+        
         self.setCentralWidget(central)
-        self.update_sidebar(self.wizard.currentId())
+        
+        # Start on the first page
+        self.go_to_page(0)
 
     def update_sidebar(self, step: int):
+        """Update the sidebar labels to show the current step."""
         for i, lbl in enumerate(self.step_labels):
             lbl.set_selected(i == step)
+    
+    def go_to_page(self, index):
+        """Navigate to the specified page index."""
+        if 0 <= index < self.pages_stack.count():
+            # Call initialize on the page we're going to if available
+            page = self.pages_stack.widget(index)
+            if hasattr(page, 'initializePage'):
+                page.initializePage()
+                
+            # Switch to the page
+            self.pages_stack.setCurrentIndex(index)
+            
+            # Update sidebar
+            self.update_sidebar(index)
 
 
 def load_style(app: QApplication):
