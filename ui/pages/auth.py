@@ -110,23 +110,7 @@ class YNABAuthPage(QWizardPage):
         card_layout.addWidget(self.save_checkbox, alignment=Qt.AlignLeft)
         card_layout.addStretch(1)
 
-        # --- Navigation Buttons ---
-        button_layout = QHBoxLayout()
-        button_layout.setSpacing(12)
-        self.back_button = QPushButton("Back")
-        self.back_button.setObjectName("back-btn")
-        self.back_button.setFixedWidth(100)
-        self.back_button.setFixedHeight(40)
-        self.back_button.clicked.connect(self.go_back)
-        button_layout.addWidget(self.back_button)
-        self.continue_button = QPushButton("Continue")
-        self.continue_button.setObjectName("continue-btn")
-        self.continue_button.setFixedWidth(100)
-        self.continue_button.setFixedHeight(40)
-        self.continue_button.clicked.connect(self.on_continue)
-        button_layout.addStretch(1)
-        button_layout.addWidget(self.continue_button)
-        card_layout.addLayout(button_layout)
+        # Navigation buttons are now in main window, no need to add them here
 
         # --- Final layout setup ---
         outer_layout.addWidget(card)
@@ -134,11 +118,9 @@ class YNABAuthPage(QWizardPage):
         self.setLayout(outer_layout)
 
         # --- Logic ---
-        self.token_input.textChanged.connect(self.validate_token_input)
-        self.token_input.textChanged.connect(self.completeChanged)
+        self.token_input.textChanged.connect(self._validate_and_update)
         self._auto_validated = False
         self.load_saved_token()
-        self.validate_token_input()
 
     def open_docs(self):
         QDesktopServices.openUrl(QUrl(YNAB_DOCS_URL))
@@ -151,20 +133,22 @@ class YNABAuthPage(QWizardPage):
             self.token_input.setEchoMode(QLineEdit.Password)
             self.show_icon.setIcon(QIcon.fromTheme("view-password"))
 
+    def _validate_and_update(self):
+        """Internal method to validate token and update UI without recursion"""
+        self.validate_token_input()
+        self.completeChanged.emit()
+        
     def validate_token_input(self):
         token = self.token_input.text().strip()
-        ynab_pattern = r"^[a-zA-Z0-9_-]{32,64}$"
         import re
+        ynab_pattern = r"^[a-zA-Z0-9_-]{32,64}$"
         if not token:
             self.error_label.setText("Token cannot be empty.")
-            self.continue_button.setEnabled(False)
             return False
         if not re.match(ynab_pattern, token):
             self.error_label.setText("Invalid token format.")
-            self.continue_button.setEnabled(False)
             return False
         self.error_label.setText("")
-        self.continue_button.setEnabled(True)
         return True
 
     def isComplete(self):
