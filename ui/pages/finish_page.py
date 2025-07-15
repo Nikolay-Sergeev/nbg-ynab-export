@@ -5,6 +5,8 @@ class FinishPage(QWizardPage):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setTitle("Step 6: Import Complete")
+        self.setMinimumSize(0, 0)
+        self.setMaximumSize(16777215, 16777215)
         
     def validate_and_proceed(self):
         """Implementation for consistency with other pages"""
@@ -12,8 +14,6 @@ class FinishPage(QWizardPage):
         # This is the final page, so just close the application
         self.window().close()
         return True
-        self.setMinimumSize(0, 0)
-        self.setMaximumSize(16777215, 16777215)
 
         card = QFrame()
         card.setObjectName("card-panel")
