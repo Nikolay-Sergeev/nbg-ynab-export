@@ -41,16 +41,55 @@ A comprehensive test suite has been implemented to improve the coverage of the N
    - Transaction exclusion performance
    - Amount conversion performance
 
-## Coverage Improvements
+## Current Coverage Metrics
 
-The new test suite addresses previously untested or under-tested areas:
+Latest test coverage results (as of 2025-07-15):
 
-- **Services Layer**: Complete coverage of the YNAB API client and token management
-- **Error Conditions**: Comprehensive testing of error handling in all modules
-- **UI Components**: Testing of the wizard pages and their interactions
-- **CLI Processing**: End-to-end testing of the command-line interface
-- **Performance**: Validation that the application performs well with large datasets
-- **Integrations**: Testing of the interactions between different modules
+```
+Name                             Stmts   Miss  Cover   Missing
+--------------------------------------------------------------
+cli.py                              44     44     0%   3-60
+config.py                           25      0   100%
+converter/__init__.py                0      0   100%
+converter/account.py                18      1    94%   25
+converter/card.py                   24      1    96%   33
+converter/revolut.py                22      0   100%
+converter/utils.py                  66      0   100%
+main.py                            165     68    59%   109-113, 122, 195, 258-316, 320-349
+services/__init__.py                 0      0   100%
+services/conversion_service.py     165    117    29%   60, 63-74, 77-79, 82-102, 105-127, 130-131, 134-150, 153-156, 159-169, 172-176, 179-184, 187-191, 198-222
+services/token_manager.py           39      0   100%
+services/ynab_client.py             62      2    97%   117-118
+ui/controller.py                   223    179    20%   14-15, 18-23, 31-33, 36-41, 49-52, 55-60, 68-73, 76-132, 140-144, 147-160, 176-180, 183-190, 194-199, 203-217, 221-235, 239-253, 257-268, 272-286
+ui/pages/*                         973    877    10%   Multiple sections
+ui/wizard.py                       172    106    38%   20-27, 67-87, 90-91, 95-99, 106-179, 182-183, 193-196, 207-210, 226-238, 241
+--------------------------------------------------------------
+TOTAL                             2811   1538    45%
+```
+
+## Coverage Achievements
+
+The test suite has successfully achieved high coverage in several key areas:
+
+- **Config Module**: 100% coverage
+- **Converter Modules**: Near complete coverage (94-100%)
+  - revolut.py: 100%
+  - utils.py: 100%
+  - card.py: 96% 
+  - account.py: 94%
+- **Services Layer**: 
+  - token_manager.py: 100% coverage
+  - ynab_client.py: 97% coverage
+- **Test Files**: Most test files have 98-100% coverage
+
+## Coverage Gaps
+
+Some areas still require improved test coverage:
+
+- **CLI Module**: 0% coverage - needs comprehensive testing
+- **Services/conversion_service.py**: 29% coverage - significant gaps remain
+- **UI Components**: 10-38% coverage - particularly UI pages need more tests
+- **Main Module**: 59% coverage - several functions remain untested
 
 ## Test Results
 
@@ -64,12 +103,14 @@ All tests are passing with the current implementation. The performance tests dem
 
 ## Potential Future Improvements
 
-1. **Code Coverage Analysis**: Add a coverage tool to quantify the exact percentage of code covered by tests.
-2. **Integration with CI/CD**: Set up automated testing in CI/CD pipeline.
-3. **Mocking External Services**: Add more robust mocking of external services.
-4. **Property-based Testing**: Add property-based tests for more thorough validation.
-5. **Documentation**: Add more documentation for the test suite.
+1. **Improve CLI Coverage**: Add tests for the CLI module (currently at 0%).
+2. **Expand UI Testing**: Increase coverage of the UI components (currently at 10-38%).
+3. **Enhance Conversion Service Tests**: Focus on the conversion_service.py module (currently at 29%).
+4. **Complete Main Module Coverage**: Address the remaining 41% of untested code in main.py.
+5. **Integration with CI/CD**: Set up automated coverage reporting in CI/CD pipeline.
+6. **Mocking External Services**: Add more robust mocking of external services.
+7. **Property-based Testing**: Add property-based tests for more thorough validation.
 
 ## Conclusion
 
-The implemented test suite significantly enhances the reliability and robustness of the application. It covers all major components, edge cases, and potential error conditions, providing a solid foundation for future development and maintenance.
+The implemented test suite significantly enhances the reliability and robustness of the application with an overall coverage of 45%. While some components enjoy excellent coverage (converters, token management), others require additional testing effort (CLI, UI components, conversion service). The current tests provide a solid foundation, but a focused effort on the identified gaps would further strengthen the application's quality assurance.
