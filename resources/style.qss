@@ -128,6 +128,7 @@ QPushButton#continue-btn, QPushButton#exit-btn, QPushButton#back-btn {
     font-weight: 600;
     border-radius: 8px;
     border: none;
+    margin-bottom: 12px;
 }
 QPushButton#exit-btn {
     background: #0066cc;

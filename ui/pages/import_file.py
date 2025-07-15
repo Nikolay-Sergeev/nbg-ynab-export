@@ -161,28 +161,8 @@ class ImportFilePage(QWizardPage):
         # Spacer
         card_layout.addStretch(1)
 
-        # Navigation Buttons
-        button_layout = QHBoxLayout()
-        button_layout.setSpacing(12)
-        exit_text = "Quit" if sys.platform.startswith('darwin') else "Exit"
-        self.exit_button = QPushButton(exit_text)
-        self.exit_button.setObjectName("exit-btn")
-        self.exit_button.setFixedWidth(100)
-        self.exit_button.setFixedHeight(40)
-        self.exit_button.setCursor(Qt.PointingHandCursor)
-        self.exit_button.clicked.connect(lambda: self.window().close())
-        button_layout.addWidget(self.exit_button)
-        self.continue_button = QPushButton("Continue")
-        self.continue_button.setObjectName("continue-btn")
-        self.continue_button.setFixedWidth(100)
-        self.continue_button.setFixedHeight(40)
-        self.continue_button.setCursor(Qt.PointingHandCursor)
-        self.continue_button.clicked.connect(self.validate_and_proceed)
-        self.continue_button.setEnabled(False) # Initially disabled
-        self.continue_button.setToolTip("Please select a file first")
-        button_layout.addStretch(1)
-        button_layout.addWidget(self.continue_button)
-        card_layout.addLayout(button_layout)
+        # No need for buttons in the page itself - they're in the main window now
+        # Just need to add validation state methods that the main window will use
 
         # State
         self.file_path = None
@@ -199,6 +179,7 @@ class ImportFilePage(QWizardPage):
         self.update_ui_state()
         # === End of restored code ===
 
+        # Use the card directly as our main layout container
         main_layout = QVBoxLayout()
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
@@ -396,21 +377,23 @@ class ImportFilePage(QWizardPage):
                 current_index = parent.pages_stack.indexOf(self)
                 if current_index >= 0:
                     parent.go_to_page(current_index + 1)
-                    return
+                    return True
                     
             # If not in stacked widget, try using wizard navigation
             wizard = self.wizard()
             if wizard is not None:
                 wizard.next()
-                return
+                return True
                 
             # If we got here, we couldn't navigate
             print("[ImportFilePage] Navigation failed: no parent widget supporting navigation found.")
+            return False
         else:
             print("[ImportFilePage] Validation failed. Cannot proceed.")
             if not self.error_text:
                 self.error_text = "Please select a valid file."
                 self.update_ui_state()
+            return False
 
     def initializePage(self):
         print(f"[Wizard] initializePage called for {type(self).__name__}")

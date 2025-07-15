@@ -199,15 +199,49 @@ class SidebarWizardWindow(QMainWindow):
 
         # Create content widget
         content_widget = QWidget()
-        content_widget.setStyleSheet("background-color: white;")  # White background
         content_layout = QVBoxLayout(content_widget)
         content_layout.setContentsMargins(0, 0, 0, 0)  # No margins
         
         # Create controller for business logic
         self.controller = WizardController()
         
+        # Create a container for the pages and navigation buttons
+        page_container = QWidget()
+        page_container_layout = QVBoxLayout(page_container)
+        page_container_layout.setContentsMargins(0, 0, 0, 0)  # No margins
+        
         # Create stacked widget for pages
         self.pages_stack = QStackedWidget()
+        page_container_layout.addWidget(self.pages_stack)
+        
+        # Create navigation buttons
+        nav_button_container = QWidget()
+        nav_button_layout = QHBoxLayout(nav_button_container)
+        
+        # Back button
+        self.back_button = QPushButton("Back")
+        self.back_button.setObjectName("back-btn")
+        self.back_button.setFixedWidth(100)
+        self.back_button.setFixedHeight(40)
+        self.back_button.clicked.connect(self.go_back)
+        nav_button_layout.addWidget(self.back_button)
+        
+        # Add spacer to push buttons to sides
+        nav_button_layout.addStretch(1)
+        
+        # Next/Continue button
+        self.next_button = QPushButton("Continue")
+        self.next_button.setObjectName("continue-btn")
+        self.next_button.setFixedWidth(100)
+        self.next_button.setFixedHeight(40)
+        self.next_button.clicked.connect(self.go_forward)
+        nav_button_layout.addWidget(self.next_button)
+        
+        # Add buttons to page container layout
+        page_container_layout.addWidget(nav_button_container)
+        
+        # Add page container to content layout
+        content_layout.addWidget(page_container)
         
         # Create all pages (original pages from QWizard)
         self.import_page = ImportFilePage(self.controller)
@@ -224,9 +258,6 @@ class SidebarWizardWindow(QMainWindow):
         self.pages_stack.addWidget(self.transactions_page)
         self.pages_stack.addWidget(self.review_page)
         self.pages_stack.addWidget(self.finish_page)
-        
-        # Add stacked widget to content layout
-        content_layout.addWidget(self.pages_stack)
         
         # Add content widget to main layout
         main_layout.addWidget(content_widget, 1)  # Stretch factor of 1
@@ -254,6 +285,49 @@ class SidebarWizardWindow(QMainWindow):
             
             # Update sidebar
             self.update_sidebar(index)
+            
+            # Update navigation button states
+            self.update_nav_buttons()
+            
+    def go_back(self):
+        """Go to the previous page"""
+        current = self.pages_stack.currentIndex()
+        if current > 0:
+            self.go_to_page(current - 1)
+            
+    def go_forward(self):
+        """Go to the next page"""
+        current = self.pages_stack.currentIndex()
+        if current < self.pages_stack.count() - 1:
+            # Get current page
+            page = self.pages_stack.currentWidget()
+            
+            # Check if page has a validate_and_proceed method
+            if hasattr(page, 'validate_and_proceed'):
+                page.validate_and_proceed()
+            else:
+                # If no validation needed, proceed to next page
+                self.go_to_page(current + 1)
+                
+    def update_nav_buttons(self):
+        """Update navigation buttons based on current page"""
+        current = self.pages_stack.currentIndex()
+        
+        # Back button is enabled except on first page
+        self.back_button.setEnabled(current > 0)
+        
+        # Next button text changes on last page
+        if current == self.pages_stack.count() - 1:
+            self.next_button.setText("Finish")
+        else:
+            self.next_button.setText("Continue")
+            
+        # Check if current page has isComplete method to determine if next is enabled
+        page = self.pages_stack.currentWidget()
+        if hasattr(page, 'isComplete'):
+            self.next_button.setEnabled(page.isComplete())
+        else:
+            self.next_button.setEnabled(True)
 
 
 def load_style(app: QApplication):
