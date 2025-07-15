@@ -133,17 +133,17 @@ class SidebarWizardWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("NBG/Revolut to YNAB Wizard")
         
-        # Use wider dimensions to prevent truncation
+        # Use dimensions that fit content properly
         fixed_w, fixed_h = 960, 600
             
         self.setFixedSize(fixed_w, fixed_h)
 
+        # Create single widget with no borders or spacing
         central = QWidget()
+        central.setStyleSheet("QWidget { border: none; }")  # Ensure no borders anywhere
         main_layout = QHBoxLayout(central)
-        
-        # Remove all padding to eliminate white space
-        main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.setSpacing(0)
+        main_layout.setContentsMargins(0, 0, 0, 0)  # No margins
+        main_layout.setSpacing(0)  # No spacing
 
         step_titles = [
             "Import File",
