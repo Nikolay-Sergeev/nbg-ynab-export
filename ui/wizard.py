@@ -141,9 +141,9 @@ class SidebarWizardWindow(QMainWindow):
         central = QWidget()
         main_layout = QHBoxLayout(central)
         
-        # Use adequate margins with more space on sides
-        main_layout.setContentsMargins(16, 16, 16, 16)
-        main_layout.setSpacing(10)
+        # Remove outer padding to eliminate white space outside the window
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
 
         step_titles = [
             "Import File",

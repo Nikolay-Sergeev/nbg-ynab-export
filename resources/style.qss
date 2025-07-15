@@ -1,6 +1,6 @@
 QWizard {
     background: #F7F8FA;
-    font-family: -apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+    font-family: system-ui, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
 }
 
 /* macOS specific style overrides */
@@ -9,20 +9,21 @@ QWizard {
 }
 
 #macOS QWidget {
-    font-family: ".AppleSystemUIFont", -apple-system, system-ui;
+    font-family: system-ui, "Helvetica Neue";
 }
 QWizardPage {
     background: transparent;
-    border-radius: 18px;
-    padding: 32px 32px 24px 32px;
-    margin: 16px;
+    border-radius: 0;
+    padding: 12px 12px 12px 12px;
+    margin: 0;
 }
 #card-panel, .card-panel, QFrame#card-panel {
     background: #fff;
-    border-radius: 10px;
+    border-radius: 0;
     border: none;
-    /* box-shadow not supported in QSS */
     padding: 0;
+    margin: 0;
+    width: 100%;
 }
 
 /* macOS card panel with more native styling */
@@ -108,10 +109,11 @@ QPushButton#continue-btn, QPushButton#exit-btn, QPushButton#back-btn {
     border: none;
 }
 QPushButton#exit-btn {
-    background: #f0f0f0;
-    color: #333;
-    border: 1px solid #cccccc;
+    background: #0066cc;
+    color: white;
+    border: none;
     border-radius: 6px;
+    font-weight: bold;
 }
 QPushButton#continue-btn {
     background: #0066cc;
@@ -219,10 +221,11 @@ QLabel[role='title'] {
 
 QTableWidget {
     background: #fff;
-    border-radius: 10px;
+    border-radius: 0;
     border: 1px solid #bbdefb;
     font-size: 15px;
     gridline-color: #e3f2fd;
+    width: 100%;
 }
 QHeaderView::section {
     background: #e3f2fd;
