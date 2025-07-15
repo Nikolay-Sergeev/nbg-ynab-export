@@ -174,7 +174,7 @@ class SidebarWizardWindow(QMainWindow):
         
         # Use consistent styling for sidebar - narrower to save space
         side_widget.setFixedWidth(180)
-        side_widget.setStyleSheet("background:#F0F0F0;border-right:1px solid #E0E0E0;")
+        side_widget.setStyleSheet("background:#F0F0F0;")
             
         main_layout.addWidget(side_widget)
 
@@ -217,12 +217,8 @@ class SidebarWizardWindow(QMainWindow):
 
         self.wizard.currentIdChanged.connect(self.update_sidebar)
 
-        # Add wizard with stretch factor 1 to make it fill the available space
-        wizard_container = QWidget()
-        wizard_container_layout = QVBoxLayout(wizard_container)
-        wizard_container_layout.setContentsMargins(0, 0, 0, 0)
-        wizard_container_layout.addWidget(self.wizard)
-        main_layout.addWidget(wizard_container, 1)
+        # Add wizard directly with no container and stretch factor 1 to make it fill all available space
+        main_layout.addWidget(self.wizard, 1)
         self.setCentralWidget(central)
         self.update_sidebar(self.wizard.currentId())
 
