@@ -9,8 +9,10 @@ from PyQt5.QtWidgets import (
     QLabel,
     QHBoxLayout,
     QVBoxLayout,
+    QProxyStyle,
+    QStyleFactory,
 )
-from PyQt5.QtGui import QIcon, QPixmap, QPainter, QFont
+from PyQt5.QtGui import QIcon, QPixmap, QPainter, QFont, QFontDatabase
 from PyQt5.QtCore import Qt
 from PyQt5.QtSvg import QSvgRenderer
 
@@ -48,20 +50,49 @@ class StepLabel(QLabel):
         self.setWordWrap(True)
         self.setAlignment(Qt.AlignLeft | Qt.AlignTop)
         self.setContentsMargins(0, 4, 0, 4)
-        self.setFont(QFont("San Francisco", 13))
+        
+        # Use system font on macOS
+        if sys.platform.startswith('darwin'):
+            self.setFont(QFont(".AppleSystemUIFont", 13))
+        else:
+            self.setFont(QFont("San Francisco", 13))
+            
         self.set_selected(False)
 
     def set_selected(self, selected: bool):
         if selected:
-            self.setStyleSheet(
-                "background-color:#007AFF;color:white;border-radius:20px;"
-                "padding:8px 16px;font-size:13pt;"
-            )
+            if sys.platform.startswith('darwin'):
+                # Use standard macOS accent color
+                self.setStyleSheet(
+                    "background-color:#007AFF;color:white;border-radius:6px;"
+                    "padding:8px 16px;font-size:13pt;"
+                )
+            else:
+                self.setStyleSheet(
+                    "background-color:#007AFF;color:white;border-radius:20px;"
+                    "padding:8px 16px;font-size:13pt;"
+                )
         else:
             self.setStyleSheet(
                 "color:#333;padding:8px 16px;font-size:13pt;"
             )
 
+class MacOSProxyStyle(QProxyStyle):
+    """
+    Custom style proxy to better match macOS native UI patterns.
+    """
+    def __init__(self):
+        super().__init__(QStyleFactory.create("Fusion"))
+        
+    def drawControl(self, element, option, painter, widget=None):
+        super().drawControl(element, option, painter, widget)
+        
+    def pixelMetric(self, metric, option=None, widget=None):
+        # Adjust spacing for macOS
+        if metric in (self.PM_ButtonMargin, self.PM_LayoutHorizontalSpacing):
+            return 8
+        return super().pixelMetric(metric, option, widget)
+        
 class RobustWizard(QWizard):
     def closeEvent(self, event):
         print("[Wizard] closeEvent triggered. Attempting to stop all worker threads...")
@@ -105,12 +136,23 @@ class SidebarWizardWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("NBG/Revolut to YNAB Wizard")
-        fixed_w, fixed_h = 900, 600
+        
+        # Use slightly different dimensions on macOS to match standard window sizes
+        if sys.platform.startswith('darwin'):
+            fixed_w, fixed_h = 910, 610
+        else:
+            fixed_w, fixed_h = 900, 600
+            
         self.setFixedSize(fixed_w, fixed_h)
 
         central = QWidget()
         main_layout = QHBoxLayout(central)
-        main_layout.setContentsMargins(16, 16, 16, 16)
+        
+        # Use standard macOS margins on macOS
+        if sys.platform.startswith('darwin'):
+            main_layout.setContentsMargins(20, 20, 20, 20)
+        else:
+            main_layout.setContentsMargins(16, 16, 16, 16)
 
         step_titles = [
             "Import File",
@@ -122,8 +164,15 @@ class SidebarWizardWindow(QMainWindow):
         ]
         self.step_labels = []
         sidebar_layout = QVBoxLayout()
-        sidebar_layout.setContentsMargins(16, 16, 16, 16)
-        sidebar_layout.setSpacing(12)
+        
+        # Use macOS-style margins and spacing
+        if sys.platform.startswith('darwin'):
+            sidebar_layout.setContentsMargins(18, 18, 18, 18)
+            sidebar_layout.setSpacing(10)
+        else:
+            sidebar_layout.setContentsMargins(16, 16, 16, 16)
+            sidebar_layout.setSpacing(12)
+            
         for t in step_titles:
             lbl = StepLabel(t)
             self.step_labels.append(lbl)
@@ -131,8 +180,15 @@ class SidebarWizardWindow(QMainWindow):
         sidebar_layout.addStretch()
         side_widget = QWidget()
         side_widget.setLayout(sidebar_layout)
-        side_widget.setFixedWidth(220)
-        side_widget.setStyleSheet("background:#F7F7F7;")
+        
+        # Use macOS-style sidebar width and color
+        if sys.platform.startswith('darwin'):
+            side_widget.setFixedWidth(230)
+            side_widget.setStyleSheet("background:#F5F5F7;")
+        else:
+            side_widget.setFixedWidth(220)
+            side_widget.setStyleSheet("background:#F7F7F7;")
+            
         main_layout.addWidget(side_widget)
 
         self.controller = WizardController()
@@ -184,7 +240,8 @@ class SidebarWizardWindow(QMainWindow):
 
 
 def load_style(app: QApplication):
-    """Load QSS and apply a light macOS-like palette."""
+    """Load QSS and apply a macOS-native palette."""
+    # Load stylesheets
     if os.path.exists(STYLE_PATH):
         try:
             with open(STYLE_PATH, "r") as f:
@@ -194,6 +251,8 @@ def load_style(app: QApplication):
             print(f"[QSS] Failed to load style.qss: {e}")
     else:
         print(f"[QSS] style.qss not found at {STYLE_PATH}. UI will use default style.")
+        
+    # Load and set app icon
     if os.path.exists(ICON_PATH):
         try:
             renderer = QSvgRenderer(ICON_PATH)
@@ -209,25 +268,55 @@ def load_style(app: QApplication):
     else:
         print(f"[Icon] app_icon.svg not found at {ICON_PATH}. Using default icon.")
 
-    # Use Fusion style with a light palette for consistency
+    # Setup platform-specific style
     from PyQt5.QtGui import QPalette, QColor
-    app.setStyle("Fusion")
-    app.setFont(QFont("San Francisco", 13))
-    pal = app.palette()
-    pal.setColor(QPalette.Window, QColor("#F7F7F7"))
-    pal.setColor(QPalette.WindowText, Qt.black)
-    pal.setColor(QPalette.Base, QColor("#FFFFFF"))
-    pal.setColor(QPalette.Button, QColor("#FFFFFF"))
-    pal.setColor(QPalette.Text, Qt.black)
-    pal.setColor(QPalette.ButtonText, Qt.black)
-    app.setPalette(pal)
+    
+    # Use system font on macOS
+    if sys.platform.startswith('darwin'):
+        # Try to load system font
+        system_font = QFont(".AppleSystemUIFont", 13)
+        app.setFont(system_font)
+        
+        # Apply macOS style proxy for better native feel
+        app.setStyle(MacOSProxyStyle())
+        
+        # Use more macOS-like palette (subtle colors)
+        pal = app.palette()
+        pal.setColor(QPalette.Window, QColor("#F5F5F7"))
+        pal.setColor(QPalette.WindowText, QColor("#1D1D1F"))
+        pal.setColor(QPalette.Base, QColor("#FFFFFF"))
+        pal.setColor(QPalette.Button, QColor("#F5F5F7"))
+        pal.setColor(QPalette.Text, QColor("#1D1D1F"))
+        pal.setColor(QPalette.ButtonText, QColor("#1D1D1F"))
+        pal.setColor(QPalette.Highlight, QColor("#0071E3"))
+        app.setPalette(pal)
+    else:
+        # For other platforms use Fusion with light palette
+        app.setStyle("Fusion")
+        app.setFont(QFont("San Francisco", 13))
+        pal = app.palette()
+        pal.setColor(QPalette.Window, QColor("#F7F7F7"))
+        pal.setColor(QPalette.WindowText, Qt.black)
+        pal.setColor(QPalette.Base, QColor("#FFFFFF"))
+        pal.setColor(QPalette.Button, QColor("#FFFFFF"))
+        pal.setColor(QPalette.Text, Qt.black)
+        pal.setColor(QPalette.ButtonText, Qt.black)
+        app.setPalette(pal)
 
 def main():
     try:
         # On Linux headless, use offscreen; skip on macOS
         if sys.platform.startswith('linux') and not os.environ.get('DISPLAY') and not os.environ.get('WAYLAND_DISPLAY'):
             os.environ['QT_QPA_PLATFORM'] = 'offscreen'
+            
         app = QApplication(sys.argv)
+        
+        # Set object name for platform-specific styling in QSS
+        if sys.platform.startswith('darwin'):
+            app.setObjectName("macOS")
+            # Set macOS-specific attributes for better integration
+            app.setAttribute(Qt.AA_DontShowIconsInMenus, True)
+        
         load_style(app)
         window = SidebarWizardWindow()
         window.show()
