@@ -1,9 +1,10 @@
 from PyQt5.QtWidgets import (
-    QWizardPage, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QPushButton, QFrame, QSizePolicy
+    QWizardPage, QWizard, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QPushButton, QFrame, QSizePolicy,
+    QWidget, QApplication
 )
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QEvent
 
-class AccountSelectionPage(QWizardPage):
+class AccountSelectionPage(QWidget):
     def __init__(self, controller):
         super().__init__()
         self.controller = controller
@@ -24,7 +25,7 @@ class AccountSelectionPage(QWizardPage):
         card.setObjectName("card-panel")
         card.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         card_layout = QVBoxLayout(card)
-        card_layout.setContentsMargins(8, 8, 8, 8)
+        card_layout.setContentsMargins(20, 20, 20, 20)
         card_layout.setSpacing(16)
 
         title = QLabel("Select YNAB Budget and Account")
@@ -37,17 +38,19 @@ class AccountSelectionPage(QWizardPage):
         card_layout.addWidget(budget_label, alignment=Qt.AlignLeft)
         card_layout.addSpacing(8)
 
-        # Budget dropdown
+        # Budget dropdown - add directly to layout
         self.budget_combo = QComboBox()
         self.budget_combo.setObjectName("budget-combo")
         self.budget_combo.setMinimumHeight(40)
-        self.budget_combo.setMinimumWidth(240)
+        self.budget_combo.setMaximumWidth(400)  # Limit width
         self.budget_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.budget_combo.setEditable(False)
-        self.budget_combo.setStyleSheet("font-size:15px;border:1px solid #ccc;border-radius:6px;color:#222;background:#fff;padding:6px 32px 6px 12px;")
         self.budget_combo.setInsertPolicy(QComboBox.NoInsert)
         self.budget_combo.setPlaceholderText("Select a budget")
-        card_layout.addWidget(self.budget_combo, alignment=Qt.AlignLeft)
+        self.budget_combo.setCursor(Qt.PointingHandCursor)  # Show hand cursor to indicate it's clickable
+        
+        # Add directly to layout
+        card_layout.addWidget(self.budget_combo)
         card_layout.addSpacing(16)
 
         # Account label
@@ -56,17 +59,19 @@ class AccountSelectionPage(QWizardPage):
         card_layout.addWidget(account_label, alignment=Qt.AlignLeft)
         card_layout.addSpacing(8)
 
-        # Account dropdown
+        # Account dropdown - add directly to layout
         self.account_combo = QComboBox()
         self.account_combo.setObjectName("account-combo")
         self.account_combo.setMinimumHeight(40)
-        self.account_combo.setMinimumWidth(240)
+        self.account_combo.setMaximumWidth(400)  # Limit width
         self.account_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.account_combo.setEditable(False)
-        self.account_combo.setStyleSheet("font-size:15px;border:1px solid #ccc;border-radius:6px;color:#222;background:#fff;padding:6px 32px 6px 12px;")
         self.account_combo.setInsertPolicy(QComboBox.NoInsert)
         self.account_combo.setPlaceholderText("Choose account")
-        card_layout.addWidget(self.account_combo, alignment=Qt.AlignLeft)
+        self.account_combo.setCursor(Qt.PointingHandCursor)  # Show hand cursor to indicate it's clickable
+        
+        # Add directly to layout
+        card_layout.addWidget(self.account_combo)
         card_layout.addSpacing(16)
 
         # Helper/error label
@@ -76,24 +81,7 @@ class AccountSelectionPage(QWizardPage):
         card_layout.addWidget(self.helper_label, alignment=Qt.AlignLeft)
         card_layout.addStretch(1)
 
-        # Action buttons
-        btn_row = QHBoxLayout()
-        self.back_btn = QPushButton("Back")
-        self.back_btn.setObjectName("back-btn")
-        self.back_btn.setFixedHeight(40)
-        self.back_btn.setFixedWidth(100)
-        self.back_btn.setStyleSheet("background:#fff;color:#555;border:1px solid #aaa;font-weight:500;")
-        self.back_btn.clicked.connect(self.go_back)
-        btn_row.addWidget(self.back_btn)
-        btn_row.addStretch(1)
-        self.continue_btn = QPushButton("Continue")
-        self.continue_btn.setObjectName("continue-btn")
-        self.continue_btn.setFixedHeight(40)
-        self.continue_btn.setFixedWidth(100)
-        self.continue_btn.setStyleSheet("background:#1976d2;color:#fff;font-weight:600;opacity:0.5;")
-        self.continue_btn.clicked.connect(self.on_continue)
-        btn_row.addWidget(self.continue_btn)
-        card_layout.addLayout(btn_row)
+        # Navigation buttons now in main window
 
         # Final layout
         outer_layout.addWidget(card)
@@ -103,10 +91,24 @@ class AccountSelectionPage(QWizardPage):
         self.setMaximumSize(16777215, 16777215)
 
         # Signals
+        # Disconnect any existing signals first to avoid duplicate connections
+        try:
+            self.budget_combo.currentIndexChanged.disconnect()
+            self.account_combo.currentIndexChanged.disconnect()
+            self.controller.budgetsFetched.disconnect(self.on_budgets_fetched)
+            self.controller.accountsFetched.disconnect(self.on_accounts_fetched)
+        except:
+            pass  # Ignore if not connected
+            
+        # Connect signals
         self.budget_combo.currentIndexChanged.connect(self.on_budget_changed)
+        self.budget_combo.activated.connect(lambda idx: print(f"Budget combo activated: {idx}"))
         self.account_combo.currentIndexChanged.connect(self.on_account_changed)
+        self.account_combo.activated.connect(lambda idx: print(f"Account combo activated: {idx}"))
         self.controller.budgetsFetched.connect(self.on_budgets_fetched)
         self.controller.accountsFetched.connect(self.on_accounts_fetched)
+        
+        # Set initial state
         self.update_helper()
         self.validate_fields()
 
@@ -114,50 +116,124 @@ class AccountSelectionPage(QWizardPage):
         """Returns the selected budget and account IDs."""
         return self.selected_budget_id, self.selected_account_id
 
+    def showEvent(self, event):
+        """Called when the page is shown."""
+        print("[AccountSelectionPage] showEvent called")
+        super().showEvent(event)
+        
+        # Reset and re-initialize comboboxes to ensure they're interactive
+        self.budget_combo.setEnabled(False) 
+        self.budget_combo.setEnabled(True)
+        self.account_combo.setEnabled(False)
+        self.account_combo.setEnabled(True)
+        
+        # Give the combo boxes focus to make them more noticeable
+        self.budget_combo.setFocus()
+    
     def initializePage(self):
+        print("[AccountSelectionPage] initializePage called")
         if not self.controller.ynab:
+            print("[AccountSelectionPage] No YNAB client, skipping fetch")
             return
         try:
+            print("[AccountSelectionPage] Fetching budgets from YNAB API")
             self.controller.fetch_budgets()
         except Exception as e:
-            pass
+            print(f"[AccountSelectionPage] Error fetching budgets: {e}")
 
     def on_budgets_fetched(self, budgets):
+        print(f"[AccountSelectionPage] Budgets fetched: {len(budgets) if budgets else 0}")
         self.budgets = budgets or []
+        
+        # Update the combo box
+        self.budget_combo.blockSignals(True)  # Prevent signals during update
         self.budget_combo.clear()
+        
+        # Add default selection prompt
         self.budget_combo.addItem("Select a budget", None)
-        for b in self.budgets:
-            self.budget_combo.addItem(b['name'], b['id'])
+        
+        # Add all budgets from the YNAB API
+        if self.budgets:
+            for b in self.budgets:
+                print(f"[AccountSelectionPage] Adding budget: {b['name']} ({b['id']})")
+                self.budget_combo.addItem(b['name'], b['id'])
+        else:
+            print("[AccountSelectionPage] No budgets received from API")
+            # Add a message if no budgets were found
+            self.budget_combo.addItem("No budgets found", None)
+            
+        # Force update the combo box
+        self.budget_combo.setCurrentIndex(0)
+        self.budget_combo.blockSignals(False)  # Re-enable signals
+        
+        # Reset selection and dependent fields
         self.selected_budget_id = None
         self.accounts = []
+        
+        # Reset accounts combo box
+        self.account_combo.blockSignals(True)  # Prevent signals during update
         self.account_combo.clear()
         self.account_combo.addItem("Select an account", None)
+        self.account_combo.setCurrentIndex(0)
+        self.account_combo.blockSignals(False)  # Re-enable signals
+        
         self.selected_account_id = None
         self.update_helper()
         self.validate_fields()
 
     def on_accounts_fetched(self, accounts):
+        print(f"[AccountSelectionPage] Accounts fetched: {len(accounts) if accounts else 0}")
         self.accounts = accounts or []
+        
+        # Update the account combo box
+        self.account_combo.blockSignals(True)  # Prevent signals during update
         self.account_combo.clear()
+        
+        # Add default selection prompt
         self.account_combo.addItem("Choose account", None)
-        for a in self.accounts:
-            self.account_combo.addItem(a['name'], a['id'])
+        
+        # Add all accounts from the YNAB API
+        if self.accounts:
+            for a in self.accounts:
+                print(f"[AccountSelectionPage] Adding account: {a['name']} ({a['id']})")
+                self.account_combo.addItem(a['name'], a['id'])
+        else:
+            print("[AccountSelectionPage] No accounts received from API")
+            # Add a message if no accounts were found
+            self.account_combo.addItem("No accounts found", None)
+            
+        # Force update the combo box
+        self.account_combo.setCurrentIndex(0)
+        self.account_combo.blockSignals(False)  # Re-enable signals
+        
         self.selected_account_id = None
         self.update_helper()
         self.validate_fields()
 
+    def mousePressEvent(self, event):
+        # Log mouse click events for debugging
+        print(f"[AccountSelectionPage] Mouse click at {event.x()}, {event.y()}")
+        super().mousePressEvent(event)
+    
     def on_budget_changed(self, idx):
+        print(f"[AccountSelectionPage] Budget changed to index {idx}")
         data = self.budget_combo.itemData(idx)
         self.selected_budget_id = data if data else None
+        print(f"[AccountSelectionPage] Selected budget ID: {self.selected_budget_id}")
+        
         if self.selected_budget_id:
             try:
+                print(f"[AccountSelectionPage] Fetching accounts for budget: {self.selected_budget_id}")
                 self.controller.fetch_accounts(self.selected_budget_id)
             except Exception as e:
-                pass
+                print(f"[AccountSelectionPage] Error fetching accounts: {e}")
         self.selected_account_id = None
         self.account_combo.setCurrentIndex(0)
         self.update_helper()
         self.validate_fields()
+        
+        # Force UI update
+        self.budget_combo.repaint()
 
     def on_account_changed(self, idx):
         data = self.account_combo.itemData(idx)
@@ -174,11 +250,7 @@ class AccountSelectionPage(QWizardPage):
 
     def validate_fields(self):
         valid = bool(self.selected_budget_id and self.selected_account_id)
-        self.continue_btn.setEnabled(valid)
-        if valid:
-            self.continue_btn.setStyleSheet("background:#1976d2;color:#fff;font-weight:600;opacity:1;")
-        else:
-            self.continue_btn.setStyleSheet("background:#1976d2;color:#fff;font-weight:600;opacity:0.5;")
+        self.completeChanged.emit()  # Signal main window to update button states
 
     def isComplete(self):
         return bool(self.selected_budget_id and self.selected_account_id)
@@ -186,7 +258,68 @@ class AccountSelectionPage(QWizardPage):
     def on_continue(self):
         if not self.isComplete():
             return
-        self.wizard().next()
+        # Try different navigation methods
+        parent = self.window()
+        if hasattr(parent, "go_to_page") and hasattr(parent, "pages_stack"):
+            # Use our custom navigation system
+            current_index = parent.pages_stack.indexOf(self)
+            if current_index >= 0:
+                parent.go_to_page(current_index + 1)
+                return
+                
+        # If not in stacked widget, try using wizard navigation
+        wizard = self.wizard()
+        if wizard is not None:
+            wizard.next()
+            
+    def validate_and_proceed(self):
+        print("[AccountSelectionPage] validate_and_proceed called")
+        if not self.isComplete():
+            print("[AccountSelectionPage] Not complete, can't proceed")
+            return False
+        
+        # Get the selected budget and account IDs
+        budget_id, account_id = self.get_selected_ids()
+        print(f"[AccountSelectionPage] Selected budget: {budget_id}, account: {account_id}")
+        
+        # If we're in stacked widget with parent window
+        parent = self.window()
+        if hasattr(parent, "go_to_page") and hasattr(parent, "pages_stack"):
+            print("[AccountSelectionPage] Using stacked widget navigation")
+            current_index = parent.pages_stack.indexOf(self)
+            if current_index >= 0:
+                parent.go_to_page(current_index + 1)
+                return True
+                
+        # If not, try wizard navigation
+        wizard = self.wizard()
+        if wizard:
+            print("[AccountSelectionPage] Using wizard navigation")
+            wizard.next()
+            return True
+            
+        print("[AccountSelectionPage] No navigation method found")
+        return False
 
     def go_back(self):
-        self.wizard().back()
+        # Try different navigation methods
+        parent = self.window()
+        if hasattr(parent, "go_to_page") and hasattr(parent, "pages_stack"):
+            # Use our custom navigation system
+            current_index = parent.pages_stack.indexOf(self)
+            if current_index > 0:
+                parent.go_to_page(current_index - 1)
+                return
+                
+        # If not in stacked widget, try using wizard navigation
+        wizard = self.wizard()
+        if wizard is not None:
+            wizard.back()
+            
+    def wizard(self):
+        """Return the wizard containing this page, or None if not in a wizard."""
+        # Try to get the wizard, otherwise return None
+        parent = self.parent()
+        if isinstance(parent, QWizard):
+            return parent
+        return None

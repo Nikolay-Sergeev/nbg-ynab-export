@@ -35,48 +35,26 @@ class TestCLIArgumentParsing(unittest.TestCase):
         """Clean up test environment."""
         shutil.rmtree(self.test_dir)
 
-    @patch('sys.argv')
-    def test_parse_args_with_input_only(self, mock_argv):
+    def test_parse_args_with_input_only(self):
         """Test parsing arguments with only input file."""
-        mock_argv.__getitem__.side_effect = lambda idx: {
-            0: 'cli.py',
-            1: self.valid_csv
-        }.get(idx, IndexError())
-        mock_argv.__len__.return_value = 2
-        
-        args = parse_args()
-        self.assertEqual(args.input_file, Path(self.valid_csv))
-        self.assertIsNone(args.previous)
+        with patch('sys.argv', ['cli.py', self.valid_csv]):
+            args = parse_args()
+            self.assertEqual(args.input_file, Path(self.valid_csv))
+            self.assertIsNone(args.previous)
 
-    @patch('sys.argv')
-    def test_parse_args_with_input_and_previous(self, mock_argv):
+    def test_parse_args_with_input_and_previous(self):
         """Test parsing arguments with input and previous file."""
-        mock_argv.__getitem__.side_effect = lambda idx: {
-            0: 'cli.py',
-            1: self.valid_csv,
-            2: '--previous',
-            3: self.previous_csv
-        }.get(idx, IndexError())
-        mock_argv.__len__.return_value = 4
-        
-        args = parse_args()
-        self.assertEqual(args.input_file, Path(self.valid_csv))
-        self.assertEqual(args.previous, Path(self.previous_csv))
+        with patch('sys.argv', ['cli.py', self.valid_csv, '--previous', self.previous_csv]):
+            args = parse_args()
+            self.assertEqual(args.input_file, Path(self.valid_csv))
+            self.assertEqual(args.previous, Path(self.previous_csv))
 
-    @patch('sys.argv')
-    def test_parse_args_with_short_flag(self, mock_argv):
+    def test_parse_args_with_short_flag(self):
         """Test parsing arguments with short flag for previous."""
-        mock_argv.__getitem__.side_effect = lambda idx: {
-            0: 'cli.py',
-            1: self.valid_csv,
-            2: '-p',
-            3: self.previous_csv
-        }.get(idx, IndexError())
-        mock_argv.__len__.return_value = 4
-        
-        args = parse_args()
-        self.assertEqual(args.input_file, Path(self.valid_csv))
-        self.assertEqual(args.previous, Path(self.previous_csv))
+        with patch('sys.argv', ['cli.py', self.valid_csv, '-p', self.previous_csv]):
+            args = parse_args()
+            self.assertEqual(args.input_file, Path(self.valid_csv))
+            self.assertEqual(args.previous, Path(self.previous_csv))
 
 
 class TestCLIMain(unittest.TestCase):
@@ -145,7 +123,8 @@ class TestCLIMain(unittest.TestCase):
             'Description': ['Coffee Shop'],
             'Amount': ['-4.50'],
             'Fee': ['0.00'],
-            'State': ['COMPLETED']
+            'State': ['COMPLETED'],
+            'Currency': ['EUR']
         })
         mock_read.return_value = revolut_df
         
@@ -219,7 +198,8 @@ class TestCLIMain(unittest.TestCase):
         card_df = pd.DataFrame({
             'Ημερομηνία/Ώρα Συναλλαγής': ['21/2/2025 10:00 μμ'],
             'Περιγραφή Κίνησης': ['E-COMMERCE ΑΓΟΡΑ - SHOP.EXAMPLE.COM'],
-            'Ποσό': ['-12,34']
+            'Ποσό': ['12,34'],
+            'Χ/Π': ['Χ']
         })
         mock_read.return_value = card_df
         
@@ -279,7 +259,8 @@ class TestCLIMain(unittest.TestCase):
             'Description': ['Coffee Shop', 'From John'],
             'Amount': ['-4.50', '50.00'],
             'Fee': ['0.00', '0.00'],
-            'State': ['COMPLETED', 'COMPLETED']
+            'State': ['COMPLETED', 'COMPLETED'],
+            'Currency': ['EUR', 'EUR']
         })
         mock_read.side_effect = [revolut_df, pd.DataFrame()]
         

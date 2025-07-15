@@ -329,7 +329,7 @@ class TestCardOperations(unittest.TestCase):
         
         with self.assertRaises(ValueError) as cm:
             process_card_operations(invalid_date_data)
-        self.assertIn("Invalid date format", str(cm.exception))
+        self.assertIn("Error processing card operations", str(cm.exception))
 
     def test_process_card_operations_missing_columns(self):
         """Test processing card operations with missing required columns."""

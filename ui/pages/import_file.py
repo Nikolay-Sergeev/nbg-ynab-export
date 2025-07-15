@@ -106,7 +106,7 @@ class ImportFilePage(QWizardPage):
         card.setObjectName("card-panel")
         card.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         card_layout = QVBoxLayout(card)
-        card_layout.setContentsMargins(8, 8, 8, 8)  # Original padding restored
+        card_layout.setContentsMargins(20, 20, 20, 20)  # Consistent padding with other pages
         card_layout.setSpacing(16)
 
         title = QLabel("Import NBG or Revolut Statement")
@@ -340,13 +340,15 @@ class ImportFilePage(QWizardPage):
             self.drop_zone.browse_button.hide()
             self.file_name_label.setText(os.path.basename(self.file_path))
             self.file_display_widget.show()
-            self.continue_button.setEnabled(True)
+            # Signal that completion state changed (for the main window buttons)
+            self.completeChanged.emit()
             self.error_label.hide()
         else:
             self.drop_zone.show()
             self.drop_zone.browse_button.show()
             self.file_display_widget.hide()
-            self.continue_button.setEnabled(False)
+            # Signal that completion state changed (for the main window buttons)
+            self.completeChanged.emit()
             if self.error_text:
                 self.error_label.setText(self.error_text)
                 self.error_label.show()
