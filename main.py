@@ -6,8 +6,9 @@ import pandas as pd
 import os
 import sys
 import csv
-import re  # Add this import
+import re
 import logging
+from typing import Optional
 from datetime import datetime
 
 # Configuration
@@ -238,7 +239,7 @@ def validate_input_file(file_path: str) -> None:
 
 def convert_nbg_to_ynab(
     xlsx_file: str,
-    previous_ynab: str | None = None,
+    previous_ynab: Optional[str] = None,
 ) -> pd.DataFrame:
     """Convert bank export file to YNAB CSV format.
 

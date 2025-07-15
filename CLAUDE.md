@@ -18,31 +18,31 @@ source venv/bin/activate  # macOS/Linux
 .\venv\Scripts\activate   # Windows
 
 # Install dependencies
-pip install -r requirements.txt
+python3 -m pip install -r requirements.txt
 ```
 
 ### Running the Application
 ```bash
 # CLI Mode - Convert file to YNAB format
-python main.py path/to/statement.[xlsx|csv]
+python3 main.py path/to/statement.[xlsx|csv]
 
 # CLI Mode - Convert excluding previously imported transactions
-python main.py path/to/statement.[xlsx|csv] path/to/previous_ynab.csv
+python3 main.py path/to/statement.[xlsx|csv] path/to/previous_ynab.csv
 
 # GUI Wizard Mode
-python ui/wizard.py
+python3 ui/wizard.py
 ```
 
 ### Development Commands
 ```bash
 # Run tests (unittest)
-python -m unittest discover -s test -v
+python3 -m unittest discover -s test -v
 
 # Run tests (pytest)
-pytest
+python3 -m pytest
 
 # Check code style
-flake8 main.py test
+python3 -m flake8 main.py test
 ```
 
 ## Code Architecture
