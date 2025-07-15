@@ -15,29 +15,34 @@ from PyQt5.QtWidgets import (
     QStackedWidget,
     QPushButton,
 )
-from PyQt5.QtGui import QIcon, QPixmap, QPainter, QFont, QFontDatabase
+from PyQt5.QtGui import QIcon, QPixmap, QPainter, QFont
 from PyQt5.QtCore import Qt
 from PyQt5.QtSvg import QSvgRenderer
 
 # Fix relative imports when running directly
 if __name__ == "__main__":
     # Add parent directory to path so imports work
-    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    sys.path.insert(0, os.path.dirname(os.path.dirname(
+        os.path.abspath(__file__))))
     from ui.controller import WizardController
     from ui.pages.import_file import ImportFilePage
     from ui.pages.auth import YNABAuthPage
-    from ui.pages.account_select_simple import AccountSelectionPage  # Using the simplified implementation
-    from ui.pages.transactions import TransactionsPage
-    from ui.pages.review_upload import ReviewAndUploadPage
+    from ui.pages.account_select import AccountSelectionPage  # Using standard implementation
+    from ui.pages.transactions import (TransactionsPage)
+    
+    from ui.pages.review_upload import (ReviewAndUploadPage)
+    
     from ui.pages.finish_page import FinishPage
 else:
     # Normal relative imports when imported as a module
     from .controller import WizardController
     from .pages.import_file import ImportFilePage
     from .pages.auth import YNABAuthPage
-    from .pages.account_select import AccountSelectionPage  # Using the standard implementation
-    from .pages.transactions import TransactionsPage
-    from .pages.review_upload import ReviewAndUploadPage
+    from .pages.account_select import AccountSelectionPage  # Using standard implementation
+    from .pages.transactions import (TransactionsPage)
+    
+    from .pages.review_upload import (ReviewAndUploadPage)
+    
     from .pages.finish_page import FinishPage
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -53,13 +58,15 @@ class StepLabel(QLabel):
         self.setWordWrap(True)
         self.setAlignment(Qt.AlignLeft | Qt.AlignTop)
         self.setContentsMargins(0, 4, 0, 4)
-        self.setCursor(Qt.PointingHandCursor)  # Show hand cursor for clickable items
+        # Show hand cursor for clickable items
+        self.setCursor(Qt.PointingHandCursor)
         
         # Use system font on macOS
         if sys.platform.startswith('darwin'):
             self.setFont(QFont(".AppleSystemUIFont", 13))
         else:
-            self.setFont(QFont("Segoe UI", 13)) # Replace San Francisco with Segoe UI
+            # Replace San Francisco with Segoe UI
+            self.setFont(QFont("Segoe UI", 13))
             
         # Store index for navigation
         self.step_index = -1
@@ -88,6 +95,8 @@ class StepLabel(QLabel):
         # Call parent implementation
         super().mousePressEvent(event)
 
+
+
 class MacOSProxyStyle(QProxyStyle):
     """
     Custom style proxy to better match macOS native UI patterns.
@@ -104,23 +113,29 @@ class MacOSProxyStyle(QProxyStyle):
             return 8
         return super().pixelMetric(metric, option, widget)
         
+
+
 class RobustWizard(QWizard):
     def closeEvent(self, event):
-        print("[Wizard] closeEvent triggered. Attempting to stop all worker threads...")
+        print("[Wizard] closeEvent triggered. "
+              "Attempting to stop all worker threads...")
         try:
             for page_id in self.pageIds():
                 page = self.page(page_id)
                 if page is None:
                     continue
-                print(f"[Wizard] Checking page id {page_id}: {type(page).__name__}")
+                print(f"[Wizard] Checking page id {page_id}: "
+                      f"{type(page).__name__}")
                 for attr in ("worker", "review_upload_worker"):
                     worker = getattr(page, attr, None)
                     if worker is not None:
-                        print(f"[Wizard] Found worker attribute '{attr}' on page id {page_id}.")
+                        print(f"[Wizard] Found worker attribute '{attr}' "
+                              f"on page id {page_id}.")
                         if hasattr(worker, 'isRunning'):
                             print(f"[Wizard] Worker is running: {worker.isRunning()}")
                             if worker.isRunning():
-                                print(f"[Thread] Stopping {attr} thread on page id {page_id}...")
+                                print(f"[Thread] Stopping {attr} thread on "
+                                      f"page id {page_id}...")
                                 worker.quit()
                                 worker.wait(2000)
         except Exception as e:
@@ -129,16 +144,20 @@ class RobustWizard(QWizard):
         super().closeEvent(event)
 
     def initializePage(self, id):
-        print(f"[Wizard] initializePage called for page id {id} ({type(self.page(id)).__name__})")
+        print(f"[Wizard] initializePage called for page id {id} "
+              f"({type(self.page(id)).__name__})")
         super().initializePage(id)
 
     def nextId(self):
         # Custom nextId logic to ensure finish page is shown after ReviewAndUploadPage
         current_id = self.currentId()
-        # Assuming page IDs are added in order: 0=Import, 1=Auth, 2=Account, 3=Transactions, 4=Review, 5=Finish
+        # Assuming page IDs are added in order: 
+        # 0=Import, 1=Auth, 2=Account, 3=Transactions, 4=Review, 5=Finish
         if current_id == 4:
             return 5  # Go to FinishPage
         return super().nextId()
+
+
 
 
 class SidebarWizardWindow(QMainWindow):
@@ -218,7 +237,7 @@ class SidebarWizardWindow(QMainWindow):
         # Create navigation buttons
         nav_button_container = QWidget()
         nav_button_container.setObjectName("nav-button-container")
-        nav_button_container.setMinimumHeight(60) # Ensure consistent height
+        nav_button_container.setMinimumHeight(60)  # Ensure consistent height
         nav_button_layout = QHBoxLayout(nav_button_container)
         nav_button_layout.setContentsMargins(20, 10, 20, 10)  # Add some padding
         
@@ -343,19 +362,21 @@ class SidebarWizardWindow(QMainWindow):
                 print(f"[SidebarWizardWindow] Using validate_and_proceed for page {current}")
                 result = page.validate_and_proceed()
                 if not result:
-                    print(f"[SidebarWizardWindow] validate_and_proceed returned False for page {current}")
+                    print(f"[SidebarWizardWindow] validate_and_proceed returned "
+                      f"False for page {current}")
             else:
                 # If no validation needed, proceed to next page
-                print(f"[SidebarWizardWindow] No validate_and_proceed method for page {current}, proceeding")
+                print(f"[SidebarWizardWindow] No validate_and_proceed method "
+                      f"for page {current}, proceeding")
                 self.go_to_page(current + 1)
         elif current == self.pages_stack.count() - 1:
             # On the last page, check if we should close the app
             page = self.pages_stack.currentWidget()
             if hasattr(page, 'validate_and_proceed'):
-                print(f"[SidebarWizardWindow] Calling validate_and_proceed on final page")
+                print("[SidebarWizardWindow] Calling validate_and_proceed on final page")
                 page.validate_and_proceed()
             else:
-                print(f"[SidebarWizardWindow] Closing application from final page")
+                print("[SidebarWizardWindow] Closing application from final page")
                 self.close()
                 
     def update_nav_buttons(self):
@@ -400,12 +421,15 @@ class SidebarWizardWindow(QMainWindow):
             try:
                 is_complete = page.isComplete()
                 self.next_button.setEnabled(is_complete)
-                print(f"[SidebarWizardWindow] Page {current} isComplete: {is_complete}")
+                print(f"[SidebarWizardWindow] Page {current} isComplete: "
+                      f"{is_complete}")
             except Exception as e:
-                print(f"[SidebarWizardWindow] Error checking isComplete: {e}")
+                print(f"[SidebarWizardWindow] Error checking isComplete: "
+                      f"{e}")
                 self.next_button.setEnabled(False)
         else:
-            print(f"[SidebarWizardWindow] Page {current} has no isComplete method")
+            print(f"[SidebarWizardWindow] Page {current} has no isComplete "
+                  f"method")
             self.next_button.setEnabled(True)
 
 
@@ -463,7 +487,7 @@ def load_style(app: QApplication):
     else:
         # For other platforms use Fusion with light palette
         app.setStyle("Fusion")
-        app.setFont(QFont("Segoe UI", 13)) # Replace San Francisco with Segoe UI
+        app.setFont(QFont("Segoe UI", 13))  # Replace San Francisco with Segoe UI
         pal = app.palette()
         pal.setColor(QPalette.Window, QColor("#F7F7F7"))
         pal.setColor(QPalette.WindowText, Qt.black)
@@ -473,10 +497,15 @@ def load_style(app: QApplication):
         pal.setColor(QPalette.ButtonText, Qt.black)
         app.setPalette(pal)
 
+
+
 def main():
     try:
         # On Linux headless, use offscreen; skip on macOS
-        if sys.platform.startswith('linux') and not os.environ.get('DISPLAY') and not os.environ.get('WAYLAND_DISPLAY'):
+        
+        if (sys.platform.startswith('linux') and 
+            not os.environ.get('DISPLAY') and 
+            not os.environ.get('WAYLAND_DISPLAY')):
             os.environ['QT_QPA_PLATFORM'] = 'offscreen'
             
         app = QApplication(sys.argv)
@@ -495,6 +524,8 @@ def main():
     except Exception as e:
         print(f"[Main] Exception in main(): {e}")
         traceback.print_exc()
+
+
 
 if __name__ == "__main__":
     main()

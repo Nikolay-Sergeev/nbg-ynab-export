@@ -2,8 +2,7 @@ import unittest
 import os
 import tempfile
 import pandas as pd
-from datetime import datetime
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 from services.conversion_service import (
     normalize_column_name,
@@ -16,10 +15,7 @@ from services.conversion_service import (
     exclude_existing_transactions,
     extract_date_from_filename,
     generate_output_filename,
-    validate_input_file,
-    ACCOUNT_REQUIRED_COLUMNS,
-    CARD_REQUIRED_COLUMNS,
-    REVOLUT_REQUIRED_COLUMNS
+    validate_input_file
 )
 
 

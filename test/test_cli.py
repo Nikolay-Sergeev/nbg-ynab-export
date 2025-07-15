@@ -1,14 +1,12 @@
 import unittest
 import os
 import tempfile
-import sys
 import shutil
 from unittest.mock import patch, MagicMock
 from pathlib import Path
 import pandas as pd
 
 from cli import parse_args, main
-from config import SUPPORTED_EXT
 
 
 class TestCLIArgumentParsing(unittest.TestCase):

@@ -6,6 +6,19 @@ from PyQt5.QtWidgets import QApplication, QWizard, QWizardPage
 from PyQt5.QtCore import Qt, QEvent
 from PyQt5.QtTest import QTest
 
+# Import wizard and related classes
+from ui.wizard import (
+    RobustWizard, 
+    StepLabel, 
+    SidebarWizardWindow
+)
+from ui.pages.import_file import ImportFilePage
+from ui.pages.auth import YNABAuthPage
+from ui.pages.account_select import AccountSelectionPage
+from ui.pages.transactions import TransactionsPage
+from ui.pages.review_upload import ReviewAndUploadPage
+from ui.pages.finish_page import FinishPage
+
 # Create adapters to wrap QWidget pages as QWizardPage for testing
 class PageAdapter(QWizardPage):
     def __init__(self, widget, controller):
@@ -35,23 +48,12 @@ class PageAdapter(QWizardPage):
         """Return the original class name for better debugging"""
         return self.original_class_name
 
-# Import wizard and related classes
-from ui.wizard import (
-    RobustWizard, 
-    StepLabel, 
-    SidebarWizardWindow
-)
-from ui.pages.import_file import ImportFilePage
-from ui.pages.auth import YNABAuthPage
-from ui.pages.account_select import AccountSelectionPage
-from ui.pages.transactions import TransactionsPage
-from ui.pages.review_upload import ReviewAndUploadPage
-from ui.pages.finish_page import FinishPage
-
 # Create QApplication instance for UI tests
 app = QApplication.instance()
 if not app:
     app = QApplication(sys.argv)
+
+
 
 
 class TestStepLabel(unittest.TestCase):
@@ -166,7 +168,7 @@ class TestRobustWizard(unittest.TestCase):
         
         # Check that the debug print was called with the page ID
         # Since we've adapted our pages, we just need to check the key parts
-        mock_print.assert_any_call(f"[Wizard] initializePage called for page id 1 (PageAdapter)")
+        mock_print.assert_any_call("[Wizard] initializePage called for page id 1 (PageAdapter)")
     
     @patch('ui.wizard.print')
     def test_close_event_with_workers(self, mock_print):
