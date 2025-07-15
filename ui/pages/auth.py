@@ -33,11 +33,9 @@ class YNABAuthPage(QWizardPage):
 
         card = QFrame()
         card.setObjectName("card-panel")
-        card.setMinimumWidth(500)
-        card.setMaximumWidth(500)
-        card.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
+        card.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         card_layout = QVBoxLayout(card)
-        card_layout.setContentsMargins(8, 8, 8, 8)
+        card_layout.setContentsMargins(20, 20, 20, 20)
         card_layout.setSpacing(0)
 
         title = QLabel("Authorize with YNAB")
@@ -70,15 +68,20 @@ class YNABAuthPage(QWizardPage):
         card_layout.addSpacing(16)
 
         # --- Token input with show/hide ---
-        input_row = QHBoxLayout()
+        input_container = QHBoxLayout()
+        input_container.setContentsMargins(0, 0, 0, 0)
+        
+        # Add stretches and widget to center it with flexible width
+        input_container.addStretch(1)
+        
+        input_area = QHBoxLayout()
         self.token_input = QLineEdit()
         self.token_input.setPlaceholderText("e.g. abc123def456…")
         self.token_input.setEchoMode(QLineEdit.Password)
         self.token_input.setMinimumWidth(280)
-        self.token_input.setMaximumWidth(360)
         self.token_input.setStyleSheet("font-size:16px;")
-        input_row.addStretch(1)
-        input_row.addWidget(self.token_input)
+        input_area.addWidget(self.token_input)
+        
         # Show/hide icon
         self.show_icon = QPushButton()
         self.show_icon.setCheckable(True)
@@ -87,9 +90,13 @@ class YNABAuthPage(QWizardPage):
         self.show_icon.setStyleSheet("border:none;background:transparent;margin-left:-34px;")
         self.show_icon.setToolTip("Show/Hide token")
         self.show_icon.toggled.connect(self.toggle_token_visibility)
-        input_row.addWidget(self.show_icon)
-        input_row.addStretch(1)
-        card_layout.addLayout(input_row)
+        input_area.addWidget(self.show_icon)
+        
+        # Add the input area to container
+        input_container.addLayout(input_area)
+        input_container.addStretch(1)
+        
+        card_layout.addLayout(input_container)
         card_layout.addSpacing(8)
 
         # --- Helper & error text ---
@@ -125,6 +132,50 @@ class YNABAuthPage(QWizardPage):
     def open_docs(self):
         QDesktopServices.openUrl(QUrl(YNAB_DOCS_URL))
 
+    def validate_and_proceed(self):
+        """Validate token and proceed if valid"""
+        print("[YNABAuthPage] validate_and_proceed called")
+        
+        if not self.validate_token_input():
+            return False
+            
+        token = self.token_input.text().strip()
+        save = self.save_checkbox.isChecked()
+        
+        if save:
+            try:
+                enc_token = self.encrypt_token(token)
+                # Save token, preserving only FOLDER entries
+                lines = []
+                if os.path.exists(SETTINGS_FILE):
+                    with open(SETTINGS_FILE, "r") as f:
+                        for line in f:
+                            if line.startswith("FOLDER:"):
+                                lines.append(line)
+                lines.append(f"TOKEN:{enc_token}\n")
+                with open(SETTINGS_FILE, "w") as f:
+                    f.writelines(lines)
+            except Exception as e:
+                self.error_label.setText(f"Error saving token: {str(e)}")
+                return False
+        
+        # Use controller to authorize and check result
+        success = self.controller.authorize(token, save)
+        
+        if not success:
+            self.error_label.setText("Failed to initialize YNAB client with this token")
+            return False
+            
+        # Navigate to next page if successful
+        parent = self.window()
+        if hasattr(parent, "go_to_page") and hasattr(parent, "pages_stack"):
+            current_index = parent.pages_stack.indexOf(self)
+            if current_index >= 0:
+                parent.go_to_page(current_index + 1)
+                return True
+                
+        return False
+        
     def toggle_token_visibility(self, checked):
         if checked:
             self.token_input.setEchoMode(QLineEdit.Normal)

@@ -16,9 +16,12 @@ class BudgetFetchWorker(QObject):
 
     def run(self):
         try:
+            print("[BudgetFetchWorker] Attempting to fetch budgets from YNAB API")
             budgets = self.ynab_client.get_budgets()
+            print(f"[BudgetFetchWorker] Successfully fetched {len(budgets) if budgets else 0} budgets")
             self.finished.emit(budgets)
         except Exception as e:
+            print(f"[BudgetFetchWorker] Error fetching budgets: {e}")
             err_msg = f"Failed to fetch budgets: {e}"
             self.error.emit(err_msg)
 
@@ -34,9 +37,12 @@ class AccountFetchWorker(QObject):
 
     def run(self):
         try:
+            print(f"[AccountFetchWorker] Attempting to fetch accounts for budget: {self.budget_id}")
             accounts = self.ynab_client.get_accounts(self.budget_id)
+            print(f"[AccountFetchWorker] Successfully fetched {len(accounts) if accounts else 0} accounts")
             self.finished.emit(accounts)
         except Exception as e:
+            print(f"[AccountFetchWorker] Error fetching accounts: {e}")
             err_msg = f"Failed to fetch accounts: {e}"
             self.error.emit(err_msg)
 
@@ -191,48 +197,73 @@ class WizardController(QObject):
 
     def authorize(self, token: str, save: bool):
         """Store token and optionally persist it via UI settings."""
-        self.ynab = YnabClient(token)
         try:
-            # Token persistence not implemented; skip save_token
-            pass
+            if not token or token.strip() == "":
+                self.errorOccurred.emit("Token cannot be empty")
+                return False
+                
+            self.ynab = YnabClient(token)
+            print("[WizardController] YNAB client initialized with token")
+            return True
         except Exception as e:
-            self.errorOccurred.emit(str(e))
+            self.errorOccurred.emit(f"Failed to initialize YNAB client: {str(e)}")
+            return False
 
     def fetch_budgets(self):
         """Fetch budgets from YNAB API."""
+        print("[WizardController] Starting fetch_budgets")
         if not self.ynab:
+             print("[WizardController] Error: YNAB client not initialized")
              self.errorOccurred.emit("YNAB client not initialized.")
              return
+        
         self._cleanup_thread()
         self.worker_thread = QThread()
         self.worker = BudgetFetchWorker(self.ynab)
         self.worker.moveToThread(self.worker_thread)
 
         self.worker_thread.started.connect(self.worker.run)
-        self.worker.finished.connect(self.budgetsFetched)
+        self.worker.finished.connect(self._on_budgets_fetched)
         self.worker.error.connect(self.errorOccurred)
         self.worker.finished.connect(self._cleanup_thread)
         self.worker.error.connect(self._cleanup_thread)
 
+        print("[WizardController] Starting budget fetch thread")
         self.worker_thread.start()
+        
+    def _on_budgets_fetched(self, budgets):
+        """Handle budgets fetched from YNAB API before passing to UI."""
+        print(f"[WizardController] Budgets fetched: {len(budgets) if budgets else 0}")
+        # You can process budgets here if needed before sending to UI
+        self.budgetsFetched.emit(budgets)
 
     def fetch_accounts(self, budget_id: str):
         """Fetch accounts under a given budget."""
+        print(f"[WizardController] Starting fetch_accounts for budget: {budget_id}")
         if not self.ynab:
+             print("[WizardController] Error: YNAB client not initialized")
              self.errorOccurred.emit("YNAB client not initialized.")
              return
+             
         self._cleanup_thread()
         self.worker_thread = QThread()
         self.worker = AccountFetchWorker(self.ynab, budget_id)
         self.worker.moveToThread(self.worker_thread)
 
         self.worker_thread.started.connect(self.worker.run)
-        self.worker.finished.connect(self.accountsFetched)
+        self.worker.finished.connect(self._on_accounts_fetched)
         self.worker.error.connect(self.errorOccurred)
         self.worker.finished.connect(self._cleanup_thread)
         self.worker.error.connect(self._cleanup_thread)
 
+        print("[WizardController] Starting account fetch thread")
         self.worker_thread.start()
+        
+    def _on_accounts_fetched(self, accounts):
+        """Handle accounts fetched from YNAB API before passing to UI."""
+        print(f"[WizardController] Accounts fetched: {len(accounts) if accounts else 0}")
+        # You can process accounts here if needed before sending to UI
+        self.accountsFetched.emit(accounts)
 
     def fetch_transactions(self, budget_id: str, account_id: str):
         """Fetch transactions for an account."""
