@@ -1,7 +1,6 @@
 import unittest
 from unittest.mock import patch, MagicMock
 import requests
-import json
 from services.ynab_client import YnabClient
 
 
@@ -72,7 +71,8 @@ class TestYnabClient(unittest.TestCase):
         self.assertEqual(len(transactions), 1)
         self.assertEqual(transactions[0]["id"], "t1")
         mock_get.assert_called_once_with(
-            "https://api.ynab.com/v1/budgets/budget1/accounts/account1/transactions",
+            ("https://api.ynab.com/v1/budgets/budget1/accounts/account1"
+             "/transactions"),
             headers={"Authorization": "Bearer test_token"},
             params={},
             timeout=15
@@ -92,7 +92,8 @@ class TestYnabClient(unittest.TestCase):
 
         # Assertions
         mock_get.assert_called_once_with(
-            "https://api.ynab.com/v1/budgets/budget1/accounts/account1/transactions",
+            ("https://api.ynab.com/v1/budgets/budget1/accounts/account1"
+             "/transactions"),
             headers={"Authorization": "Bearer test_token"},
             params={"count": 10, "page": 2, "since_date": "2025-01-01"},
             timeout=15
@@ -127,7 +128,8 @@ class TestYnabClient(unittest.TestCase):
         self.assertEqual(len(result["data"]["transaction_ids"]), 1)
         mock_post.assert_called_once_with(
             "https://api.ynab.com/v1/budgets/budget1/transactions",
-            headers={"Authorization": "Bearer test_token", "Content-Type": "application/json"},
+            headers={"Authorization": "Bearer test_token",
+                     "Content-Type": "application/json"},
             json={"transactions": transactions},
             timeout=20
         )
@@ -165,7 +167,8 @@ class TestYnabClient(unittest.TestCase):
     def test_api_error_handling(self, mock_get):
         """Test handling of API errors."""
         # Setup mock to raise an exception
-        mock_get.side_effect = requests.exceptions.HTTPError("401 Client Error: Unauthorized")
+        mock_get.side_effect = requests.exceptions.HTTPError(
+            "401 Client Error: Unauthorized")
 
         # Call method and check exception
         with self.assertRaises(requests.exceptions.HTTPError):

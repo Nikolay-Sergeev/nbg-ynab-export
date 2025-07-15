@@ -1,19 +1,13 @@
 import unittest
-from pathlib import Path
 import os
 import tempfile
-from unittest.mock import patch
 import shutil
-import base64
-from unittest.mock import PropertyMock
 from services.token_manager import (
     generate_key,
     save_key,
     load_key,
     encrypt_token,
-    decrypt_token,
-    save_token,
-    load_token
+    decrypt_token
 )
 
 
@@ -23,7 +17,9 @@ class TestTokenManager(unittest.TestCase):
         # Create temporary directory for test files
         self.test_dir = tempfile.mkdtemp()
         self.test_key_file = os.path.join(self.test_dir, "test.key")
-        self.test_settings_file = os.path.join(self.test_dir, "test_settings.txt")
+        self.test_settings_file = os.path.join(
+            self.test_dir, "test_settings.txt"
+        )
 
     def tearDown(self):
         """Clean up test files after each test."""
@@ -39,7 +35,7 @@ class TestTokenManager(unittest.TestCase):
         """Test saving and loading a key."""
         # Create temp key file for this test only
         key_file = os.path.join(self.test_dir, "test.key")
-        
+
         # Generate and save a key directly to our test file
         key = generate_key()
         with open(key_file, 'wb') as f:
@@ -71,10 +67,10 @@ class TestTokenManager(unittest.TestCase):
         # Encrypt a token
         test_token = "test_secret_token_123"
         encrypted = encrypt_token(test_token)
-        
+
         # Verify it's not the same as original
         self.assertNotEqual(encrypted, test_token.encode())
-        
+
         # Decrypt and verify
         decrypted = decrypt_token(encrypted)
         self.assertEqual(decrypted, test_token)
@@ -84,23 +80,23 @@ class TestTokenManager(unittest.TestCase):
         # Test with direct encryption/decryption without files
         # Generate a key
         key = generate_key()
-        
+
         # Create Fernet object directly for testing
         from cryptography.fernet import Fernet
         f = Fernet(key)
-        
+
         # Test encryption/decryption
         test_token = "my_ynab_api_token_123"
         encrypted = f.encrypt(test_token.encode())
         decrypted = f.decrypt(encrypted).decode()
-        
+
         self.assertEqual(test_token, decrypted)
 
     def test_load_token_missing_file(self):
         """Test error handling for file operations."""
         # Test that accessing a nonexistent file raises the expected error
         nonexistent_file = os.path.join(self.test_dir, "nonexistent_file.txt")
-        
+
         with self.assertRaises(FileNotFoundError):
             with open(nonexistent_file, 'rb') as f:
                 f.read()
