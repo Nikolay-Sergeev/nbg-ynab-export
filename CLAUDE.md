@@ -9,7 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Use clear and concise commit messages
 - Don't include generation mention in commit messages (no "Generated with Claude" or "Co-Authored-By: Claude")
 - Don't batch multiple changes - commit each significant change separately
-- ALWAYS run tests before committing and ensure ALL tests pass
+- ALWAYS run tests and the linter before committing and ensure ALL tests pass
 - NEVER introduce failing tests or code that breaks existing tests
 
 ### Environment Setup
@@ -21,6 +21,28 @@ source venv/bin/activate  # macOS/Linux
 
 # Install dependencies
 python3 -m pip install -r requirements.txt
+```
+
+## Project Dependencies
+
+This project relies on several Python packages listed in `requirements.txt`.
+The major runtime dependencies are:
+
+- **pandas** – data processing and CSV/XLSX handling
+- **openpyxl** – Excel file support for `pandas`
+- **PyQt5** (>=5.15) – GUI wizard implementation
+- **requests** – used by the YNAB API client, though not pinned in `requirements.txt`
+- **cryptography** – secure storage of the YNAB token
+
+For development and testing the following tools are used:
+
+- **flake8** – code style checking
+- **pytest** – optional testing framework (in addition to the included `unittest` suite)
+
+Python 3.6 or newer is required. Install all packages with:
+
+```bash
+pip install -r requirements.txt
 ```
 
 ### Running the Application
