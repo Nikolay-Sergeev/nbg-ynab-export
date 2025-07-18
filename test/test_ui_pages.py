@@ -186,7 +186,7 @@ class TestImportFilePage(unittest.TestCase):
         """Clean up test fixtures."""
         try:
             os.unlink(self.temp_file_path)
-        except:
+        except Exception:
             pass  # Ignore if file is already deleted
         self.wizard.close()
 
