@@ -88,34 +88,14 @@ pip install -r requirements.txt
 
 ## Usage
 
-### Basic Usage
-
 Convert a statement to YNAB format:
 ```bash
-python main.py path/to/statement.[xlsx|csv]
+python cli.py path/to/statement.[xlsx|csv]
 ```
 
-### Advanced Usage
-
-Convert excluding previously imported transactions:
+Exclude previously imported transactions:
 ```bash
-python main.py path/to/statement.[xlsx|csv] path/to/previous_ynab.csv
-```
-
-### Examples
-
-```bash
-# NBG Account Statement
-python main.py Downloads/Finance/statementexport25-02-2025.xlsx
-
-# NBG Card Statement
-python main.py Downloads/Finance/CardStatementExport.xlsx
-
-# Revolut Export
-python main.py Downloads/Finance/account-statement.csv
-
-# With Previous Transactions
-python main.py Downloads/Finance/new_statement.xlsx Downloads/Finance/previous_ynab.csv
+python cli.py path/to/statement.[xlsx|csv] --previous path/to/previous_ynab.csv
 ```
 
 ### Supported File Types
@@ -133,19 +113,9 @@ The script generates a YNAB-compatible CSV file in the same directory as the inp
 
 ## Development
 
-Run tests:
-```bash
-# Using unittest (default)
-python -m unittest discover -s test -v
-
-# Or using pytest
-pytest
-```
-
-Check code style (linting):
-```bash
-flake8 main.py test
-```
+See [CLAUDE.md](CLAUDE.md) for contributor guidelines, environment setup, and
+additional architectural details. Run the test suite with `pytest` and check
+style using `flake8` before submitting changes.
 
 ## GUI Wizard
 
