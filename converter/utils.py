@@ -62,10 +62,26 @@ def validate_dataframe(df: pd.DataFrame, required_columns: list) -> None:
 
 def convert_amount(amount: Union[str, float, int]) -> float:
     """
-    Convert strings like '123,45' or numbers to float.
+    Convert amount strings with either comma or dot as decimal separator
+    and optional thousands separators to float.
+    Examples of supported formats: "1234,56", "1.234,56", "1,234.56".
     """
     if isinstance(amount, str):
-        return float(amount.replace(',', '.'))
+        s = amount.strip()
+        # Remove common thousands separators
+        s = s.replace("'", "").replace("\u00a0", "").replace(" ", "")
+        if "," in s and "." in s:
+            # The rightmost of comma or dot is the decimal separator
+            if s.rfind(',') > s.rfind('.'):
+                s = s.replace('.', '')
+                s = s.replace(',', '.')
+            else:
+                s = s.replace(',', '')
+        elif "," in s:
+            # Only comma present -> treat as decimal separator
+            s = s.replace('.', '')
+            s = s.replace(',', '.')
+        return float(s)
     return float(amount)
 
 def normalize_column_name(column: str) -> str:

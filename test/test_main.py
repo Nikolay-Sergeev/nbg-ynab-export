@@ -118,6 +118,8 @@ class TestNBGToYNAB(unittest.TestCase):
             ("-7", -7.0),           # Negative integer
             ("7,99", 7.99),         # Decimal with comma
             ("-7,99", -7.99),       # Negative decimal with comma
+            ("1.234,56", 1234.56),  # Thousands with dot, comma decimal
+            ("1,234.56", 1234.56),  # Thousands with comma, dot decimal
             ("769,53", 769.53),     # Balance amount
             (1234.56, 1234.56),     # Float input
             (-1234.56, -1234.56)    # Negative float input

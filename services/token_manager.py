@@ -1,7 +1,6 @@
 from cryptography.fernet import Fernet
 from pathlib import Path
 import os
-import base64
 import logging
 from config import SETTINGS_DIR, KEY_FILE, SETTINGS_FILE, get_logger
 
@@ -17,18 +16,20 @@ def save_key(key: bytes) -> None:
     os.chmod(KEY_FILE, 0o600)  # Secure permissions
 
 def load_key() -> bytes:
-    """Load encryption key from file, or generate if not exists."""
+    """Load encryption key from file."""
     key_path = Path(KEY_FILE)
     if not key_path.exists():
-        logger.info("Generating new encryption key")
-        key = generate_key()
-        save_key(key)
-        return key
+        raise FileNotFoundError(f"Encryption key not found: {KEY_FILE}")
     return key_path.read_bytes()
 
 def encrypt_token(token: str) -> bytes:
     """Encrypt a token using the stored key."""
-    key = load_key()
+    try:
+        key = load_key()
+    except FileNotFoundError:
+        logger.info("Generating new encryption key")
+        key = generate_key()
+        save_key(key)
     f = Fernet(key)
     return f.encrypt(token.encode())
 

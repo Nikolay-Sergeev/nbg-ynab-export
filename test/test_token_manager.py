@@ -58,8 +58,8 @@ class TestTokenManager(unittest.TestCase):
             # Restore the original KEY_FILE path
             services.token_manager.KEY_FILE = original_key_file
 
-    def test_load_key_generates_if_missing(self):
-        """Test that load_key generates a key correctly."""
+    def test_load_key_missing_file(self):
+        """load_key should raise FileNotFoundError if key file is missing."""
         # Mock the key file path
         original_key_file = services.token_manager.KEY_FILE
         test_key_path = os.path.join(self.test_dir, "missing.key")
@@ -71,14 +71,8 @@ class TestTokenManager(unittest.TestCase):
             if os.path.exists(test_key_path):
                 os.remove(test_key_path)
 
-            # Call load_key which should generate and save a new key
-            key = load_key()
-
-            # Verify results
-            self.assertIsInstance(key, bytes)
-            self.assertEqual(len(key), 44)  # Fernet keys are 44 bytes
-            exists = os.path.exists(test_key_path)
-            self.assertTrue(exists, "Key file should be created")
+            with self.assertRaises(FileNotFoundError):
+                load_key()
         finally:
             # Restore the original KEY_FILE path
             services.token_manager.KEY_FILE = original_key_file

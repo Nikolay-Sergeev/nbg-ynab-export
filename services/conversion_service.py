@@ -75,7 +75,18 @@ def validate_dataframe(df: pd.DataFrame, required_columns: list) -> None:
 
 def convert_amount(amount: str) -> float:
     if isinstance(amount, str):
-        return float(amount.replace(',', '.'))
+        s = amount.strip()
+        s = s.replace("'", "").replace("\u00a0", "").replace(" ", "")
+        if "," in s and "." in s:
+            if s.rfind(',') > s.rfind('.'):
+                s = s.replace('.', '')
+                s = s.replace(',', '.')
+            else:
+                s = s.replace(',', '')
+        elif "," in s:
+            s = s.replace('.', '')
+            s = s.replace(',', '.')
+        return float(s)
     return float(amount)
 
 def process_account_operations(df: pd.DataFrame) -> pd.DataFrame:
@@ -177,9 +188,13 @@ def extract_date_from_filename(filename: str) -> str:
 
 def generate_output_filename(input_file: str, is_revolut: bool = False) -> str:
     base, _ = os.path.splitext(os.path.basename(input_file))
-    date_str = extract_date_from_filename(base)
-    if not date_str:
+    base = re.sub(r'(?:_)?(\d{2}-\d{2}-\d{4}|\d{4}-\d{2}-\d{2})$', '', base)
+    if is_revolut:
         date_str = datetime.now().strftime(DATE_FORMAT_YNAB)
+    else:
+        date_str = extract_date_from_filename(os.path.basename(input_file))
+        if not date_str:
+            date_str = datetime.now().strftime(DATE_FORMAT_YNAB)
     suffix = 'ynab.csv'
     return os.path.join(SETTINGS_DIR, f"{base}_{date_str}_{suffix}")
 
