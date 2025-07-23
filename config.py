@@ -6,7 +6,10 @@ from PyQt5.QtCore import QSettings
 __all__ = [
     'APP_NAME', 'ORGANIZATION',
     'DATE_FMT_ACCOUNT', 'DATE_FMT_YNAB',
-    'SUPPORTED_EXT', 'settings', 'SETTINGS_DIR', 'SETTINGS_FILE', 'KEY_FILE', 'get_logger',
+    'SUPPORTED_EXT',
+    'settings', 'SETTINGS_DIR', 'SETTINGS_FILE', 'KEY_FILE',
+    'get_logger',
+    'DUP_CHECK_DAYS', 'DUP_CHECK_COUNT',
 ]
 
 APP_NAME = "nbg-ynab-export"
@@ -15,6 +18,10 @@ ORGANIZATION = "Me"
 DATE_FMT_ACCOUNT = "%d/%m/%Y"
 DATE_FMT_YNAB    = "%Y-%m-%d"
 SUPPORTED_EXT    = {'.csv', '.xls', '.xlsx'}
+
+# Duplicate checking configuration
+DUP_CHECK_DAYS = 90
+DUP_CHECK_COUNT = 500
 
 settings = QSettings(QSettings.IniFormat, QSettings.UserScope,
                      ORGANIZATION, APP_NAME)
