@@ -1,20 +1,20 @@
 # converter/card.py
 import pandas as pd
-from config import DATE_FMT_ACCOUNT, DATE_FMT_YNAB, get_logger
+from constants import (
+    DATE_FMT_CARD,
+    DATE_FMT_YNAB,
+    CARD_REQUIRED_COLUMNS,
+    ECOMMERCE_CLEANUP_PATTERN,
+    SECURE_ECOMMERCE_CLEANUP_PATTERN,
+)
+from config import get_logger
 from .utils import validate_dataframe, convert_amount
 
 logger = get_logger(__name__)
 
-REQUIRED = [
-    'Ημερομηνία/Ώρα Συναλλαγής',
-    'Περιγραφή Κίνησης',
-    'Ποσό',
-    'Χ/Π'
-]
+REQUIRED = CARD_REQUIRED_COLUMNS
 
-# Cleanup patterns
-ECOMMERCE_CLEANUP_PATTERN = r'E-COMMERCE ΑΓΟΡΑ - '
-SECURE_ECOMMERCE_CLEANUP_PATTERN = r'3D SECURE E-COMMERCE ΑΓΟΡΑ - '
+# Cleanup patterns imported from constants
 
 
 def process_card(df: pd.DataFrame) -> pd.DataFrame:
@@ -27,7 +27,7 @@ def process_card(df: pd.DataFrame) -> pd.DataFrame:
     # Parse and format date
     df_copy['Date'] = pd.to_datetime(
         df_copy['Ημερομηνία/Ώρα Συναλλαγής'].str.split().str[0],
-        format=DATE_FMT_ACCOUNT,
+        format=DATE_FMT_CARD,
         errors='coerce'
     ).dt.strftime(DATE_FMT_YNAB)
     if df_copy['Date'].isna().any():

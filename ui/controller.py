@@ -2,7 +2,9 @@
 from PyQt5.QtCore import QObject, pyqtSignal, QThread
 from services.ynab_client import YnabClient
 from services.conversion_service import ConversionService
-from config import DUP_CHECK_DAYS, DUP_CHECK_COUNT
+from config import DUP_CHECK_DAYS, DUP_CHECK_COUNT, get_logger
+
+logger = get_logger(__name__)
 import re
 
 
@@ -17,12 +19,12 @@ class BudgetFetchWorker(QObject):
 
     def run(self):
         try:
-            print("[BudgetFetchWorker] Attempting to fetch budgets from YNAB API")
+            logger.info("[BudgetFetchWorker] Attempting to fetch budgets from YNAB API")
             budgets = self.ynab_client.get_budgets()
-            print(f"[BudgetFetchWorker] Successfully fetched {len(budgets) if budgets else 0} budgets")
+            logger.info("[BudgetFetchWorker] Successfully fetched %d budgets", len(budgets) if budgets else 0)
             self.finished.emit(budgets)
         except Exception as e:
-            print(f"[BudgetFetchWorker] Error fetching budgets: {e}")
+            logger.error("[BudgetFetchWorker] Error fetching budgets: %s", e)
             err_msg = f"Failed to fetch budgets: {e}"
             self.error.emit(err_msg)
 
@@ -38,12 +40,12 @@ class AccountFetchWorker(QObject):
 
     def run(self):
         try:
-            print(f"[AccountFetchWorker] Attempting to fetch accounts for budget: {self.budget_id}")
+            logger.info("[AccountFetchWorker] Attempting to fetch accounts for budget: %s", self.budget_id)
             accounts = self.ynab_client.get_accounts(self.budget_id)
-            print(f"[AccountFetchWorker] Successfully fetched {len(accounts) if accounts else 0} accounts")
+            logger.info("[AccountFetchWorker] Successfully fetched %d accounts", len(accounts) if accounts else 0)
             self.finished.emit(accounts)
         except Exception as e:
-            print(f"[AccountFetchWorker] Error fetching accounts: {e}")
+            logger.error("[AccountFetchWorker] Error fetching accounts: %s", e)
             err_msg = f"Failed to fetch accounts: {e}"
             self.error.emit(err_msg)
 
@@ -214,7 +216,7 @@ class WizardController(QObject):
                 return False
 
             self.ynab = YnabClient(token)
-            print("[WizardController] YNAB client initialized with token")
+            logger.info("[WizardController] YNAB client initialized with token")
             return True
         except Exception as e:
             self.errorOccurred.emit(f"Failed to initialize YNAB client: {str(e)}")
@@ -222,9 +224,9 @@ class WizardController(QObject):
 
     def fetch_budgets(self):
         """Fetch budgets from YNAB API."""
-        print("[WizardController] Starting fetch_budgets")
+        logger.info("[WizardController] Starting fetch_budgets")
         if not self.ynab:
-            print("[WizardController] Error: YNAB client not initialized")
+            logger.error("[WizardController] Error: YNAB client not initialized")
             self.errorOccurred.emit("YNAB client not initialized.")
             return
 
@@ -239,20 +241,20 @@ class WizardController(QObject):
         self.worker.finished.connect(self._cleanup_thread)
         self.worker.error.connect(self._cleanup_thread)
 
-        print("[WizardController] Starting budget fetch thread")
+        logger.info("[WizardController] Starting budget fetch thread")
         self.worker_thread.start()
 
     def _on_budgets_fetched(self, budgets):
         """Handle budgets fetched from YNAB API before passing to UI."""
-        print(f"[WizardController] Budgets fetched: {len(budgets) if budgets else 0}")
+        logger.info("[WizardController] Budgets fetched: %d", len(budgets) if budgets else 0)
         # You can process budgets here if needed before sending to UI
         self.budgetsFetched.emit(budgets)
 
     def fetch_accounts(self, budget_id: str):
         """Fetch accounts under a given budget."""
-        print(f"[WizardController] Starting fetch_accounts for budget: {budget_id}")
+        logger.info("[WizardController] Starting fetch_accounts for budget: %s", budget_id)
         if not self.ynab:
-            print("[WizardController] Error: YNAB client not initialized")
+            logger.error("[WizardController] Error: YNAB client not initialized")
             self.errorOccurred.emit("YNAB client not initialized.")
             return
 
@@ -267,12 +269,12 @@ class WizardController(QObject):
         self.worker.finished.connect(self._cleanup_thread)
         self.worker.error.connect(self._cleanup_thread)
 
-        print("[WizardController] Starting account fetch thread")
+        logger.info("[WizardController] Starting account fetch thread")
         self.worker_thread.start()
 
     def _on_accounts_fetched(self, accounts):
         """Handle accounts fetched from YNAB API before passing to UI."""
-        print(f"[WizardController] Accounts fetched: {len(accounts) if accounts else 0}")
+        logger.info("[WizardController] Accounts fetched: %d", len(accounts) if accounts else 0)
         # You can process accounts here if needed before sending to UI
         self.accountsFetched.emit(accounts)
 

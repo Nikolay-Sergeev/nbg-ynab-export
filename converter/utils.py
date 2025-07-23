@@ -5,7 +5,8 @@ import pandas as pd
 import csv
 import re
 from typing import Union
-from config import DATE_FMT_YNAB, get_logger
+from constants import DATE_FMT_YNAB
+from config import get_logger
 
 logger = get_logger(__name__)
 
