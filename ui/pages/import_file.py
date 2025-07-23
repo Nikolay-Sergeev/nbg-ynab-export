@@ -24,7 +24,7 @@ class DropZone(QFrame):
         layout.setContentsMargins(16, 16, 16, 16)  # Original padding restored for drop zone functionality
         # Upload icon
         icon_path = os.path.abspath(
-            os.path.join(os.path.dirname(__file__), '../../resources/cloud_download.svg')
+            os.path.join(os.path.dirname(__file__), '../../resources/icons/cloud_download.svg')
         )
         if os.path.exists(icon_path):
             self.upload_icon = QSvgWidget(icon_path)
@@ -296,9 +296,9 @@ class ImportFilePage(QWizardPage):
         _, ext = os.path.splitext(file_path)
         # Set file icon
         if ext.lower() == ".csv":
-            icon_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../resources/csv_icon.png'))
+            icon_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../resources/icons/csv_icon.png'))
         else:
-            icon_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../resources/excel_icon.png'))
+            icon_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../resources/icons/excel_icon.png'))
         if os.path.exists(icon_path):
             self.file_icon_label.setPixmap(QPixmap(icon_path).scaled(24, 24, Qt.KeepAspectRatio, Qt.SmoothTransformation))
         else:
