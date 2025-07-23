@@ -2,7 +2,6 @@ from PyQt5.QtWidgets import (
     QWizardPage,
     QVBoxLayout,
     QLabel,
-    QPushButton,
     QTableWidget,
     QTableWidgetItem,
     QHBoxLayout,
@@ -10,11 +9,13 @@ from PyQt5.QtWidgets import (
     QSizePolicy,
     QHeaderView,
     QMessageBox,
+    QCheckBox,
 )
 from PyQt5.QtCore import Qt
 from PyQt5.QtSvg import QSvgWidget
 import os
 import logging
+
 
 class ReviewAndUploadPage(QWizardPage):
     def __init__(self, controller):
@@ -89,6 +90,12 @@ class ReviewAndUploadPage(QWizardPage):
         self.table.itemChanged.connect(self.on_skip_item_changed)
         self.table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         card_layout.addWidget(self.table)
+
+        self.hide_dup_checkbox = QCheckBox("Hide duplicate records")
+        self.hide_dup_checkbox.stateChanged.connect(self.on_hide_duplicates_toggled)
+        self.hide_dup_checkbox.setVisible(False)
+        card_layout.addWidget(self.hide_dup_checkbox)
+
         card_layout.addStretch(1)
 
         # Navigation buttons now handled by main window
@@ -117,13 +124,13 @@ class ReviewAndUploadPage(QWizardPage):
         if not hasattr(parent, "pages_stack"):
             print("[ReviewUploadPage] Cannot access pages stack")
             return
-            
+
         import_page = parent.pages_stack.widget(0)
         if not hasattr(import_page, "file_path"):
             print("[ReviewUploadPage] Cannot access file path from import page")
             return
         file_path = import_page.file_path
-        
+
         # Get selected IDs from account selection page
         account_page = parent.pages_stack.widget(2)
         if not hasattr(account_page, "get_selected_ids"):
@@ -179,6 +186,9 @@ class ReviewAndUploadPage(QWizardPage):
             header.setSectionResizeMode(c, QHeaderView.Stretch)
         header.setSectionResizeMode(skip_col, QHeaderView.ResizeToContents)
         self.table.resizeRowsToContents()
+        self.hide_dup_checkbox.setVisible(bool(dup_idx))
+        self.hide_dup_checkbox.setChecked(False)
+        self.on_hide_duplicates_toggled(self.hide_dup_checkbox.checkState())
         # Enable Continue button
         # Button is now handled by the main window
         parent = self.window()
@@ -194,6 +204,12 @@ class ReviewAndUploadPage(QWizardPage):
         else:
             self.skipped_rows.discard(item.row())
 
+    def on_hide_duplicates_toggled(self, state):
+        hide = state == Qt.Checked
+        for row in range(self.table.rowCount()):
+            if row in self.dup_idx:
+                self.table.setRowHidden(row, hide)
+
     def upload_transactions(self):
         print("[DEBUG] upload_transactions called")
         # Get selected IDs from account selection page
@@ -201,12 +217,12 @@ class ReviewAndUploadPage(QWizardPage):
         if not hasattr(parent, "pages_stack") or parent.pages_stack.count() <= 2:
             print("[ReviewUploadPage] Cannot access pages stack or account page")
             return
-            
+
         account_page = parent.pages_stack.widget(2)
         if not hasattr(account_page, "get_selected_ids"):
             print("[ReviewUploadPage] Account page has no get_selected_ids method")
             return
-            
+
         budget_id, account_id = account_page.get_selected_ids()
         to_upload = [r for i, r in enumerate(self.records) if i not in self.dup_idx and i not in self.skipped_rows]
         print(f"[DEBUG] to_upload: {len(to_upload)} transactions")
@@ -234,14 +250,21 @@ class ReviewAndUploadPage(QWizardPage):
                     print("[DEBUG] Calling controller.upload_transactions")
                     self.controller.upload_transactions(budget_id, account_id, formatted)
                 else:
-                    print("[DEBUG] No valid transactions after formatting. Advancing to finish page.")
-                    QMessageBox.information(self, "No Valid Transactions", "No valid transactions to upload after formatting.")
+                    print(
+                        "[DEBUG] No valid transactions after formatting. "
+                        "Advancing to finish page."
+                    )
+                    QMessageBox.information(
+                        self,
+                        "No Valid Transactions",
+                        "No valid transactions to upload after formatting."
+                    )
                     # Set stats for FinishPage and advance to next page
                     parent = self.window()
                     if not hasattr(parent, 'upload_stats'):
                         parent.upload_stats = {}
                     parent.upload_stats['uploaded'] = 0
-                    
+
                     # Save account name
                     acct_page = parent.pages_stack.widget(2) if hasattr(parent, 'pages_stack') else None
                     if acct_page and hasattr(acct_page, 'account_combo'):
@@ -250,11 +273,11 @@ class ReviewAndUploadPage(QWizardPage):
                         parent.uploaded_account_name = acct_name
                     else:
                         parent.uploaded_account_name = None
-                        
+
                     # Re-enable navigation and go to next page
                     if hasattr(parent, "next_button"):
                         parent.next_button.setEnabled(True)
-                    
+
                     if hasattr(parent, "go_to_page") and hasattr(parent, "pages_stack"):
                         current_index = parent.pages_stack.indexOf(self)
                         if current_index >= 0:
@@ -269,7 +292,7 @@ class ReviewAndUploadPage(QWizardPage):
             if not hasattr(parent, 'upload_stats'):
                 parent.upload_stats = {}
             parent.upload_stats['uploaded'] = 0
-            
+
             # Save account name
             acct_page = parent.pages_stack.widget(2) if hasattr(parent, 'pages_stack') else None
             if acct_page and hasattr(acct_page, 'account_combo'):
@@ -278,11 +301,11 @@ class ReviewAndUploadPage(QWizardPage):
                 parent.uploaded_account_name = acct_name
             else:
                 parent.uploaded_account_name = None
-                
+
             # Re-enable navigation and go to next page
             if hasattr(parent, "next_button"):
                 parent.next_button.setEnabled(True)
-            
+
             if hasattr(parent, "go_to_page") and hasattr(parent, "pages_stack"):
                 current_index = parent.pages_stack.indexOf(self)
                 if current_index >= 0:
@@ -294,8 +317,12 @@ class ReviewAndUploadPage(QWizardPage):
         parent = self.window()
         if hasattr(parent, "next_button"):
             parent.next_button.setEnabled(False)
-            
-        print(f"[ReviewUploadPage] Records: {len(getattr(self, 'records', []))}, Duplicates: {len(getattr(self, 'dup_idx', []))}, Skipped: {len(getattr(self, 'skipped_rows', []))}")
+
+        print(
+            f"[ReviewUploadPage] Records: {len(getattr(self, 'records', []))}, "
+            f"Duplicates: {len(getattr(self, 'dup_idx', []))}, "
+            f"Skipped: {len(getattr(self, 'skipped_rows', []))}"
+        )
         self.upload_transactions()
         return True
 
@@ -310,7 +337,7 @@ class ReviewAndUploadPage(QWizardPage):
         if not hasattr(parent, 'upload_stats'):
             parent.upload_stats = {}
         parent.upload_stats['uploaded'] = count
-        
+
         # Save account name
         acct_page = parent.pages_stack.widget(2) if hasattr(parent, 'pages_stack') else None
         if acct_page and hasattr(acct_page, 'account_combo'):
@@ -319,11 +346,11 @@ class ReviewAndUploadPage(QWizardPage):
             parent.uploaded_account_name = acct_name
         else:
             parent.uploaded_account_name = None
-            
+
         # Re-enable navigation and go to next page
         if hasattr(parent, "next_button"):
             parent.next_button.setEnabled(True)
-        
+
         if hasattr(parent, "go_to_page") and hasattr(parent, "pages_stack"):
             current_index = parent.pages_stack.indexOf(self)
             if current_index >= 0:
