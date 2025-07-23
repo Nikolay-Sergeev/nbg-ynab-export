@@ -217,33 +217,29 @@ class TestMainConversion(unittest.TestCase):
     @patch('main.logging.error')
     def test_convert_nbg_to_ynab_file_not_found(self, mock_log_error, mock_validate):
         """Test error handling for non-existent file."""
-        # Run the function
-        result = convert_nbg_to_ynab(self.nonexistent_file)
-        
+        # Run the function and expect FileNotFoundError
+        with self.assertRaises(FileNotFoundError):
+            convert_nbg_to_ynab(self.nonexistent_file)
+
         # Check function calls
         mock_validate.assert_called_once_with(self.nonexistent_file)
         mock_log_error.assert_called_once()
-        
-        # Check that result is None
-        self.assertIsNone(result)
     
     @patch('main.validate_input_file')
     @patch('main.pd.read_excel', side_effect=ValueError("Empty file"))
     @patch('main.logging.error')
     def test_convert_nbg_to_ynab_empty_file(self, mock_log_error, mock_read_excel, mock_validate):
         """Test error handling for empty file."""
-        # Run the function
-        result = convert_nbg_to_ynab(self.valid_xlsx)
-        
+        # Run the function and expect ValueError
+        with self.assertRaises(ValueError):
+            convert_nbg_to_ynab(self.valid_xlsx)
+
         # Check function calls
         mock_validate.assert_called_once_with(self.valid_xlsx)
         mock_read_excel.assert_called_once_with(self.valid_xlsx)
-        
+
         # It's called twice - once with 'Failed to read Excel file' and once with 'Validation error'
         self.assertEqual(mock_log_error.call_count, 2)
-        
-        # Check that result is None
-        self.assertIsNone(result)
     
     @patch('main.validate_input_file')
     @patch('main.pd.read_excel')
@@ -256,16 +252,14 @@ class TestMainConversion(unittest.TestCase):
             'Column2': ['a', 'b']
         })
         
-        # Run the function
-        result = convert_nbg_to_ynab(self.valid_xlsx)
-        
+        # Run the function and expect ValueError
+        with self.assertRaises(ValueError):
+            convert_nbg_to_ynab(self.valid_xlsx)
+
         # Check function calls
         mock_validate.assert_called_once_with(self.valid_xlsx)
         mock_read_excel.assert_called_once_with(self.valid_xlsx)
         mock_log_error.assert_called_once()
-        
-        # Check that result is None
-        self.assertIsNone(result)
     
     def test_validate_input_file_nonexistent(self):
         """Test validating a non-existent file."""
@@ -343,6 +337,10 @@ class TestEdgeCases(unittest.TestCase):
         self.invalid_date_csv = os.path.join(self.test_dir, "invalid_date.csv")
         self.empty_csv = os.path.join(self.test_dir, "empty.csv")
         self.mixed_currency_csv = os.path.join(self.test_dir, "mixed_currency.csv")
+
+        # Create placeholder files to satisfy validation
+        open(self.invalid_date_csv, "w").close()
+        open(self.empty_csv, "w").close()
     
     def tearDown(self):
         """Clean up test fixtures."""
@@ -399,12 +397,12 @@ class TestEdgeCases(unittest.TestCase):
         # Make process_account_operations raise ValueError for invalid date
         mock_process.side_effect = ValueError("Invalid date format")
         
-        # Run the conversion
-        result = convert_nbg_to_ynab(self.invalid_date_csv)
-        
-        # Check that error was logged and result is None
+        # Run the conversion expecting ValueError
+        with self.assertRaises(ValueError):
+            convert_nbg_to_ynab(self.invalid_date_csv)
+
+        # Check that error was logged
         mock_log_error.assert_called_once()
-        self.assertIsNone(result)
     
     @patch('main.pd.read_csv')
     @patch('main.logging.error')
@@ -414,12 +412,12 @@ class TestEdgeCases(unittest.TestCase):
         empty_df = pd.DataFrame()
         mock_read_csv.return_value = empty_df
         
-        # Run the conversion
-        result = convert_nbg_to_ynab(self.empty_csv)
-        
-        # Check that error was logged and result is None
+        # Run the conversion expecting ValueError
+        with self.assertRaises(ValueError):
+            convert_nbg_to_ynab(self.empty_csv)
+
+        # Check that error was logged
         mock_log_error.assert_called_once()
-        self.assertIsNone(result)
 
 
 if __name__ == '__main__':
