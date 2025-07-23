@@ -45,4 +45,4 @@ jobs:
       # 5) Run unit tests with unittest
       - name: Test with unittest
         run: |
-          python -m unittest discover -s test -v
+          python -m unittest discover -s tests -v

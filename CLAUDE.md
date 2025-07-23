@@ -60,13 +60,13 @@ python3 ui/wizard.py
 ### Development Commands
 ```bash
 # Run all tests - ALL tests must pass
-python3 -m unittest discover -s test -v
+python3 -m unittest discover -s tests -v
 
 # Run tests using pytest - ALL tests must pass
 python3 -m pytest
 
 # Check code style
-python3 -m flake8 main.py test
+python3 -m flake8 main.py tests
 ```
 
 ### Testing Guidelines

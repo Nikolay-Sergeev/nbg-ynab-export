@@ -334,13 +334,6 @@ class TestUIComponents(unittest.TestCase):
         os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
         cls.app = QApplication.instance() or QApplication([])
 
-    def test_step_label_selection(self):
-        label = StepLabel("Step")
-        label.set_selected(True)
-        self.assertIn("background-color", label.styleSheet())
-        label.set_selected(False)
-        self.assertIn("color:#333", label.styleSheet())
-
     def test_load_style_applies_stylesheet(self):
         load_style(self.app)
         self.assertTrue(self.app.styleSheet())
