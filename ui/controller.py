@@ -94,10 +94,11 @@ class DuplicateCheckWorker(QObject):
                 since_date=since_date,
             )
             records = df.to_dict('records')
-            
+
             # Normalize and clean payee/memo text for matching
             def normalize(s):
                 return (s or "").strip().lower()
+
             def clean_text(s):
                 t = normalize(s)
                 for prefix in ["3d secure ecommerce αγορά - ", "3d secure ", "e-commerce αγορά - "]:
@@ -123,7 +124,7 @@ class DuplicateCheckWorker(QObject):
                 memo_csv = clean_text(r.get("Memo"))
                 try:
                     amt_csv = int(round(float(r.get("Amount", 0)) * 1000))
-                except:
+                except Exception:
                     amt_csv = None
                 is_transfer_csv = payee_csv.startswith("transfer :")
                 for (date_prev, payee_prev, amt_prev, memo_prev) in keys_prev:
@@ -161,7 +162,9 @@ class UploadWorker(QObject):
         try:
             # Use correct YnabClient method and parse upload count
             response = self.ynab_client.upload_transactions(self.budget_id, self.transactions)
-            # YNAB API returns new transaction ids in response['data']['transaction_ids'] or count in response['data']['transactions']
+            # YNAB API returns new transaction ids in
+            # response['data']['transaction_ids'] or
+            # the count in response['data']['transactions']
             uploaded = 0
             if response and 'data' in response:
                 if 'transaction_ids' in response['data']:
@@ -197,9 +200,9 @@ class WizardController(QObject):
         if self.worker_thread is not None:
             if self.worker_thread.isRunning():
                 self.worker_thread.quit()
-                if not self.worker_thread.wait(3000): 
-                     self.worker_thread.terminate()
-                     self.worker_thread.wait() 
+                if not self.worker_thread.wait(3000):
+                    self.worker_thread.terminate()
+                    self.worker_thread.wait()
             self.worker = None
             self.worker_thread = None
 
@@ -209,7 +212,7 @@ class WizardController(QObject):
             if not token or token.strip() == "":
                 self.errorOccurred.emit("Token cannot be empty")
                 return False
-                
+
             self.ynab = YnabClient(token)
             print("[WizardController] YNAB client initialized with token")
             return True
@@ -221,10 +224,10 @@ class WizardController(QObject):
         """Fetch budgets from YNAB API."""
         print("[WizardController] Starting fetch_budgets")
         if not self.ynab:
-             print("[WizardController] Error: YNAB client not initialized")
-             self.errorOccurred.emit("YNAB client not initialized.")
-             return
-        
+            print("[WizardController] Error: YNAB client not initialized")
+            self.errorOccurred.emit("YNAB client not initialized.")
+            return
+
         self._cleanup_thread()
         self.worker_thread = QThread()
         self.worker = BudgetFetchWorker(self.ynab)
@@ -238,7 +241,7 @@ class WizardController(QObject):
 
         print("[WizardController] Starting budget fetch thread")
         self.worker_thread.start()
-        
+
     def _on_budgets_fetched(self, budgets):
         """Handle budgets fetched from YNAB API before passing to UI."""
         print(f"[WizardController] Budgets fetched: {len(budgets) if budgets else 0}")
@@ -249,10 +252,10 @@ class WizardController(QObject):
         """Fetch accounts under a given budget."""
         print(f"[WizardController] Starting fetch_accounts for budget: {budget_id}")
         if not self.ynab:
-             print("[WizardController] Error: YNAB client not initialized")
-             self.errorOccurred.emit("YNAB client not initialized.")
-             return
-             
+            print("[WizardController] Error: YNAB client not initialized")
+            self.errorOccurred.emit("YNAB client not initialized.")
+            return
+
         self._cleanup_thread()
         self.worker_thread = QThread()
         self.worker = AccountFetchWorker(self.ynab, budget_id)
@@ -266,7 +269,7 @@ class WizardController(QObject):
 
         print("[WizardController] Starting account fetch thread")
         self.worker_thread.start()
-        
+
     def _on_accounts_fetched(self, accounts):
         """Handle accounts fetched from YNAB API before passing to UI."""
         print(f"[WizardController] Accounts fetched: {len(accounts) if accounts else 0}")
@@ -276,8 +279,8 @@ class WizardController(QObject):
     def fetch_transactions(self, budget_id: str, account_id: str):
         """Fetch transactions for an account."""
         if not self.ynab:
-             self.errorOccurred.emit("YNAB client not initialized.")
-             return
+            self.errorOccurred.emit("YNAB client not initialized.")
+            return
         self._cleanup_thread()
         self.worker_thread = QThread()
         self.worker = TransactionFetchWorker(self.ynab, budget_id, account_id)
@@ -309,8 +312,8 @@ class WizardController(QObject):
     def upload_transactions(self, budget_id: str, account_id: str, transactions: list):
         """Upload new transactions to YNAB."""
         if not self.ynab:
-             self.errorOccurred.emit("YNAB client not initialized.")
-             return
+            self.errorOccurred.emit("YNAB client not initialized.")
+            return
         self._cleanup_thread()
         self.worker_thread = QThread()
         self.worker = UploadWorker(self.ynab, budget_id, account_id, transactions)

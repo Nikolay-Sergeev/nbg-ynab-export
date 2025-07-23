@@ -12,6 +12,7 @@ from converter.revolut import process_revolut, REQUIRED as REVOLUT_REQUIRED
 
 logger = get_logger(__name__)
 
+
 def parse_args():
     p = argparse.ArgumentParser(
         prog="nbg-ynab-export",
@@ -25,6 +26,7 @@ def parse_args():
         help="Optional path to previous YNAB export CSV for de-duplication"
     )
     return p.parse_args()
+
 
 def main():
     args = parse_args()
@@ -55,6 +57,7 @@ def main():
     except Exception as e:
         logger.error("Processing failed: %s", e)
         return 1
+
 
 if __name__ == "__main__":
     sys.exit(main())

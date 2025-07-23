@@ -16,8 +16,8 @@ APP_NAME = "nbg-ynab-export"
 ORGANIZATION = "Me"
 
 DATE_FMT_ACCOUNT = "%d/%m/%Y"
-DATE_FMT_YNAB    = "%Y-%m-%d"
-SUPPORTED_EXT    = {'.csv', '.xls', '.xlsx'}
+DATE_FMT_YNAB = "%Y-%m-%d"
+SUPPORTED_EXT = {'.csv', '.xls', '.xlsx'}
 
 # Duplicate checking configuration
 DUP_CHECK_DAYS = 90
@@ -32,6 +32,7 @@ SETTINGS_FILE = str(SETTINGS_DIR / "settings.txt")
 KEY_FILE = str(SETTINGS_DIR / "settings.key")
 # Ensure settings directory exists
 SETTINGS_DIR.mkdir(parents=True, exist_ok=True)
+
 
 def get_logger(name: str) -> logging.Logger:
     logger = logging.getLogger(name)

@@ -17,6 +17,7 @@ from PyQt5.QtSvg import QSvgWidget
 
 import os
 
+
 class TransactionsPage(QWizardPage):
     def __init__(self, controller):
         super().__init__()
@@ -69,12 +70,12 @@ class TransactionsPage(QWizardPage):
         card_layout.addWidget(self.cache_label)
 
         self.table = QTableWidget()
-        self.table.setObjectName("transactions-table") # Add object name for styling
-        self.table.setEditTriggers(QAbstractItemView.NoEditTriggers) # Make read-only
-        self.table.setSelectionBehavior(QAbstractItemView.SelectRows) # Select whole rows
-        self.table.setAlternatingRowColors(True) # Enable alternating colors for QSS
-        self.table.verticalHeader().setVisible(False) # Hide row numbers
-        self.table.setShowGrid(False) # Hide grid lines, use borders in QSS if needed
+        self.table.setObjectName("transactions-table")  # Add object name for styling
+        self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)  # Make read-only
+        self.table.setSelectionBehavior(QAbstractItemView.SelectRows)  # Select whole rows
+        self.table.setAlternatingRowColors(True)  # Enable alternating colors for QSS
+        self.table.verticalHeader().setVisible(False)  # Hide row numbers
+        self.table.setShowGrid(False)  # Hide grid lines, use borders in QSS if needed
         card_layout.addWidget(self.table)
 
         self.refresh_btn = QPushButton("Refresh")
@@ -156,7 +157,7 @@ class TransactionsPage(QWizardPage):
             # Only show last 5, sorted by date desc if possible
             if txns and 'date' in txns[0]:
                 txns = sorted(txns, key=lambda x: x['date'], reverse=True)[:5]
-            
+
             # Define columns to display and their headers
             columns_to_show = {
                 'date': 'Date',
@@ -164,37 +165,37 @@ class TransactionsPage(QWizardPage):
                 'amount': 'Amount',
                 'memo': 'Memo'
             }
-            
+
             self.table.setRowCount(len(txns))
             self.table.setColumnCount(len(columns_to_show))
             self.table.setHorizontalHeaderLabels(columns_to_show.values())
 
             for row, txn in enumerate(txns):
                 for col, key in enumerate(columns_to_show.keys()):
-                    raw_value = txn.get(key, '') # Use .get() for safety
-                    
+                    raw_value = txn.get(key, '')  # Use .get() for safety
+
                     # Format specific columns
                     if key == 'amount':
                         # Amount is in milliunits (e.g., 12340 = $12.34)
                         try:
                             milliunits = int(raw_value)
-                            amount_str = f"{milliunits / 1000.0:.2f}" 
+                            amount_str = f"{milliunits / 1000.0:.2f}"
                             item = QTableWidgetItem(amount_str)
                             item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
                         except (ValueError, TypeError):
-                            item = QTableWidgetItem(str(raw_value)) # Fallback
+                            item = QTableWidgetItem(str(raw_value))  # Fallback
                     elif key == 'date':
                         item = QTableWidgetItem(str(raw_value))
                         # Optionally parse and reformat date if needed
                     else:
                         # Handle potential None values for payee/memo
                         item = QTableWidgetItem(str(raw_value) if raw_value is not None else "")
-                    
+
                     self.table.setItem(row, col, item)
-            
+
             # Adjust column widths
             header = self.table.horizontalHeader()
-            header.setSectionResizeMode(QHeaderView.ResizeToContents) 
+            header.setSectionResizeMode(QHeaderView.ResizeToContents)
             # Stretch last column (Memo) if possible
             if self.table.columnCount() > 0:
                 header.setSectionResizeMode(self.table.columnCount() - 1, QHeaderView.Stretch)
@@ -224,7 +225,7 @@ class TransactionsPage(QWizardPage):
             if current_index >= 0:
                 parent.go_to_page(current_index + 1)
                 return True
-                
+
         print("[TransactionsPage] No navigation method found")
         return False
 

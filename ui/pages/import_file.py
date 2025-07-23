@@ -1,16 +1,28 @@
 from PyQt5.QtWidgets import (
-    QWizardPage, QWizard, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame, QFileDialog, QSizePolicy, QWidget, QMessageBox
+    QFrame,
+    QFileDialog,
+    QLabel,
+    QMessageBox,
+    QHBoxLayout,
+    QSizePolicy,
+    QWidget,
+    QVBoxLayout,
+    QWizard,
+    QWizardPage,
+    QPushButton,
 )
 from PyQt5.QtCore import Qt, pyqtSignal
-from PyQt5.QtGui import QPixmap, QCursor
+from PyQt5.QtGui import QCursor, QPixmap
 from PyQt5.QtSvg import QSvgWidget
 import os
-import sys  # for platform checks
+
 from config import SETTINGS_FILE
+
 
 class DropZone(QFrame):
     fileClicked = pyqtSignal()
     fileDropped = pyqtSignal(str)
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("drop-zone")
@@ -87,6 +99,7 @@ class DropZone(QFrame):
     @staticmethod
     def _is_valid_file(path):
         return path.lower().endswith((".csv", ".xlsx", ".xls"))
+
 
 class ImportFilePage(QWizardPage):
     def __init__(self, controller):
@@ -173,7 +186,7 @@ class ImportFilePage(QWizardPage):
         # Connect signals
         # Connect drop event signal
         self.drop_zone.fileDropped.connect(self.handle_file_selected)
-        self.drop_zone.fileClicked.connect(self.browse_file) # From click
+        self.drop_zone.fileClicked.connect(self.browse_file)  # From click
 
         # Initial UI state
         self.update_ui_state()
@@ -192,9 +205,10 @@ class ImportFilePage(QWizardPage):
         # Don't show dialog if we already have a file
         if hasattr(self, 'file_path') and self.file_path:
             return
-            
+
         folder = self.last_folder if self.last_folder else os.path.expanduser("~")
-        file_path, _ = QFileDialog.getOpenFileName(self, "Select Export File", folder, "CSV/Excel Files (*.csv *.xlsx *.xls)")
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "Select Export File", folder, "CSV/Excel Files (*.csv *.xlsx *.xls)")
         if file_path:
             # Save the file path directly for testing purposes
             self.file_path = file_path
@@ -267,7 +281,7 @@ class ImportFilePage(QWizardPage):
                     lines = f.readlines()
                 for line in lines:
                     if line.startswith("FOLDER:"):
-                        return line.strip().split("FOLDER:",1)[1]
+                        return line.strip().split("FOLDER:", 1)[1]
             except Exception:
                 pass
         return ""
@@ -300,7 +314,8 @@ class ImportFilePage(QWizardPage):
         else:
             icon_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../resources/icons/excel_icon.png'))
         if os.path.exists(icon_path):
-            self.file_icon_label.setPixmap(QPixmap(icon_path).scaled(24, 24, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            self.file_icon_label.setPixmap(QPixmap(icon_path).scaled(
+                24, 24, Qt.KeepAspectRatio, Qt.SmoothTransformation))
         else:
             self.file_icon_label.clear()
         # Validation: check if file can be opened and has at least 1 data row
@@ -339,7 +354,7 @@ class ImportFilePage(QWizardPage):
         else:
             self.file_type = 'csv' if ext.lower() == '.csv' else 'excel'
         self.update_ui_state()
-        self.completeChanged.emit() # Notify wizard about completeness change
+        self.completeChanged.emit()  # Notify wizard about completeness change
 
     def update_ui_state(self):
         if self.file_path:
@@ -361,7 +376,7 @@ class ImportFilePage(QWizardPage):
                 self.error_label.show()
             else:
                 self.error_label.hide()
-                
+
     def wizard(self):
         """Return the wizard containing this page, or None if not in a wizard."""
         # Try to get the wizard, otherwise return None
@@ -377,7 +392,7 @@ class ImportFilePage(QWizardPage):
             print(f"[ImportFilePage] Proceeding with file: {self.file_path}")
             # Optionally: Trigger file processing/validation in controller here
             # self.controller.set_import_file(self.file_path, self.file_type)
-            
+
             # Try different navigation methods
             # First check if we're in a stacked widget with a parent window
             parent = self.window()
@@ -387,13 +402,13 @@ class ImportFilePage(QWizardPage):
                 if current_index >= 0:
                     parent.go_to_page(current_index + 1)
                     return True
-                    
+
             # If not in stacked widget, try using wizard navigation
             wizard = self.wizard()
             if wizard is not None:
                 wizard.next()
                 return True
-                
+
             # If we got here, we couldn't navigate
             print("[ImportFilePage] Navigation failed: no parent widget supporting navigation found.")
             return False
@@ -419,7 +434,7 @@ class ImportFilePage(QWizardPage):
         # Determine the next page ID based on logic if needed
         # For now, linear progression
         print("[Wizard] nextId called. Next page id: 1")
-        return 1 # Assuming YNABAuthPage is always next
+        return 1  # Assuming YNABAuthPage is always next
 
     def show_help_modal(self):
         msg = QMessageBox(self)
