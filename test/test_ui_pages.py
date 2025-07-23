@@ -235,6 +235,21 @@ class TestImportFilePage(unittest.TestCase):
         # Now the page should be valid
         self.assertTrue(self.page.isComplete())
 
+    def test_handle_file_selected_saves_folder(self):
+        """Ensure selected folder path is persisted."""
+        tmp_dir = tempfile.mkdtemp()
+        settings_path = os.path.join(tmp_dir, "settings.txt")
+
+        with patch("ui.pages.import_file.SETTINGS_FILE", settings_path):
+            page = ImportFilePage(self.mock_controller)
+            page.handle_file_selected(self.temp_file_path)
+
+        with open(settings_path, "r") as f:
+            contents = f.read()
+
+        expected = f"FOLDER:{os.path.dirname(self.temp_file_path)}\n"
+        self.assertIn(expected, contents)
+
 
 class TestYNABAuthPage(unittest.TestCase):
     """Test the YNABAuthPage wizard page."""
