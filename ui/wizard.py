@@ -46,8 +46,10 @@ else:
     from .pages.finish_page import FinishPage
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-STYLE_PATH = os.path.join(PROJECT_ROOT, "resources", "style.qss")
-ICON_PATH = os.path.join(PROJECT_ROOT, "resources", "app_icon.svg")
+RESOURCE_DIR = os.path.join(PROJECT_ROOT, "resources")
+ICON_DIR = os.path.join(RESOURCE_DIR, "icons")
+STYLE_PATH = os.path.join(RESOURCE_DIR, "style.qss")
+ICON_PATH = os.path.join(ICON_DIR, "app_icon.svg")
 
 
 class StepLabel(QLabel):

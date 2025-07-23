@@ -36,7 +36,7 @@ class TransactionsPage(QWizardPage):
         self.label.setAlignment(Qt.AlignCenter)
         card_layout.addWidget(self.label)
 
-        icon_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../resources/error.svg'))
+        icon_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../resources/icons/error.svg'))
         # Setup error icon without crashing on SVG
         try:
             self.error_icon = QSvgWidget(icon_path)
@@ -54,7 +54,7 @@ class TransactionsPage(QWizardPage):
         icon_label_layout.addStretch()
         card_layout.addLayout(icon_label_layout)
 
-        spinner_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../resources/spinner.svg'))
+        spinner_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../resources/icons/spinner.svg'))
         # Setup spinner without crashing on SVG
         try:
             self.spinner = QSvgWidget(spinner_path)

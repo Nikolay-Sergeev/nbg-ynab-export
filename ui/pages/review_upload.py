@@ -38,7 +38,7 @@ class ReviewAndUploadPage(QWizardPage):
         card_layout.addWidget(self.label)
 
         # Load icons: success, error, info, spinner
-        base = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../resources'))
+        base = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../resources/icons'))
         # Success icon
         success_path = os.path.join(base, 'success.svg')
         try:
