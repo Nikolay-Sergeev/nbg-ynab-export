@@ -308,12 +308,16 @@ def convert_nbg_to_ynab(
 
     except FileNotFoundError:
         logging.error(f"File not found: '{xlsx_file}'")
+        raise
     except pd.errors.EmptyDataError:
         logging.error(f"Empty or unreadable file: '{xlsx_file}'")
+        raise
     except ValueError as e:
         logging.error(f"Validation error: {str(e)}")
+        raise
     except Exception as e:
         logging.error(f"Unexpected error: {str(e)}")
+        raise
 
 
 if __name__ == "__main__":
