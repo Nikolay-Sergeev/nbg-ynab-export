@@ -11,6 +11,12 @@ import logging
 from typing import Optional
 from datetime import datetime
 
+from constants import (
+    ACCOUNT_REQUIRED_COLUMNS,
+    CARD_REQUIRED_COLUMNS,
+    DATE_FMT_YNAB,
+)
+
 # Configuration
 LOGGING_FORMAT = '%(asctime)s - %(levelname)s - %(message)s'
 LOGGING_LEVEL = logging.INFO
@@ -25,65 +31,7 @@ logging.basicConfig(
     format=LOGGING_FORMAT
 )
 
-# Date format constants
-DATE_FORMAT_ACCOUNT = '%d/%m/%Y'
-DATE_FORMAT_CARD = '%d/%m/%Y'
-DATE_FORMAT_YNAB = '%Y-%m-%d'
-
-# Column name constants for account statements
-ACCOUNT_DATE_COLUMN = 'Valeur'
-ACCOUNT_PAYEE_COLUMN = 'Ονοματεπώνυμο αντισυμβαλλόμενου'
-ACCOUNT_MEMO_COLUMN = 'Περιγραφή'
-ACCOUNT_AMOUNT_COLUMN = 'Ποσό συναλλαγής'
-ACCOUNT_DEBIT_CREDIT_COLUMN = 'Χρέωση / Πίστωση'
-
-# Column name constants for card statements
-CARD_DATE_COLUMN = 'Ημερομηνία/Ώρα Συναλλαγής'
-CARD_PAYEE_COLUMN = 'Περιγραφή Κίνησης'
-CARD_AMOUNT_COLUMN = 'Ποσό'
-CARD_DEBIT_CREDIT_COLUMN = 'Χ/Π'
-
-# Column name constants for Revolut exports
-REVOLUT_DATE_COLUMN = 'Started Date'
-REVOLUT_PAYEE_COLUMN = 'Description'
-REVOLUT_TYPE_COLUMN = 'Type'
-REVOLUT_AMOUNT_COLUMN = 'Amount'
-REVOLUT_FEE_COLUMN = 'Fee'
-REVOLUT_STATE_COLUMN = 'State'
-REVOLUT_CURRENCY_COLUMN = 'Currency'
-
-# Required columns for validation
-ACCOUNT_REQUIRED_COLUMNS = [
-    'Valeur',  # Changed from 'Ημερομηνία'
-    ACCOUNT_PAYEE_COLUMN,
-    ACCOUNT_MEMO_COLUMN,
-    ACCOUNT_AMOUNT_COLUMN,
-    ACCOUNT_DEBIT_CREDIT_COLUMN
-]
-
-CARD_REQUIRED_COLUMNS = [
-    CARD_DATE_COLUMN,
-    CARD_PAYEE_COLUMN,
-    CARD_AMOUNT_COLUMN
-]
-
-# Add to required columns section
-REVOLUT_REQUIRED_COLUMNS = [
-    REVOLUT_DATE_COLUMN,
-    REVOLUT_PAYEE_COLUMN,
-    REVOLUT_TYPE_COLUMN,
-    REVOLUT_AMOUNT_COLUMN,
-    REVOLUT_FEE_COLUMN,
-    REVOLUT_STATE_COLUMN
-]
-
-# Cleanup pattern for transaction descriptions
-# Removes text in parentheses with whitespace
-MEMO_CLEANUP_PATTERN = r'\s*\([^)]*\)'
-# Add new cleanup patterns after the existing MEMO_CLEANUP_PATTERN
-ECOMMERCE_CLEANUP_PATTERN = r'E-COMMERCE ΑΓΟΡΑ - '
-# Add new cleanup patterns after ECOMMERCE_CLEANUP_PATTERN
-SECURE_ECOMMERCE_CLEANUP_PATTERN = r'3D SECURE E-COMMERCE ΑΓΟΡΑ - '
+# Constants moved to constants.py
 
 
 # Facade overrides to support legacy imports
@@ -141,7 +89,7 @@ def exclude_existing_transactions(
     mask_unique = ~new_keys.isin(prev_keys)
 
     filtered_df = new_df[mask_newer & mask_unique].copy()
-    filtered_df['Date'] = filtered_df['Date'].dt.strftime(DATE_FORMAT_YNAB)
+    filtered_df['Date'] = filtered_df['Date'].dt.strftime(DATE_FMT_YNAB)
 
     excluded_count = len(new_df) - len(filtered_df)
     if excluded_count > 0:

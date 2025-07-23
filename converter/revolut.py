@@ -1,13 +1,15 @@
 # converter/revolut.py
 import pandas as pd
-from config import DATE_FMT_YNAB, get_logger
+from constants import (
+    DATE_FMT_YNAB,
+    REVOLUT_REQUIRED_COLUMNS,
+)
+from config import get_logger
 from .utils import validate_dataframe, convert_amount
 
 logger = get_logger(__name__)
 
-REQUIRED = [
-    'Started Date', 'Description', 'Type', 'Amount', 'Fee', 'State', 'Currency'
-]
+REQUIRED = REVOLUT_REQUIRED_COLUMNS
 
 
 def validate_revolut_currency(df: pd.DataFrame) -> None:

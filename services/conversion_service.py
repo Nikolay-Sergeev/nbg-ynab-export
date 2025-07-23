@@ -6,94 +6,40 @@ from typing import Optional
 from datetime import datetime
 import re
 from config import SETTINGS_DIR
-
-# --- Conversion constants ---
-DATE_FORMAT_ACCOUNT = '%d/%m/%Y'
-DATE_FORMAT_CARD = '%d/%m/%Y'
-DATE_FORMAT_YNAB = '%Y-%m-%d'
-
-ACCOUNT_DATE_COLUMN = 'Valeur'
-ACCOUNT_PAYEE_COLUMN = 'Ονοματεπώνυμο αντισυμβαλλόμενου'
-ACCOUNT_MEMO_COLUMN = 'Περιγραφή'
-ACCOUNT_AMOUNT_COLUMN = 'Ποσό συναλλαγής'
-ACCOUNT_DEBIT_CREDIT_COLUMN = 'Χρέωση / Πίστωση'
-
-CARD_DATE_COLUMN = 'Ημερομηνία/Ώρα Συναλλαγής'
-CARD_PAYEE_COLUMN = 'Περιγραφή Κίνησης'
-CARD_AMOUNT_COLUMN = 'Ποσό'
-CARD_DEBIT_CREDIT_COLUMN = 'Χ/Π'
-
-REVOLUT_DATE_COLUMN = 'Started Date'
-REVOLUT_PAYEE_COLUMN = 'Description'
-REVOLUT_TYPE_COLUMN = 'Type'
-REVOLUT_AMOUNT_COLUMN = 'Amount'
-REVOLUT_FEE_COLUMN = 'Fee'
-REVOLUT_STATE_COLUMN = 'State'
-REVOLUT_CURRENCY_COLUMN = 'Currency'
-
-ACCOUNT_REQUIRED_COLUMNS = [
-    'Valeur',
+from constants import (
+    DATE_FMT_ACCOUNT,
+    DATE_FMT_CARD,
+    DATE_FMT_YNAB,
+    ACCOUNT_REQUIRED_COLUMNS,
+    CARD_REQUIRED_COLUMNS,
+    REVOLUT_REQUIRED_COLUMNS,
+    ACCOUNT_DATE_COLUMN,
     ACCOUNT_PAYEE_COLUMN,
     ACCOUNT_MEMO_COLUMN,
     ACCOUNT_AMOUNT_COLUMN,
-    ACCOUNT_DEBIT_CREDIT_COLUMN
-]
-CARD_REQUIRED_COLUMNS = [
+    ACCOUNT_DEBIT_CREDIT_COLUMN,
     CARD_DATE_COLUMN,
     CARD_PAYEE_COLUMN,
-    CARD_AMOUNT_COLUMN
-]
-REVOLUT_REQUIRED_COLUMNS = [
+    CARD_AMOUNT_COLUMN,
+    CARD_DEBIT_CREDIT_COLUMN,
     REVOLUT_DATE_COLUMN,
     REVOLUT_PAYEE_COLUMN,
     REVOLUT_TYPE_COLUMN,
     REVOLUT_AMOUNT_COLUMN,
     REVOLUT_FEE_COLUMN,
-    REVOLUT_STATE_COLUMN
-]
-MEMO_CLEANUP_PATTERN = r'\s*\([^)]*\)'
-ECOMMERCE_CLEANUP_PATTERN = r'E-COMMERCE ΑΓΟΡΑ - '
-SECURE_ECOMMERCE_CLEANUP_PATTERN = r'3D SECURE E-COMMERCE ΑΓΟΡΑ - '
+    REVOLUT_STATE_COLUMN,
+    REVOLUT_CURRENCY_COLUMN,
+    MEMO_CLEANUP_PATTERN,
+    ECOMMERCE_CLEANUP_PATTERN,
+    SECURE_ECOMMERCE_CLEANUP_PATTERN,
+)
+from converter.utils import (
+    normalize_column_name,
+    validate_dataframe,
+    convert_amount,
+)
 
 # --- Conversion functions ---
-
-
-def normalize_column_name(column: str) -> str:
-    return ' '.join(column.strip().split())
-
-
-def validate_dataframe(df: pd.DataFrame, required_columns: list) -> None:
-    if df.empty and len(df.columns) == 0:
-        raise ValueError("Empty DataFrame provided")
-    actual_columns = {normalize_column_name(col) for col in df.columns}
-    required_norm = {normalize_column_name(col) for col in required_columns}
-    missing_columns = required_norm - actual_columns
-    if missing_columns:
-        raise ValueError(
-            f"Missing required columns: {', '.join(missing_columns)}\n"
-            f"Available columns: {', '.join(actual_columns)}"
-        )
-    if len(df) == 0:
-        raise ValueError("DataFrame contains no data")
-
-
-def convert_amount(amount: str) -> float:
-    if isinstance(amount, str):
-        s = amount.strip()
-        s = s.replace("'", "").replace("\u00a0", "").replace(" ", "")
-        if "," in s and "." in s:
-            if s.rfind(',') > s.rfind('.'):
-                s = s.replace('.', '')
-                s = s.replace(',', '.')
-            else:
-                s = s.replace(',', '')
-        elif "," in s:
-            s = s.replace('.', '')
-            s = s.replace(',', '.')
-        return float(s)
-    return float(amount)
-
-
 def process_account_operations(df: pd.DataFrame) -> pd.DataFrame:
     validate_dataframe(df, ACCOUNT_REQUIRED_COLUMNS)
     try:
