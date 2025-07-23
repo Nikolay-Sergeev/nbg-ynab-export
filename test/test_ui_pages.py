@@ -11,6 +11,7 @@ from PyQt5.QtTest import QTest
 from ui.pages.import_file import ImportFilePage, DropZone
 from ui.pages.auth import YNABAuthPage
 from ui.pages.account_select import AccountSelectionPage
+from ui.pages.review_upload import ReviewAndUploadPage
 
 # Create QApplication instance for UI tests
 app = QApplication.instance()
@@ -419,6 +420,38 @@ class TestAccountSelectionPage(unittest.TestCase):
         
         # Check that the controller was called to fetch accounts
         self.mock_controller.fetch_accounts.assert_called_with("budget1")
+
+
+class TestReviewAndUploadPage(unittest.TestCase):
+    """Test the ReviewAndUploadPage widget."""
+
+    def setUp(self):
+        self.mock_controller = MagicMock()
+        self.container = QFrame()
+        layout = QVBoxLayout(self.container)
+        self.page = ReviewAndUploadPage(self.mock_controller)
+        layout.addWidget(self.page)
+
+    def tearDown(self):
+        self.container.close()
+
+    def test_hide_duplicates_checkbox(self):
+        records = [
+            {"Date": "2025-07-01", "Payee": "Coffee", "Memo": "", "Amount": "1"},
+            {"Date": "2025-07-02", "Payee": "Shop", "Memo": "", "Amount": "2"},
+        ]
+        dup_idx = {1}
+
+        self.page.on_duplicates_found(records, dup_idx)
+
+        # Checkbox should be visible when duplicates exist
+        self.assertFalse(self.page.hide_dup_checkbox.isHidden())
+
+        # Toggling should hide/show duplicate rows
+        self.page.hide_dup_checkbox.setChecked(True)
+        self.assertTrue(self.page.table.isRowHidden(1))
+        self.page.hide_dup_checkbox.setChecked(False)
+        self.assertFalse(self.page.table.isRowHidden(1))
 
 
 if __name__ == '__main__':
