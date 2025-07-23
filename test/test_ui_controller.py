@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, ANY
 import pandas as pd
 import os
 import tempfile
@@ -270,7 +270,12 @@ class TestDuplicateCheckWorker(unittest.TestCase):
         
         # Check if the methods were called with correct parameters
         self.mock_converter.convert_to_ynab.assert_called_once_with(self.file_path)
-        self.mock_ynab_client.get_transactions.assert_called_once()
+        self.mock_ynab_client.get_transactions.assert_called_once_with(
+            self.budget_id,
+            self.account_id,
+            count=500,
+            since_date=ANY,
+        )
         
         # Check if signal emitted correct data
         self.assertEqual(len(self.finished_signal_records), 2)
