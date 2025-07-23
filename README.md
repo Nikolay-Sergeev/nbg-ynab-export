@@ -131,8 +131,8 @@ The wizard will guide you through:
 4. Step 4: Confirm and generate/upload transactions.
 
 Settings are stored in `~/.nbg-ynab-export/nbg_ynab_settings.txt`.
+Duplicate checking uses configurable range defined in config.py (DUP_CHECK_DAYS and DUP_CHECK_COUNT).
 
 ## License
 
 MIT License - See LICENSE file for details
-\nDuplicate checking uses configurable range defined in config.py (DUP_CHECK_DAYS and DUP_CHECK_COUNT).
