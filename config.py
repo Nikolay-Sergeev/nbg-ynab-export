@@ -33,8 +33,6 @@ KEY_FILE = str(SETTINGS_DIR / "settings.key")
 # Ensure settings directory exists
 SETTINGS_DIR.mkdir(parents=True, exist_ok=True)
 
-import sys
-
 def get_logger(name: str) -> logging.Logger:
     logger = logging.getLogger(name)
     if not logger.handlers:

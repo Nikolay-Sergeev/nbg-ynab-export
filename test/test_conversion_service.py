@@ -94,6 +94,8 @@ class TestConversionServiceCore(unittest.TestCase):
         test_cases = [
             ("1234,56", 1234.56),
             ("1234.56", 1234.56),
+            ("1.234,56", 1234.56),
+            ("1,234.56", 1234.56),
             ("-1234,56", -1234.56),
             ("0,00", 0.0),
             (1234.56, 1234.56),  # Already a float
@@ -125,7 +127,7 @@ class TestConversionServiceCore(unittest.TestCase):
         test_dir = tempfile.mkdtemp()
         test_cases = [
             # With date in filename
-            (os.path.join(test_dir, "statement_15-07-2025.xlsx"), "statement_15-07-2025_2025-07-15_ynab.csv"),
+            (os.path.join(test_dir, "statement_15-07-2025.xlsx"), "statement_2025-07-15_ynab.csv"),
             # Without date in filename
             (os.path.join(test_dir, "statement.xlsx"), lambda x: x.endswith("_ynab.csv"))
         ]
