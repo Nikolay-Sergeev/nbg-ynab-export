@@ -53,7 +53,14 @@ def save_token(token: str) -> None:
 
 
 def load_token() -> str:
-    """Load and decrypt token from settings file."""
+    """Load and decrypt token from settings file.
+
+    Environment variable ``YNAB_TOKEN`` takes precedence if set.
+    """
+    env_token = os.getenv("YNAB_TOKEN")
+    if env_token:
+        return env_token
+
     token_path = Path(SETTINGS_FILE)
     if not token_path.exists():
         raise FileNotFoundError(f"Token file not found: {SETTINGS_FILE}")

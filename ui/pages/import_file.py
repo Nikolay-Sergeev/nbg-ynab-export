@@ -16,7 +16,9 @@ from PyQt5.QtGui import QCursor, QPixmap
 from PyQt5.QtSvg import QSvgWidget
 import os
 
-from config import SETTINGS_FILE
+from config import SETTINGS_FILE, get_logger
+
+logger = get_logger(__name__)
 
 
 class DropZone(QFrame):
@@ -298,7 +300,7 @@ class ImportFilePage(QWizardPage):
             f.writelines(lines)
 
     def handle_file_selected(self, file_path):
-        print(f"[ImportFilePage] handle_file_selected: {file_path}")
+        logger.info("[ImportFilePage] handle_file_selected: %s", file_path)
         if not file_path:
             return
         self.file_path = file_path
@@ -349,7 +351,7 @@ class ImportFilePage(QWizardPage):
                 self.file_path = None
         except Exception as e:
             self.error_text = f"Error reading file: {str(e)}"
-            print(f"[ImportFilePage] Validation error: {self.error_text}")
+            logger.error("[ImportFilePage] Validation error: %s", self.error_text)
             self.file_path = None
         else:
             self.file_type = 'csv' if ext.lower() == '.csv' else 'excel'
@@ -389,7 +391,7 @@ class ImportFilePage(QWizardPage):
         if self.isComplete():
             # Store file path in controller or shared state if needed later
             # For now, just proceed
-            print(f"[ImportFilePage] Proceeding with file: {self.file_path}")
+            logger.info("[ImportFilePage] Proceeding with file: %s", self.file_path)
             # Optionally: Trigger file processing/validation in controller here
             # self.controller.set_import_file(self.file_path, self.file_type)
 
@@ -410,30 +412,30 @@ class ImportFilePage(QWizardPage):
                 return True
 
             # If we got here, we couldn't navigate
-            print("[ImportFilePage] Navigation failed: no parent widget supporting navigation found.")
+            logger.error("[ImportFilePage] Navigation failed: no parent widget supporting navigation found.")
             return False
         else:
-            print("[ImportFilePage] Validation failed. Cannot proceed.")
+            logger.error("[ImportFilePage] Validation failed. Cannot proceed.")
             if not self.error_text:
                 self.error_text = "Please select a valid file."
                 self.update_ui_state()
             return False
 
     def initializePage(self):
-        print(f"[Wizard] initializePage called for {type(self).__name__}")
+        logger.debug("[Wizard] initializePage called for %s", type(self).__name__)
         # Reset state when page is shown
         # self.clear_file() # Optional: uncomment to always clear file on revisit
         self.update_ui_state()
 
     def cleanupPage(self):
-        print(f"[Wizard] cleanupPage called for page id {self.wizard().currentId()} ({type(self).__name__})")
+        logger.debug("[Wizard] cleanupPage called for page id %s (%s)", self.wizard().currentId(), type(self).__name__)
         # Called when leaving the page
         pass
 
     def nextId(self):
         # Determine the next page ID based on logic if needed
         # For now, linear progression
-        print("[Wizard] nextId called. Next page id: 1")
+        logger.debug("[Wizard] nextId called. Next page id: 1")
         return 1  # Assuming YNABAuthPage is always next
 
     def show_help_modal(self):
