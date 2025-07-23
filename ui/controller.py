@@ -81,10 +81,15 @@ class DuplicateCheckWorker(QObject):
     def run(self):
         try:
             df = self.converter.convert_to_ynab(self.file_path)
-            # Fetch the 50 most recent YNAB transactions for duplicate checking
+            # Fetch up to 500 recent YNAB transactions for duplicate checking
             from datetime import datetime, timedelta
             since_date = (datetime.now() - timedelta(days=60)).strftime("%Y-%m-%d")
-            prev = self.ynab_client.get_transactions(self.budget_id, self.account_id, count=50, since_date=since_date)
+            prev = self.ynab_client.get_transactions(
+                self.budget_id,
+                self.account_id,
+                count=500,
+                since_date=since_date,
+            )
             records = df.to_dict('records')
             
             # Normalize and clean payee/memo text for matching
