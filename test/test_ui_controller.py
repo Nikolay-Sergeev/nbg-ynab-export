@@ -277,6 +277,7 @@ class TestDuplicateCheckWorker(unittest.TestCase):
         self.mock_converter.convert_to_ynab.assert_called_once_with(self.file_path)
         self.mock_ynab_client.get_transactions.assert_called_once_with(
             self.budget_id,
+            self.account_id,
             count=DUP_CHECK_COUNT,
             since_date=expected_since_date,
         )
