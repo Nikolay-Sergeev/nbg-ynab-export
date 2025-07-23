@@ -1,5 +1,6 @@
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, ANY
+from datetime import datetime, timedelta
 import pandas as pd
 import os
 import tempfile
@@ -266,11 +267,19 @@ class TestDuplicateCheckWorker(unittest.TestCase):
         self.mock_ynab_client.get_transactions.return_value = mock_ynab_transactions
         
         # Run the worker
+        expected_since_date = (
+            datetime.now() - timedelta(days=90)
+        ).strftime("%Y-%m-%d")
         self.worker.run()
-        
+
         # Check if the methods were called with correct parameters
         self.mock_converter.convert_to_ynab.assert_called_once_with(self.file_path)
-        self.mock_ynab_client.get_transactions.assert_called_once()
+        self.mock_ynab_client.get_transactions.assert_called_once_with(
+            self.budget_id,
+            self.account_id,
+            count=500,
+            since_date=expected_since_date,
+        )
         
         # Check if signal emitted correct data
         self.assertEqual(len(self.finished_signal_records), 2)
