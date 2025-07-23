@@ -288,6 +288,11 @@ class ImportFilePage(QWizardPage):
         if not file_path:
             return
         self.file_path = file_path
+        # Persist directory for next launch
+        folder = os.path.dirname(file_path)
+        if folder:
+            self.last_folder = folder
+            self.save_last_folder(folder)
         _, ext = os.path.splitext(file_path)
         # Set file icon
         if ext.lower() == ".csv":
