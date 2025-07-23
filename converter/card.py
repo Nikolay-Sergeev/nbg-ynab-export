@@ -16,6 +16,7 @@ REQUIRED = [
 ECOMMERCE_CLEANUP_PATTERN = r'E-COMMERCE ΑΓΟΡΑ - '
 SECURE_ECOMMERCE_CLEANUP_PATTERN = r'3D SECURE E-COMMERCE ΑΓΟΡΑ - '
 
+
 def process_card(df: pd.DataFrame) -> pd.DataFrame:
     """
     Convert NBG card export into YNAB CSV format.

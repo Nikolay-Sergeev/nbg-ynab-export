@@ -10,6 +10,7 @@ REQUIRED = [
     'Περιγραφή', 'Ποσό συναλλαγής', 'Χρέωση / Πίστωση'
 ]
 
+
 def process_account(df: pd.DataFrame) -> pd.DataFrame:
     """
     Convert NBG account export into YNAB CSV format.

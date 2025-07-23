@@ -9,6 +9,7 @@ REQUIRED = [
     'Started Date', 'Description', 'Type', 'Amount', 'Fee', 'State', 'Currency'
 ]
 
+
 def validate_revolut_currency(df: pd.DataFrame) -> None:
     """
     Ensure all transactions are in EUR.

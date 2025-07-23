@@ -9,10 +9,12 @@ from config import DATE_FMT_YNAB, get_logger
 
 logger = get_logger(__name__)
 
+
 def read_input(path: Path) -> pd.DataFrame:
     if path.suffix.lower() == '.csv':
         return pd.read_csv(path)
     return pd.read_excel(path)
+
 
 def write_output(
     in_path: Path,
@@ -26,11 +28,13 @@ def write_output(
     df.to_csv(out_path, index=False, quoting=csv.QUOTE_MINIMAL)
     return out_path
 
+
 def exclude_existing(
     new_df: pd.DataFrame,
     prev_df: pd.DataFrame
 ) -> pd.DataFrame:
     logger.info("Excluding existing transactions")
+
     def make_key(df):
         # Date, payee, amount, memo (empty if missing)
         date = df['Date'].astype(str)
@@ -46,6 +50,7 @@ def exclude_existing(
     mask = ~new_keys.isin(prev_keys)
     return new_df[mask].copy()
 
+
 def validate_dataframe(df: pd.DataFrame, required_columns: list) -> None:
     """
     Ensure df has required columns (exact match) and is not empty.
@@ -59,6 +64,7 @@ def validate_dataframe(df: pd.DataFrame, required_columns: list) -> None:
         raise ValueError(f"Missing required columns: {', '.join(missing)}")
     if len(df) == 0:
         raise ValueError("DataFrame contains no data")
+
 
 def convert_amount(amount: Union[str, float, int]) -> float:
     """
@@ -84,11 +90,13 @@ def convert_amount(amount: Union[str, float, int]) -> float:
         return float(s)
     return float(amount)
 
+
 def normalize_column_name(column: str) -> str:
     """
     Normalize a column name by stripping whitespace and collapsing multiple spaces.
     """
     return ' '.join(column.strip().split())
+
 
 def extract_date_from_filename(filename: str) -> str:
     """
@@ -103,6 +111,7 @@ def extract_date_from_filename(filename: str) -> str:
     if match:
         return f"{match.group(3)}-{match.group(2)}-{match.group(1)}"
     return ''
+
 
 def generate_output_filename(input_file: str) -> str:
     """

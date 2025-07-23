@@ -56,8 +56,11 @@ ECOMMERCE_CLEANUP_PATTERN = r'E-COMMERCE ΑΓΟΡΑ - '
 SECURE_ECOMMERCE_CLEANUP_PATTERN = r'3D SECURE E-COMMERCE ΑΓΟΡΑ - '
 
 # --- Conversion functions ---
+
+
 def normalize_column_name(column: str) -> str:
     return ' '.join(column.strip().split())
+
 
 def validate_dataframe(df: pd.DataFrame, required_columns: list) -> None:
     if df.empty and len(df.columns) == 0:
@@ -72,6 +75,7 @@ def validate_dataframe(df: pd.DataFrame, required_columns: list) -> None:
         )
     if len(df) == 0:
         raise ValueError("DataFrame contains no data")
+
 
 def convert_amount(amount: str) -> float:
     if isinstance(amount, str):
@@ -89,6 +93,7 @@ def convert_amount(amount: str) -> float:
         return float(s)
     return float(amount)
 
+
 def process_account_operations(df: pd.DataFrame) -> pd.DataFrame:
     validate_dataframe(df, ACCOUNT_REQUIRED_COLUMNS)
     try:
@@ -102,7 +107,8 @@ def process_account_operations(df: pd.DataFrame) -> pd.DataFrame:
         ynab_df['Payee'] = ynab_df['Payee'].str.replace(SECURE_ECOMMERCE_CLEANUP_PATTERN, '', regex=True)
         ynab_df['Memo'] = df[ACCOUNT_MEMO_COLUMN]
         # Fallback: if Payee is empty, use Memo
-        ynab_df['Payee'] = ynab_df['Payee'].mask(ynab_df['Payee'].isnull() | (ynab_df['Payee'].astype(str).str.strip() == ''), ynab_df['Memo'])
+        ynab_df['Payee'] = ynab_df['Payee'].mask(ynab_df['Payee'].isnull() | (
+            ynab_df['Payee'].astype(str).str.strip() == ''), ynab_df['Memo'])
         ynab_df['Amount'] = df[ACCOUNT_AMOUNT_COLUMN].apply(convert_amount)
         df[ACCOUNT_DEBIT_CREDIT_COLUMN] = df[ACCOUNT_DEBIT_CREDIT_COLUMN].str.strip()
         debit_condition = (df[ACCOUNT_DEBIT_CREDIT_COLUMN] == 'Χρέωση') & (ynab_df['Amount'] > 0)
@@ -111,6 +117,7 @@ def process_account_operations(df: pd.DataFrame) -> pd.DataFrame:
         return ynab_df
     except Exception as e:
         raise ValueError(f"Error processing account operations: {str(e)}")
+
 
 def process_card_operations(df: pd.DataFrame) -> pd.DataFrame:
     validate_dataframe(df, CARD_REQUIRED_COLUMNS)
@@ -137,9 +144,11 @@ def process_card_operations(df: pd.DataFrame) -> pd.DataFrame:
     except Exception as e:
         raise ValueError(f"Error processing card operations: {str(e)}")
 
+
 def validate_revolut_currency(df: pd.DataFrame) -> None:
     if not all(df[REVOLUT_CURRENCY_COLUMN] == 'EUR'):
         raise ValueError("Revolut export must only contain EUR transactions.")
+
 
 def process_revolut_operations(df: pd.DataFrame) -> pd.DataFrame:
     validate_dataframe(df, REVOLUT_REQUIRED_COLUMNS)
@@ -160,11 +169,13 @@ def process_revolut_operations(df: pd.DataFrame) -> pd.DataFrame:
     except Exception as e:
         raise ValueError(f"Error processing Revolut operations: {str(e)}")
 
+
 def load_previous_transactions(csv_file: str) -> pd.DataFrame:
     try:
         return pd.read_csv(csv_file)
     except Exception as e:
         raise ValueError(f"Failed to load previous transactions: {str(e)}")
+
 
 def exclude_existing_transactions(new_df: pd.DataFrame, prev_df: pd.DataFrame) -> pd.DataFrame:
     def create_key(df):
@@ -179,12 +190,14 @@ def exclude_existing_transactions(new_df: pd.DataFrame, prev_df: pd.DataFrame) -
     mask = ~new_keys.isin(prev_keys)
     return new_df[mask].copy()
 
+
 def extract_date_from_filename(filename: str) -> str:
     match = re.search(r'(\d{2}-\d{2}-\d{4})', filename)
     if match:
         dt = datetime.strptime(match.group(1), '%d-%m-%Y')
         return dt.strftime(DATE_FORMAT_YNAB)
     return ''
+
 
 def generate_output_filename(input_file: str, is_revolut: bool = False) -> str:
     base, _ = os.path.splitext(os.path.basename(input_file))
@@ -198,12 +211,14 @@ def generate_output_filename(input_file: str, is_revolut: bool = False) -> str:
     suffix = 'ynab.csv'
     return os.path.join(SETTINGS_DIR, f"{base}_{date_str}_{suffix}")
 
+
 def validate_input_file(file_path: str) -> None:
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"File not found: '{file_path}'")
     file_ext = os.path.splitext(file_path)[1].lower()
     if file_ext not in ('.xlsx', '.xls', '.csv'):
         raise ValueError(f"Unsupported file type: '{file_ext}' (must be .xlsx, .xls, or .csv)")
+
 
 class ConversionService:
     """Service for converting NBG/Revolut exports to YNAB format."""
