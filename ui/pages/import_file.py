@@ -419,18 +419,21 @@ class ImportFilePage(QWizardPage):
             # First check if we're in a stacked widget with a parent window
             parent = self.window()
             if hasattr(parent, "go_to_page") and hasattr(parent, "pages_stack"):
-                # If exporting for Actual, convert now and jump to Finish page
                 target = getattr(self.controller, 'export_target', 'YNAB')
                 if target == 'ACTUAL':
+                    # For Actual CSV, go to Budget selection step (no account)
                     try:
-                        export_path = self.controller.converter.convert_to_actual(self.file_path)
-                        parent.actual_export_path = export_path
-                        # Jump to Finish page directly
-                        parent.go_to_page(parent.pages_stack.count() - 1)
+                        account_idx = parent.pages_stack.indexOf(parent.account_page)
+                        if account_idx >= 0:
+                            parent.go_to_page(account_idx)
+                            return True
+                    except Exception:
+                        pass
+                    # Fallback to next step
+                    current_index = parent.pages_stack.indexOf(self)
+                    if current_index >= 0:
+                        parent.go_to_page(current_index + 1)
                         return True
-                    except Exception as e:
-                        self.show_error(f"Export failed: {e}")
-                        return False
                 else:
                     # Use our custom navigation system
                     current_index = parent.pages_stack.indexOf(self)

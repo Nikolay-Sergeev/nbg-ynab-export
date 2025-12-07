@@ -30,14 +30,14 @@ class AccountSelectionPage(QWidget):
         card_layout.setContentsMargins(20, 20, 20, 20)
         card_layout.setSpacing(16)
 
-        title = QLabel("Select YNAB Budget and Account")
-        title.setProperty('role', 'title')
-        card_layout.addWidget(title)
+        self.title_label = QLabel("Select Budget and Account")
+        self.title_label.setProperty('role', 'title')
+        card_layout.addWidget(self.title_label)
 
         # Budget label
-        budget_label = QLabel("Budget:")
-        budget_label.setStyleSheet("font-size:14px;font-weight:500;color:#333;margin-top:24px;")
-        card_layout.addWidget(budget_label, alignment=Qt.AlignLeft)
+        self.budget_label = QLabel("Budget:")
+        self.budget_label.setStyleSheet("font-size:14px;font-weight:500;color:#333;margin-top:24px;")
+        card_layout.addWidget(self.budget_label, alignment=Qt.AlignLeft)
         card_layout.addSpacing(8)
 
         # Budget dropdown - add directly to layout
@@ -56,9 +56,9 @@ class AccountSelectionPage(QWidget):
         card_layout.addSpacing(16)
 
         # Account label
-        account_label = QLabel("Account:")
-        account_label.setStyleSheet("font-size:14px;font-weight:500;color:#333;margin-top:16px;")
-        card_layout.addWidget(account_label, alignment=Qt.AlignLeft)
+        self.account_label = QLabel("Account:")
+        self.account_label.setStyleSheet("font-size:14px;font-weight:500;color:#333;margin-top:16px;")
+        card_layout.addWidget(self.account_label, alignment=Qt.AlignLeft)
         card_layout.addSpacing(8)
 
         # Account dropdown - add directly to layout
@@ -134,8 +134,21 @@ class AccountSelectionPage(QWidget):
 
     def initializePage(self):
         print("[AccountSelectionPage] initializePage called")
+        target = getattr(self.controller, 'export_target', 'YNAB')
+        if target == 'ACTUAL':
+            # CSV export mode: allow entering a budget name only; hide account selection
+            self.title_label.setText("Select Budget (CSV export)")
+            self.budget_combo.blockSignals(True)
+            self.budget_combo.clear()
+            self.budget_combo.setEditable(True)
+            self.budget_combo.setPlaceholderText("Enter budget name (optional)")
+            self.budget_combo.blockSignals(False)
+            self.account_combo.setVisible(False)
+            self.account_label.setVisible(False)
+            self.helper_label.setText("Enter a budget name for reference. Account selection is disabled in CSV mode.")
+            return
         if not self.controller.ynab:
-            print("[AccountSelectionPage] No YNAB client, skipping fetch")
+            print("[AccountSelectionPage] No API client, skipping fetch")
             return
         try:
             print("[AccountSelectionPage] Fetching budgets from YNAB API")

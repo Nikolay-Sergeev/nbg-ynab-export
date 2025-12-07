@@ -418,7 +418,23 @@ class SidebarWizardWindow(QMainWindow):
                         # Fallback to standard auth page if Actual page is unavailable
                         self.go_to_page(1)
                 else:
-                    self.go_to_page(current + 1)
+                    # If on account selection page and in Actual CSV mode, export then finish
+                    if page is self.account_page and getattr(self.controller, 'export_target', 'YNAB') == 'ACTUAL':
+                        try:
+                            file_path = getattr(self.import_page, 'file_path', None)
+                            if file_path:
+                                from services.conversion_service import generate_actual_output_filename
+                                self.controller.converter.convert_to_actual(file_path)
+                                export_path = generate_actual_output_filename(file_path)
+                                self.actual_export_path = export_path
+                                print(f"[Wizard] Actual CSV saved to {export_path}")
+                            else:
+                                print("[Wizard] No file_path set on import page for Actual CSV export")
+                        except Exception as e:
+                            print(f"[Wizard] Error exporting for Actual CSV: {e}")
+                        self.go_to_page(self.pages_stack.count() - 1)
+                    else:
+                        self.go_to_page(current + 1)
         elif current == self.pages_stack.count() - 1:
             # On the last page, check if we should close the app
             page = self.pages_stack.currentWidget()
