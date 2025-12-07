@@ -42,9 +42,13 @@ def process_card(df: pd.DataFrame) -> pd.DataFrame:
     payee = payee.str.replace(ECOMMERCE_CLEANUP_PATTERN, '', regex=True)
     df_copy['Payee'] = payee.str.strip()
     df_copy['Memo'] = df_copy['Περιγραφή Κίνησης']
-    # Convert and sign amount
+    # Convert and sign amount robustly using debit/credit indicator when present
     df_copy['Amount'] = df_copy['Ποσό'].apply(convert_amount)
-    debit_mask = (df_copy['Χ/Π'] == 'Χ') & (df_copy['Amount'] > 0)
-    df_copy.loc[debit_mask, 'Amount'] *= -1
+    if 'Χ/Π' in df_copy.columns:
+        indicator = df_copy['Χ/Π'].astype(str).str.strip().str.upper()
+        is_debit = indicator.eq('Χ') | indicator.eq('DEBIT') | indicator.eq('D')
+        is_credit = indicator.eq('Π') | indicator.eq('CREDIT') | indicator.eq('C')
+        df_copy.loc[is_debit, 'Amount'] = -df_copy.loc[is_debit, 'Amount'].abs()
+        df_copy.loc[is_credit, 'Amount'] = df_copy.loc[is_credit, 'Amount'].abs()
     df_copy['Amount'] = df_copy['Amount'].round(2)
     return df_copy[['Date', 'Payee', 'Memo', 'Amount']]

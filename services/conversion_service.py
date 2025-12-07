@@ -55,10 +55,24 @@ def process_account_operations(df: pd.DataFrame) -> pd.DataFrame:
         # Fallback: if Payee is empty, use Memo
         ynab_df['Payee'] = ynab_df['Payee'].mask(ynab_df['Payee'].isnull() | (
             ynab_df['Payee'].astype(str).str.strip() == ''), ynab_df['Memo'])
+        # Robust sign handling: use debit/credit indicator to set sign deterministically
         ynab_df['Amount'] = df[ACCOUNT_AMOUNT_COLUMN].apply(convert_amount)
-        df[ACCOUNT_DEBIT_CREDIT_COLUMN] = df[ACCOUNT_DEBIT_CREDIT_COLUMN].str.strip()
-        debit_condition = (df[ACCOUNT_DEBIT_CREDIT_COLUMN] == 'Χρέωση') & (ynab_df['Amount'] > 0)
-        ynab_df.loc[debit_condition, 'Amount'] *= -1
+        indicator = df[ACCOUNT_DEBIT_CREDIT_COLUMN].astype(str).str.strip().str.upper()
+        # Greek Χρέωση/Πίστωση plus English fallbacks
+        is_debit = (
+            indicator.eq('ΧΡΕΩΣΗ') |
+            indicator.eq('Χ') |
+            indicator.eq('DEBIT') |
+            indicator.eq('D')
+        )
+        is_credit = (
+            indicator.eq('ΠΙΣΤΩΣΗ') |
+            indicator.eq('Π') |
+            indicator.eq('CREDIT') |
+            indicator.eq('C')
+        )
+        ynab_df.loc[is_debit, 'Amount'] = -ynab_df.loc[is_debit, 'Amount'].abs()
+        ynab_df.loc[is_credit, 'Amount'] = ynab_df.loc[is_credit, 'Amount'].abs()
         ynab_df['Amount'] = ynab_df['Amount'].round(2)
         return ynab_df
     except Exception as e:
@@ -81,10 +95,14 @@ def process_card_operations(df: pd.DataFrame) -> pd.DataFrame:
         payee = payee.str.replace(ECOMMERCE_CLEANUP_PATTERN, '', regex=True)
         ynab_df['Payee'] = payee.str.strip()
         ynab_df['Memo'] = df[CARD_PAYEE_COLUMN]
+        # Robust sign handling for card statements
         ynab_df['Amount'] = df[CARD_AMOUNT_COLUMN].apply(convert_amount)
-        df[CARD_DEBIT_CREDIT_COLUMN] = df[CARD_DEBIT_CREDIT_COLUMN].str.strip()
-        debit_condition = (df[CARD_DEBIT_CREDIT_COLUMN] == 'Χ') & (ynab_df['Amount'] > 0)
-        ynab_df.loc[debit_condition, 'Amount'] *= -1
+        if CARD_DEBIT_CREDIT_COLUMN in df.columns:
+            indicator = df[CARD_DEBIT_CREDIT_COLUMN].astype(str).str.strip().str.upper()
+            is_debit = indicator.eq('Χ') | indicator.eq('DEBIT') | indicator.eq('D')
+            is_credit = indicator.eq('Π') | indicator.eq('CREDIT') | indicator.eq('C')
+            ynab_df.loc[is_debit, 'Amount'] = -ynab_df.loc[is_debit, 'Amount'].abs()
+            ynab_df.loc[is_credit, 'Amount'] = ynab_df.loc[is_credit, 'Amount'].abs()
         ynab_df['Amount'] = ynab_df['Amount'].round(2)
         return ynab_df
     except Exception as e:

@@ -3,18 +3,28 @@ import logging
 import os
 
 # Setup YNAB API debug logging
-ynab_log_file = os.path.expanduser('~/.nbg-ynab-export/ynab_api.log')
-# Ensure the log directory exists to avoid FileNotFoundError in tests
-os.makedirs(os.path.dirname(ynab_log_file), exist_ok=True)
-# Dedicated logger for YNAB API calls
+# Prefer a writable path inside the project to avoid sandbox issues.
 api_logger = logging.getLogger('ynab_api')
 api_logger.setLevel(logging.DEBUG)
-# File handler for YNAB API log
-api_file_handler = logging.FileHandler(ynab_log_file, mode='a')
-api_file_handler.setFormatter(
-    logging.Formatter('%(asctime)s %(levelname)s %(message)s')
-)
-api_logger.addHandler(api_file_handler)
+
+try:
+    # Allow overriding via env var
+    base_dir = os.getenv('YNAB_LOG_DIR')
+    if not base_dir:
+        # Default to project root /.nbg-ynab-export (services/.. = project root)
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        base_dir = os.path.join(project_root, '.nbg-ynab-export')
+    os.makedirs(base_dir, exist_ok=True)
+    ynab_log_file = os.path.join(base_dir, 'ynab_api.log')
+
+    api_file_handler = logging.FileHandler(ynab_log_file, mode='a')
+    api_file_handler.setFormatter(
+        logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+    )
+    api_logger.addHandler(api_file_handler)
+except Exception as _e:
+    # Fall back to a null handler if we cannot write logs
+    api_logger.addHandler(logging.NullHandler())
 
 # Root logger for general application logging
 logging.basicConfig(
