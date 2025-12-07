@@ -328,20 +328,31 @@ class SidebarWizardWindow(QMainWindow):
 
     def go_to_page(self, index):
         """Navigate to the specified page index."""
-        if 0 <= index < self.pages_stack.count():
-            # Call initialize on the page we're going to if available
-            page = self.pages_stack.widget(index)
-            if hasattr(page, 'initializePage'):
-                page.initializePage()
+        if 0 <= index:
+            # Route Authorize step to Actual auth when selected
+            if index == 1 and getattr(self.controller, 'export_target', 'YNAB') == 'ACTUAL_API' and hasattr(self, 'actual_auth_page') and self.actual_auth_page is not None:
+                page = self.actual_auth_page
+                if hasattr(page, 'initializePage'):
+                    page.initializePage()
+                self.pages_stack.setCurrentWidget(page)
+                self.update_sidebar(index)
+                self.update_nav_buttons()
+                return
 
-            # Switch to the page
-            self.pages_stack.setCurrentIndex(index)
+            if index < self.pages_stack.count():
+                # Call initialize on the page we're going to if available
+                page = self.pages_stack.widget(index)
+                if hasattr(page, 'initializePage'):
+                    page.initializePage()
 
-            # Update sidebar
-            self.update_sidebar(index)
+                # Switch to the page
+                self.pages_stack.setCurrentIndex(index)
 
-            # Update navigation button states
-            self.update_nav_buttons()
+                # Update sidebar
+                self.update_sidebar(index)
+
+                # Update navigation button states
+                self.update_nav_buttons()
 
     def go_back(self):
         """Go to the previous page"""
