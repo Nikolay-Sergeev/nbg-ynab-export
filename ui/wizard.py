@@ -364,10 +364,29 @@ class SidebarWizardWindow(QMainWindow):
                     print(f"[SidebarWizardWindow] validate_and_proceed returned "
                           f"False for page {current}")
             else:
-                # If no validation needed, proceed to next page
+                # If no validation needed, proceed to next page, with special handling for Actual export
                 print(f"[SidebarWizardWindow] No validate_and_proceed method "
                       f"for page {current}, proceeding")
-                self.go_to_page(current + 1)
+                # If leaving Import page and target is Actual, export and jump to Finish
+                if current == 0 and getattr(self.controller, 'export_target', 'YNAB') == 'ACTUAL':
+                    try:
+                        file_path = getattr(self.import_page, 'file_path', None)
+                        if file_path:
+                            df = self.controller.converter.convert_to_actual(file_path)
+                            # Save export path hint on window for FinishPage
+                            # The converter writes to SETTINGS_DIR; reconstruct path similarly
+                            from services.conversion_service import generate_actual_output_filename
+                            export_path = generate_actual_output_filename(file_path)
+                            self.actual_export_path = export_path
+                            print(f"[Wizard] Actual CSV saved to {export_path}")
+                        else:
+                            print("[Wizard] No file_path set on import page for Actual export")
+                    except Exception as e:
+                        print(f"[Wizard] Error exporting for Actual: {e}")
+                    # Jump to Finish page (last index)
+                    self.go_to_page(self.pages_stack.count() - 1)
+                else:
+                    self.go_to_page(current + 1)
         elif current == self.pages_stack.count() - 1:
             # On the last page, check if we should close the app
             page = self.pages_stack.currentWidget()

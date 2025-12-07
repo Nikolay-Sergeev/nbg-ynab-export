@@ -176,6 +176,19 @@ def generate_output_filename(input_file: str, is_revolut: bool = False) -> str:
     return os.path.join(SETTINGS_DIR, f"{base}_{date_str}_{suffix}")
 
 
+def generate_actual_output_filename(input_file: str, is_revolut: bool = False) -> str:
+    base, _ = os.path.splitext(os.path.basename(input_file))
+    base = re.sub(r'(?:_)?(\d{2}-\d{2}-\d{4}|\d{4}-\d{2}-\d{2})$', '', base)
+    if is_revolut:
+        date_str = datetime.now().strftime(DATE_FMT_YNAB)
+    else:
+        date_str = extract_date_from_filename(os.path.basename(input_file))
+        if not date_str:
+            date_str = datetime.now().strftime(DATE_FMT_YNAB)
+    suffix = 'actual.csv'
+    return os.path.join(SETTINGS_DIR, f"{base}_{date_str}_{suffix}")
+
+
 def validate_input_file(file_path: str) -> None:
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"File not found: '{file_path}'")
@@ -214,3 +227,80 @@ class ConversionService:
         ynab_df.to_csv(csv_file, index=False, quoting=csv.QUOTE_MINIMAL)
         logging.info(f"Conversion complete. The CSV file is saved as: {csv_file}")
         return ynab_df
+
+    @staticmethod
+    def convert_to_actual(input_file: str, previous_ynab: Optional[str] = None) -> str:
+        """Convert to a CSV suitable for Actual Budget import.
+
+        Generates columns: date, payee, amount, notes
+        Amount is negative for outflow, positive for inflow.
+        """
+        validate_input_file(input_file)
+        file_ext = os.path.splitext(input_file)[1].lower()
+        if file_ext in ['.xlsx', '.xls']:
+            df = pd.read_excel(input_file)
+        elif file_ext == '.csv':
+            df = pd.read_csv(input_file)
+        else:
+            raise ValueError(f"Unsupported file extension: {file_ext}")
+
+        is_revolut = False
+        if set(REVOLUT_REQUIRED_COLUMNS).issubset(df.columns):
+            base_df = process_revolut_operations(df)
+            is_revolut = True
+        elif set(ACCOUNT_REQUIRED_COLUMNS).issubset(df.columns):
+            base_df = process_account_operations(df)
+        elif set(CARD_REQUIRED_COLUMNS).issubset(df.columns):
+            base_df = process_card_operations(df)
+        else:
+            raise ValueError("File format not recognized")
+
+        # Map to Actual Budget friendly columns
+        actual_df = base_df.rename(columns={
+            'Date': 'date',
+            'Payee': 'payee',
+            'Memo': 'notes',
+            'Amount': 'amount',
+        })[['date', 'payee', 'amount', 'notes']]
+
+        # Optionally filter against previous file if provided
+        if previous_ynab:
+            prev_df = load_previous_transactions(previous_ynab)
+            # Align prev_df columns to same names for comparison if needed
+            if set(['Date', 'Payee', 'Memo', 'Amount']).issubset(prev_df.columns):
+                prev_df = prev_df.rename(columns={'Date': 'date', 'Payee': 'payee', 'Memo': 'notes', 'Amount': 'amount'})
+            # Use the same exclusion logic (case-insensitive)
+            def create_key(df):
+                return (
+                    df['date'].astype(str) + '|' +
+                    df['payee'].astype(str).str.lower().str.strip() + '|' +
+                    df['amount'].astype(str) + '|' +
+                    df['notes'].astype(str).str.lower().str.strip()
+                )
+            new_keys = create_key(actual_df)
+            prev_keys = set(create_key(prev_df)) if set(['date','payee','amount','notes']).issubset(prev_df.columns) else set()
+            mask = ~new_keys.isin(prev_keys)
+            actual_df = actual_df[mask].copy()
+
+        # Write CSV for Actual with fallback if home dir is not writable
+        csv_file = generate_actual_output_filename(input_file, is_revolut)
+        try:
+            os.makedirs(os.path.dirname(csv_file), exist_ok=True)
+            actual_df.to_csv(csv_file, index=False, quoting=csv.QUOTE_MINIMAL)
+        except Exception:
+            try:
+                # Fallback to project-local directory
+                project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                fallback_dir = os.path.join(project_root, '.nbg-ynab-export')
+                os.makedirs(fallback_dir, exist_ok=True)
+                base = os.path.basename(csv_file)
+                csv_file = os.path.join(fallback_dir, base)
+                actual_df.to_csv(csv_file, index=False, quoting=csv.QUOTE_MINIMAL)
+            except Exception:
+                # Final fallback: write next to the input file
+                in_dir = os.path.dirname(os.path.abspath(input_file))
+                base = os.path.basename(csv_file)
+                csv_file = os.path.join(in_dir, base)
+                actual_df.to_csv(csv_file, index=False, quoting=csv.QUOTE_MINIMAL)
+        logging.info(f"Actual export complete. The CSV file is saved as: {csv_file}")
+        return csv_file

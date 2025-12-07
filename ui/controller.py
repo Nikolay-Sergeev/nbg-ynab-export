@@ -197,6 +197,19 @@ class WizardController(QObject):
         self.converter = ConversionService()
         self.worker = None
         self.worker_thread = None
+        # Export target: 'YNAB' or 'ACTUAL'
+        self.export_target = 'YNAB'
+
+    # --- Export target management --- #
+    def set_export_target(self, target: str):
+        target_norm = (target or '').strip().upper()
+        if target_norm in ('YNAB', 'ACTUAL'):
+            self.export_target = target_norm
+        else:
+            self.export_target = 'YNAB'
+
+    def get_export_target(self) -> str:
+        return self.export_target
 
     def _cleanup_thread(self):
         if self.worker_thread is not None:

@@ -44,8 +44,16 @@ class FinishPage(QWizardPage):
         parent = self.window()
         stats = getattr(parent, 'upload_stats', None)
         acct = getattr(parent, 'uploaded_account_name', None)
+        actual_path = getattr(parent, 'actual_export_path', None)
 
-        if stats and acct:
+        if actual_path:
+            text = (
+                "<b>Export complete!</b><br><br>"
+                f"CSV for <b>Actual Budget</b> saved at:<br>"
+                f"<span style='font-family:monospace;'>{actual_path}</span><br><br>"
+                "Open Actual and import this file via Transactions → Import."
+            )
+        elif stats and acct:
             uploaded = stats.get('uploaded', 0)
             if uploaded == 0:
                 text = (

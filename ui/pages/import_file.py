@@ -10,6 +10,7 @@ from PyQt5.QtWidgets import (
     QWizard,
     QWizardPage,
     QPushButton,
+    QComboBox,
 )
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QCursor, QPixmap
@@ -128,6 +129,20 @@ class ImportFilePage(QWizardPage):
         title.setProperty('role', 'title')
         card_layout.addWidget(title)
 
+        # Target application selector
+        target_row = QHBoxLayout()
+        target_label = QLabel("Target:")
+        target_label.setStyleSheet("font-size:14px;color:#333;")
+        self.target_combo = QComboBox()
+        self.target_combo.addItems(["YNAB", "Actual Budget"])
+        self.target_combo.setCurrentIndex(0)
+        self.target_combo.setMinimumWidth(180)
+        self.target_combo.currentTextChanged.connect(self.on_target_changed)
+        target_row.addWidget(target_label)
+        target_row.addWidget(self.target_combo)
+        target_row.addStretch(1)
+        card_layout.addLayout(target_row)
+
         # Drop zone
         self.drop_zone = DropZone()
         self.drop_zone.setObjectName("drop-zone")
@@ -184,6 +199,11 @@ class ImportFilePage(QWizardPage):
         self.file_type = None
         self.error_text = ""
         self.last_folder = self.load_last_folder()
+        # Initialize controller target
+        try:
+            self.controller.set_export_target('YNAB')
+        except Exception:
+            pass
 
         # Connect signals
         # Connect drop event signal
@@ -399,11 +419,24 @@ class ImportFilePage(QWizardPage):
             # First check if we're in a stacked widget with a parent window
             parent = self.window()
             if hasattr(parent, "go_to_page") and hasattr(parent, "pages_stack"):
-                # Use our custom navigation system
-                current_index = parent.pages_stack.indexOf(self)
-                if current_index >= 0:
-                    parent.go_to_page(current_index + 1)
-                    return True
+                # If exporting for Actual, convert now and jump to Finish page
+                target = getattr(self.controller, 'export_target', 'YNAB')
+                if target == 'ACTUAL':
+                    try:
+                        export_path = self.controller.converter.convert_to_actual(self.file_path)
+                        parent.actual_export_path = export_path
+                        # Jump to Finish page directly
+                        parent.go_to_page(parent.pages_stack.count() - 1)
+                        return True
+                    except Exception as e:
+                        self.show_error(f"Export failed: {e}")
+                        return False
+                else:
+                    # Use our custom navigation system
+                    current_index = parent.pages_stack.indexOf(self)
+                    if current_index >= 0:
+                        parent.go_to_page(current_index + 1)
+                        return True
 
             # If not in stacked widget, try using wizard navigation
             wizard = self.wizard()
@@ -420,6 +453,14 @@ class ImportFilePage(QWizardPage):
                 self.error_text = "Please select a valid file."
                 self.update_ui_state()
             return False
+
+    def on_target_changed(self, text):
+        # Update controller with selected export target
+        target = 'ACTUAL' if text.strip().lower().startswith('actual') else 'YNAB'
+        try:
+            self.controller.set_export_target(target)
+        except Exception:
+            pass
 
     def initializePage(self):
         logger.debug("[Wizard] initializePage called for %s", type(self).__name__)
