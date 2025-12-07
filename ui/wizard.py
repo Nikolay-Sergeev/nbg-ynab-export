@@ -27,6 +27,7 @@ if __name__ == "__main__":
     from ui.controller import WizardController
     from ui.pages.import_file import ImportFilePage
     from ui.pages.auth import YNABAuthPage
+    from ui.pages.actual_auth import ActualAuthPage
     from ui.pages.account_select import AccountSelectionPage  # Using standard implementation
     from ui.pages.transactions import (TransactionsPage)
 
@@ -38,6 +39,7 @@ else:
     from .controller import WizardController
     from .pages.import_file import ImportFilePage
     from .pages.auth import YNABAuthPage
+    from .pages.actual_auth import ActualAuthPage
     from .pages.account_select import AccountSelectionPage  # Using standard implementation
     from .pages.transactions import (TransactionsPage)
 
@@ -276,6 +278,7 @@ class SidebarWizardWindow(QMainWindow):
         # Create all pages (original pages from QWizard)
         self.import_page = ImportFilePage(self.controller)
         self.auth_page = YNABAuthPage(self.controller)
+        self.actual_auth_page = ActualAuthPage(self.controller)
         self.account_page = AccountSelectionPage(self.controller)
         self.transactions_page = TransactionsPage(self.controller)
         self.review_page = ReviewAndUploadPage(self.controller)
@@ -288,6 +291,8 @@ class SidebarWizardWindow(QMainWindow):
         self.pages_stack.addWidget(self.transactions_page)
         self.pages_stack.addWidget(self.review_page)
         self.pages_stack.addWidget(self.finish_page)
+        # Include Actual auth page in stack for navigation, though not part of linear order
+        self.pages_stack.addWidget(self.actual_auth_page)
 
         # Connect page signals - ensure all pages emit completeChanged signal
         # Create an empty signal handler for pages that might not have completeChanged yet
@@ -340,6 +345,10 @@ class SidebarWizardWindow(QMainWindow):
 
     def go_back(self):
         """Go to the previous page"""
+        # Special-case: if on Actual auth page, go back to Import (logical step 0)
+        if self.pages_stack.currentWidget() is getattr(self, 'actual_auth_page', None):
+            self.go_to_page(0)
+            return
         current = self.pages_stack.currentIndex()
         if current > 0:
             self.go_to_page(current - 1)
@@ -367,7 +376,7 @@ class SidebarWizardWindow(QMainWindow):
                 # If no validation needed, proceed to next page, with special handling for Actual export
                 print(f"[SidebarWizardWindow] No validate_and_proceed method "
                       f"for page {current}, proceeding")
-                # If leaving Import page and target is Actual, export and jump to Finish
+                # If leaving Import page and target is Actual (CSV), export and jump to Finish
                 if current == 0 and getattr(self.controller, 'export_target', 'YNAB') == 'ACTUAL':
                     try:
                         file_path = getattr(self.import_page, 'file_path', None)
@@ -385,6 +394,18 @@ class SidebarWizardWindow(QMainWindow):
                         print(f"[Wizard] Error exporting for Actual: {e}")
                     # Jump to Finish page (last index)
                     self.go_to_page(self.pages_stack.count() - 1)
+                # If leaving Import page and target is Actual API, go to Actual auth page and keep sidebar on step 1
+                elif current == 0 and getattr(self.controller, 'export_target', 'YNAB') == 'ACTUAL_API':
+                    if hasattr(self, 'actual_auth_page') and self.actual_auth_page is not None:
+                        page = self.actual_auth_page
+                        if hasattr(page, 'initializePage'):
+                            page.initializePage()
+                        self.pages_stack.setCurrentWidget(page)
+                        self.update_sidebar(1)
+                        self.update_nav_buttons()
+                    else:
+                        # Fallback to standard auth page if Actual page is unavailable
+                        self.go_to_page(1)
                 else:
                     self.go_to_page(current + 1)
         elif current == self.pages_stack.count() - 1:

@@ -1,6 +1,7 @@
 # ui/controller.py
 from PyQt5.QtCore import QObject, pyqtSignal, QThread
 from services.ynab_client import YnabClient
+from services.actual_client import ActualClient
 from services.conversion_service import ConversionService
 from config import DUP_CHECK_DAYS, DUP_CHECK_COUNT, get_logger
 
@@ -233,6 +234,19 @@ class WizardController(QObject):
             return True
         except Exception as e:
             self.errorOccurred.emit(f"Failed to initialize YNAB client: {str(e)}")
+            return False
+
+    def authorize_actual(self, base_url: str, password: str) -> bool:
+        """Initialize Actual client using provided server URL and password."""
+        try:
+            if not base_url or not password:
+                self.errorOccurred.emit("Actual server URL and password are required")
+                return False
+            self.ynab = ActualClient(base_url, password)  # Reuse same attribute for workers
+            logger.info("[WizardController] Actual client initialized for %s", base_url)
+            return True
+        except Exception as e:
+            self.errorOccurred.emit(f"Failed to initialize Actual client: {str(e)}")
             return False
 
     def fetch_budgets(self):

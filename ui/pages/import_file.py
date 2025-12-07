@@ -134,7 +134,7 @@ class ImportFilePage(QWizardPage):
         target_label = QLabel("Target:")
         target_label.setStyleSheet("font-size:14px;color:#333;")
         self.target_combo = QComboBox()
-        self.target_combo.addItems(["YNAB", "Actual Budget"])
+        self.target_combo.addItems(["YNAB", "Actual Budget (API)", "Actual Budget (CSV)"])
         self.target_combo.setCurrentIndex(0)
         self.target_combo.setMinimumWidth(180)
         self.target_combo.currentTextChanged.connect(self.on_target_changed)
@@ -456,7 +456,13 @@ class ImportFilePage(QWizardPage):
 
     def on_target_changed(self, text):
         # Update controller with selected export target
-        target = 'ACTUAL' if text.strip().lower().startswith('actual') else 'YNAB'
+        lower = text.strip().lower()
+        if lower.startswith('actual budget (api)'):
+            target = 'ACTUAL_API'
+        elif lower.startswith('actual'):
+            target = 'ACTUAL'
+        else:
+            target = 'YNAB'
         try:
             self.controller.set_export_target(target)
         except Exception:
