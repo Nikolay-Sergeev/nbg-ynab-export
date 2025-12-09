@@ -79,16 +79,23 @@ class TestTokenManager(unittest.TestCase):
 
     def test_encrypt_decrypt_token(self):
         """Test token encryption and decryption."""
-        # Encrypt a token
-        test_token = "test_secret_token"
-        encrypted = encrypt_token(test_token)
+        original_key_file = services.token_manager.KEY_FILE
+        test_key_path = os.path.join(self.test_dir, "encrypt_test.key")
+        services.token_manager.KEY_FILE = test_key_path
 
-        # Verify it's not the same as original
-        self.assertNotEqual(encrypted, test_token.encode())
+        try:
+            # Encrypt a token
+            test_token = "test_secret_token"
+            encrypted = encrypt_token(test_token)
 
-        # Decrypt and verify
-        decrypted = decrypt_token(encrypted)
-        self.assertEqual(decrypted, test_token)
+            # Verify it's not the same as original
+            self.assertNotEqual(encrypted, test_token.encode())
+
+            # Decrypt and verify
+            decrypted = decrypt_token(encrypted)
+            self.assertEqual(decrypted, test_token)
+        finally:
+            services.token_manager.KEY_FILE = original_key_file
 
     def test_save_load_token(self):
         """Test token encryption and decryption functionality."""

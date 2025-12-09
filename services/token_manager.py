@@ -13,8 +13,10 @@ def generate_key() -> bytes:
 
 def save_key(key: bytes) -> None:
     """Save encryption key to file."""
-    Path(KEY_FILE).write_bytes(key)
-    os.chmod(KEY_FILE, 0o600)  # Secure permissions
+    key_path = Path(KEY_FILE)
+    key_path.parent.mkdir(parents=True, exist_ok=True)
+    key_path.write_bytes(key)
+    os.chmod(key_path, 0o600)  # Secure permissions
 
 
 def load_key() -> bytes:
