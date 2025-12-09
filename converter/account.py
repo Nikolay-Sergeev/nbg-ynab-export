@@ -28,6 +28,11 @@ def process_account(df: pd.DataFrame) -> pd.DataFrame:
         raise ValueError("Invalid dates in account export")
     df_copy['Payee'] = df_copy['Ονοματεπώνυμο αντισυμβαλλόμενου']
     df_copy['Memo'] = df_copy['Περιγραφή']
+    # Fallback: use memo text when payee is missing/blank
+    df_copy['Payee'] = df_copy['Payee'].mask(
+        df_copy['Payee'].isnull() | (df_copy['Payee'].astype(str).str.strip() == ''),
+        df_copy['Memo']
+    )
     # Amount with robust sign handling based on debit/credit column
     df_copy['Amount'] = df_copy['Ποσό συναλλαγής'].apply(convert_amount)
     indicator = df_copy['Χρέωση / Πίστωση'].astype(str).str.strip().str.upper()

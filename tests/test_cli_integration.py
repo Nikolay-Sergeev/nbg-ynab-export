@@ -166,6 +166,22 @@ class TestCLIIntegration(unittest.TestCase):
             float(output_df.iloc[1]['Amount']), 1500.00, places=2
         )
 
+    def test_nbg_account_conversion_payee_fallback(self):
+        """Payee should fall back to memo when missing in account exports."""
+        mock_df = pd.DataFrame({
+            'Valeur': ['08/12/2025'],
+            'Ονοματεπώνυμο αντισυμβαλλόμενου': [None],
+            'Περιγραφή': ['KAFE POSEIDONIOU EE'],
+            'Ποσό συναλλαγής': ['-33,50'],
+            'Χρέωση / Πίστωση': ['Χρέωση']
+        })
+
+        result_df = process_account(mock_df)
+
+        self.assertEqual(result_df.iloc[0]['Payee'], 'KAFE POSEIDONIOU EE')
+        self.assertEqual(result_df.iloc[0]['Memo'], 'KAFE POSEIDONIOU EE')
+        self.assertAlmostEqual(float(result_df.iloc[0]['Amount']), -33.50, places=2)
+
     def test_exclude_previous_transactions(self):
         """Test excluding previously imported transactions."""
         # We'll test directly with files we created in setUp
