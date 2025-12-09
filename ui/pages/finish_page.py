@@ -2,6 +2,7 @@ from PyQt5.QtWidgets import (
     QFrame, QLabel, QVBoxLayout, QWizardPage, QSizePolicy,
     QHBoxLayout, QPushButton
 )
+from PyQt5.QtCore import Qt
 import sys
 
 
@@ -24,6 +25,7 @@ class FinishPage(QWizardPage):
         self.label = QLabel()
         self.label.setProperty('role', 'title')
         self.label.setWordWrap(True)
+        self.label.setTextInteractionFlags(Qt.TextSelectableByMouse)
         card_layout.addWidget(self.label)
         card_layout.addStretch(1)
 

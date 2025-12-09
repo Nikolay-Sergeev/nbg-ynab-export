@@ -200,6 +200,7 @@ class WizardController(QObject):
         self.worker_thread = None
         # Export target: 'YNAB', 'ACTUAL', 'ACTUAL_API', or 'FILE'
         self.export_target = 'YNAB'
+        self.last_error_message = None
 
     # --- Export target management --- #
     def set_export_target(self, target: str):
@@ -241,14 +242,19 @@ class WizardController(QObject):
     def authorize_actual(self, base_url: str, password: str) -> bool:
         """Initialize Actual client using provided server URL and password."""
         try:
+            self.last_error_message = None
             if not base_url or not password:
-                self.errorOccurred.emit("Actual server URL and password are required")
+                msg = "Actual server URL and password are required"
+                self.last_error_message = msg
+                self.errorOccurred.emit(msg)
                 return False
             self.ynab = ActualClient(base_url, password)  # Reuse same attribute for workers
             logger.info("[WizardController] Actual client initialized for %s (%s)", base_url, type(self.ynab).__name__)
             return True
         except Exception as e:
-            self.errorOccurred.emit(f"Failed to initialize Actual client: {str(e)}")
+            msg = f"Failed to initialize Actual client: {str(e)}"
+            self.last_error_message = msg
+            self.errorOccurred.emit(msg)
             return False
 
     def fetch_budgets(self):

@@ -5,7 +5,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QIcon
 import os
-from config import SETTINGS_FILE, KEY_FILE, get_logger
+from config import SETTINGS_FILE, KEY_FILE, get_logger, ensure_app_dir
 from cryptography.fernet import Fernet
 
 
@@ -61,6 +61,9 @@ class ActualAuthPage(QWizardPage):
         layout.addWidget(self.helper_label)
         layout.addWidget(self.error_label)
         layout.addStretch(1)
+        # Allow copying any server message for easier debugging
+        self.error_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        self.helper_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
 
         outer.addWidget(card)
         outer.addStretch(1)
@@ -87,6 +90,7 @@ class ActualAuthPage(QWizardPage):
 
         if self.save_checkbox.isChecked():
             try:
+                ensure_app_dir()
                 url_lines = []
                 if os.path.exists(SETTINGS_FILE):
                     with open(SETTINGS_FILE, 'r') as f:
@@ -105,8 +109,9 @@ class ActualAuthPage(QWizardPage):
 
         ok = self.controller.authorize_actual(url, pwd)
         if not ok:
-            self.error_label.setText("Failed to connect to Actual server with given credentials.")
-            self.logger.error("[ActualAuthPage] authorize_actual failed for url=%s", url)
+            msg = getattr(self.controller, "last_error_message", None)
+            self.error_label.setText(msg or "Failed to connect to Actual server with given credentials.")
+            self.logger.error("[ActualAuthPage] authorize_actual failed for url=%s; msg=%s", url, msg)
             return False
 
         parent = self.window()
@@ -119,6 +124,7 @@ class ActualAuthPage(QWizardPage):
         return False
 
     def load_saved(self):
+        ensure_app_dir()
         if os.path.exists(SETTINGS_FILE):
             try:
                 with open(SETTINGS_FILE, 'r') as f:

@@ -32,12 +32,23 @@ class ActualClient:
             logger.info("[ActualClient] POST %s (login)", login_url)
             resp = self.session.post(login_url, json={"password": self.password}, timeout=10)
             logger.info("[ActualClient] login status=%s", resp.status_code)
+            logger.debug("[ActualClient] login body: %s", resp.text[:500])
             if resp.ok and 'token' in resp.json():
                 token = resp.json()['token']
                 self.session.headers.update({'Authorization': f"Bearer {token}"})
         except Exception:
             # Some servers don't require an explicit login; continue without token
             logger.info("[ActualClient] Login endpoint not available or not required; continuing without token")
+
+    def _raise_with_context(self, resp, context: str):
+        """Raise HTTPError with server body included for easier debugging."""
+        body = ""
+        try:
+            body = resp.text or ""
+        except Exception:
+            body = "<unable to read body>"
+        snippet = body[:1000]  # avoid over-long messages
+        raise requests.HTTPError(f"{context} failed (status {resp.status_code}): {snippet}", response=resp)
 
     def _auth_params(self):
         """Build auth object if server expects password in body/query instead of bearer token."""
@@ -53,7 +64,8 @@ class ActualClient:
             if resp.status_code == 401:
                 logger.info("[ActualClient] 401 on GET; trying POST %s with auth body", url)
                 resp = self.session.post(url, json=self._auth_params(), timeout=10)
-            resp.raise_for_status()
+            if not resp.ok:
+                self._raise_with_context(resp, "get_budgets")
             data = resp.json()
             logger.info("[ActualClient] Budgets response keys=%s", list(data.keys()) if isinstance(data, dict) else type(data))
             budgets = data.get('budgets') or data.get('data') or data
@@ -75,7 +87,8 @@ class ActualClient:
             if resp.status_code == 401:
                 logger.info("[ActualClient] 401 on GET; trying POST %s with auth body", url)
                 resp = self.session.post(url, json=self._auth_params(), timeout=10)
-            resp.raise_for_status()
+            if not resp.ok:
+                self._raise_with_context(resp, "get_accounts")
             data = resp.json()
             logger.info("[ActualClient] Accounts response keys=%s", list(data.keys()) if isinstance(data, dict) else type(data))
             accounts = data.get('accounts') or data.get('data') or data
@@ -103,7 +116,8 @@ class ActualClient:
             if resp.status_code == 401:
                 logger.info("[ActualClient] 401 on GET; trying POST %s with auth body+params", url)
                 resp = self.session.post(url, json={**self._auth_params(), **params}, timeout=15)
-            resp.raise_for_status()
+            if not resp.ok:
+                self._raise_with_context(resp, "get_transactions")
             data = resp.json()
             txs = data.get('transactions') or data.get('data') or data
             out = []
@@ -162,7 +176,8 @@ class ActualClient:
             if resp.status_code == 401:
                 logger.info("[ActualClient] 401 on POST; retrying with same body")
                 resp = self.session.post(url, json=body, timeout=20)
-            resp.raise_for_status()
+            if not resp.ok:
+                self._raise_with_context(resp, "upload_transactions")
             data = resp.json() if resp.content else {}
             # Normalize to a YNAB-like response shape for the UI
             tx_ids = []
