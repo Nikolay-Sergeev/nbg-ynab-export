@@ -17,6 +17,9 @@ jobs:
 
     runs-on: ubuntu-latest
 
+    env:
+      QT_QPA_PLATFORM: offscreen
+
     steps:
       # 1) Check out the repository code
       - uses: actions/checkout@v4
@@ -26,6 +29,12 @@ jobs:
         uses: actions/setup-python@v3
         with:
           python-version: "3.10"
+
+      # 2b) Install system dependencies required for PyQt
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl1
 
       # 3) Install dependencies
       - name: Install dependencies
