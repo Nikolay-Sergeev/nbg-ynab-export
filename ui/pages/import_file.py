@@ -10,7 +10,8 @@ from PyQt5.QtWidgets import (
     QWizard,
     QWizardPage,
     QPushButton,
-    QComboBox,
+    QRadioButton,
+    QButtonGroup,
 )
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QCursor, QPixmap
@@ -125,23 +126,37 @@ class ImportFilePage(QWizardPage):
         card_layout.setContentsMargins(20, 20, 20, 20)  # Consistent padding with other pages
         card_layout.setSpacing(16)
 
-        title = QLabel("Import NBG or Revolut Statement")
+        title = QLabel("Attach a File")
         title.setProperty('role', 'title')
         card_layout.addWidget(title)
 
-        # Target application selector
-        target_row = QHBoxLayout()
-        target_label = QLabel("Target:")
-        target_label.setStyleSheet("font-size:14px;color:#333;")
-        self.target_combo = QComboBox()
-        self.target_combo.addItems(["YNAB", "Actual Budget (API)", "Actual Budget (CSV)"])
-        self.target_combo.setCurrentIndex(0)
-        self.target_combo.setMinimumWidth(180)
-        self.target_combo.currentTextChanged.connect(self.on_target_changed)
-        target_row.addWidget(target_label)
-        target_row.addWidget(self.target_combo)
-        target_row.addStretch(1)
-        card_layout.addLayout(target_row)
+        # Upload mode selector (radio buttons)
+        mode_row = QHBoxLayout()
+        mode_label = QLabel("Upload mode:")
+        mode_label.setStyleSheet("font-size:14px;color:#333;")
+        mode_row.addWidget(mode_label)
+
+        self.mode_group = QButtonGroup(self)
+        self.rb_ynab = QRadioButton("YNAB")
+        self.rb_actual = QRadioButton("Actual Budget")
+        self.rb_file = QRadioButton("File Converter")
+
+        self.mode_group.addButton(self.rb_ynab)
+        self.mode_group.addButton(self.rb_actual)
+        self.mode_group.addButton(self.rb_file)
+
+        # Default selection to YNAB
+        self.rb_ynab.setChecked(True)
+
+        for rb in (self.rb_ynab, self.rb_actual, self.rb_file):
+            mode_row.addWidget(rb)
+        mode_row.addStretch(1)
+        card_layout.addLayout(mode_row)
+
+        # Wire radio buttons to controller target changes
+        self.rb_ynab.toggled.connect(lambda checked: checked and self.on_mode_changed('YNAB'))
+        self.rb_actual.toggled.connect(lambda checked: checked and self.on_mode_changed('ACTUAL_API'))
+        self.rb_file.toggled.connect(lambda checked: checked and self.on_mode_changed('FILE'))
 
         # Drop zone
         self.drop_zone = DropZone()
@@ -199,9 +214,13 @@ class ImportFilePage(QWizardPage):
         self.file_type = None
         self.error_text = ""
         self.last_folder = self.load_last_folder()
-        # Initialize controller target
+        # Initialize controller target from radio selection
         try:
             self.controller.set_export_target('YNAB')
+            # Let parent update the sidebar text mapping
+            parent = self.window()
+            if hasattr(parent, 'set_steps_for_target'):
+                parent.set_steps_for_target('YNAB')
         except Exception:
             pass
 
@@ -434,6 +453,15 @@ class ImportFilePage(QWizardPage):
                     if current_index >= 0:
                         parent.go_to_page(current_index + 1)
                         return True
+                elif target == 'FILE':
+                    # Jump directly to review/selection step for File Converter
+                    try:
+                        review_idx = parent.pages_stack.indexOf(parent.review_page)
+                        if review_idx >= 0:
+                            parent.go_to_page(review_idx)
+                            return True
+                    except Exception:
+                        pass
                 else:
                     # Use our custom navigation system
                     current_index = parent.pages_stack.indexOf(self)
@@ -457,24 +485,31 @@ class ImportFilePage(QWizardPage):
                 self.update_ui_state()
             return False
 
-    def on_target_changed(self, text):
-        # Update controller with selected export target
-        lower = text.strip().lower()
-        if lower.startswith('actual budget (api)'):
-            target = 'ACTUAL_API'
-        elif lower.startswith('actual'):
-            target = 'ACTUAL'
-        else:
-            target = 'YNAB'
+    def on_mode_changed(self, target: str):
+        """Handle radio button mode changes and sync wizard sidebar."""
         try:
             self.controller.set_export_target(target)
         except Exception:
             pass
+        parent = self.window()
+        if hasattr(parent, 'set_steps_for_target'):
+            parent.set_steps_for_target(target)
 
     def initializePage(self):
         logger.debug("[Wizard] initializePage called for %s", type(self).__name__)
         # Reset state when page is shown
         # self.clear_file() # Optional: uncomment to always clear file on revisit
+        # Sync radio state with controller target (in case user changed mode from the top bar)
+        try:
+            target = (self.controller.get_export_target() or 'YNAB').upper()
+            if target == 'ACTUAL_API':
+                self.rb_actual.setChecked(True)
+            elif target == 'FILE':
+                self.rb_file.setChecked(True)
+            else:
+                self.rb_ynab.setChecked(True)
+        except Exception:
+            pass
         self.update_ui_state()
 
     def cleanupPage(self):

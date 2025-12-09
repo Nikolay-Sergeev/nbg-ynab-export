@@ -198,16 +198,18 @@ class WizardController(QObject):
         self.converter = ConversionService()
         self.worker = None
         self.worker_thread = None
-        # Export target: 'YNAB' or 'ACTUAL'
+        # Export target: 'YNAB', 'ACTUAL', 'ACTUAL_API', or 'FILE'
         self.export_target = 'YNAB'
 
     # --- Export target management --- #
     def set_export_target(self, target: str):
         target_norm = (target or '').strip().upper()
-        if target_norm in ('YNAB', 'ACTUAL'):
+        prev = getattr(self, 'export_target', None)
+        if target_norm in ('YNAB', 'ACTUAL', 'ACTUAL_API', 'FILE'):
             self.export_target = target_norm
         else:
             self.export_target = 'YNAB'
+        logger.info("[WizardController] export_target changed: %s -> %s", prev, self.export_target)
 
     def get_export_target(self) -> str:
         return self.export_target
@@ -243,7 +245,7 @@ class WizardController(QObject):
                 self.errorOccurred.emit("Actual server URL and password are required")
                 return False
             self.ynab = ActualClient(base_url, password)  # Reuse same attribute for workers
-            logger.info("[WizardController] Actual client initialized for %s", base_url)
+            logger.info("[WizardController] Actual client initialized for %s (%s)", base_url, type(self.ynab).__name__)
             return True
         except Exception as e:
             self.errorOccurred.emit(f"Failed to initialize Actual client: {str(e)}")

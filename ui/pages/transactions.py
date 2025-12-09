@@ -22,7 +22,7 @@ class TransactionsPage(QWizardPage):
     def __init__(self, controller):
         super().__init__()
         self.controller = controller
-        self.setTitle("Step 4: Last 5 Transactions")
+        self.setTitle("Latest Transactions")
         self.setFinalPage(False)
 
         card = QFrame()
@@ -32,7 +32,7 @@ class TransactionsPage(QWizardPage):
         card_layout.setContentsMargins(8, 8, 8, 8)
         card_layout.setSpacing(16)
 
-        self.label = QLabel("Recent transactions in this account:")
+        self.label = QLabel("Latest 5 transactions in this account:")
         self.label.setProperty('role', 'title')
         self.label.setAlignment(Qt.AlignCenter)
         card_layout.addWidget(self.label)

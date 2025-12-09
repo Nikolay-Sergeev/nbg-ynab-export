@@ -37,6 +37,7 @@ from converter.utils import (
     normalize_column_name,
     validate_dataframe,
     convert_amount,
+    strip_accents,
 )
 
 # --- Conversion functions ---
@@ -57,7 +58,8 @@ def process_account_operations(df: pd.DataFrame) -> pd.DataFrame:
             ynab_df['Payee'].astype(str).str.strip() == ''), ynab_df['Memo'])
         # Robust sign handling: use debit/credit indicator to set sign deterministically
         ynab_df['Amount'] = df[ACCOUNT_AMOUNT_COLUMN].apply(convert_amount)
-        indicator = df[ACCOUNT_DEBIT_CREDIT_COLUMN].astype(str).str.strip().str.upper()
+        # Normalize accents before uppercasing to match 'Χρέωση'/'Πίστωση' reliably
+        indicator = strip_accents(df[ACCOUNT_DEBIT_CREDIT_COLUMN].astype(str).str.strip()).str.upper()
         # Greek Χρέωση/Πίστωση plus English fallbacks
         is_debit = (
             indicator.eq('ΧΡΕΩΣΗ') |
@@ -98,7 +100,7 @@ def process_card_operations(df: pd.DataFrame) -> pd.DataFrame:
         # Robust sign handling for card statements
         ynab_df['Amount'] = df[CARD_AMOUNT_COLUMN].apply(convert_amount)
         if CARD_DEBIT_CREDIT_COLUMN in df.columns:
-            indicator = df[CARD_DEBIT_CREDIT_COLUMN].astype(str).str.strip().str.upper()
+            indicator = strip_accents(df[CARD_DEBIT_CREDIT_COLUMN].astype(str).str.strip()).str.upper()
             is_debit = indicator.eq('Χ') | indicator.eq('DEBIT') | indicator.eq('D')
             is_credit = indicator.eq('Π') | indicator.eq('CREDIT') | indicator.eq('C')
             ynab_df.loc[is_debit, 'Amount'] = -ynab_df.loc[is_debit, 'Amount'].abs()

@@ -14,6 +14,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt
 from PyQt5.QtSvg import QSvgWidget
 import os
+from services.conversion_service import generate_output_filename
 import logging
 
 
@@ -21,7 +22,7 @@ class ReviewAndUploadPage(QWizardPage):
     def __init__(self, controller):
         super().__init__()
         self.controller = controller
-        self.setTitle("Step 5: Review & Upload New Transactions")
+        self.setTitle("Review & Select Transactions")
 
         card = QFrame()
         card.setObjectName("card-panel")
@@ -32,7 +33,7 @@ class ReviewAndUploadPage(QWizardPage):
         card_layout.setContentsMargins(8, 8, 8, 8)
         card_layout.setSpacing(16)
 
-        self.label = QLabel("Review new transactions and upload to YNAB:")
+        self.label = QLabel("Review transactions and choose what to import:")
         self.label.setProperty('role', 'title')
         self.label.setAlignment(Qt.AlignCenter)
         card_layout.addWidget(self.label)
@@ -116,28 +117,38 @@ class ReviewAndUploadPage(QWizardPage):
         self.worker = None
 
     def initializePage(self):
-        if not self.controller.ynab:
-            QMessageBox.critical(self, "Error", "YNAB client not initialized. Please re-enter your token.")
-            return
-        # Get file path from import page
         parent = self.window()
         if not hasattr(parent, "pages_stack"):
             print("[ReviewUploadPage] Cannot access pages stack")
             return
-
         import_page = parent.pages_stack.widget(0)
         if not hasattr(import_page, "file_path"):
             print("[ReviewUploadPage] Cannot access file path from import page")
             return
         file_path = import_page.file_path
+        self.skipped_rows = set()
 
-        # Get selected IDs from account selection page
+        # Branch by mode
+        target = getattr(self.controller, 'export_target', 'YNAB')
+        if target == 'FILE':
+            # Pure file-converter mode: convert and show, no API
+            try:
+                df = self.controller.converter.convert_to_ynab(file_path)
+                records = df.to_dict('records') if df is not None else []
+                self.on_duplicates_found(records, set())
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Error converting file: {str(e)}")
+            return
+
+        if not self.controller.ynab:
+            QMessageBox.critical(self, "Error", "Client not initialized. Please authorize.")
+            return
+        # Get selected IDs from account selection page (YNAB/Actual API)
         account_page = parent.pages_stack.widget(2)
         if not hasattr(account_page, "get_selected_ids"):
             print("[ReviewUploadPage] Cannot access account selection method")
             return
         budget_id, account_id = account_page.get_selected_ids()
-        self.skipped_rows = set()
         if file_path and budget_id and account_id:
             try:
                 self.controller.check_duplicates(file_path, budget_id, account_id)
@@ -313,18 +324,41 @@ class ReviewAndUploadPage(QWizardPage):
 
     def validate_and_proceed(self):
         print("[ReviewUploadPage] validate_and_proceed called")
-        # Disable navigation to prevent double submission
         parent = self.window()
-        if hasattr(parent, "next_button"):
-            parent.next_button.setEnabled(False)
-
-        print(
-            f"[ReviewUploadPage] Records: {len(getattr(self, 'records', []))}, "
-            f"Duplicates: {len(getattr(self, 'dup_idx', []))}, "
-            f"Skipped: {len(getattr(self, 'skipped_rows', []))}"
-        )
-        self.upload_transactions()
-        return True
+        target = getattr(self.controller, 'export_target', 'YNAB')
+        if target == 'FILE':
+            # Export selected rows to YNAB CSV and move to Finish
+            try:
+                selected = [r for i, r in enumerate(self.records) if i not in self.skipped_rows]
+                if not selected:
+                    QMessageBox.information(self, "Nothing to Export", "No rows selected for export.")
+                # Build DataFrame and write
+                import pandas as pd
+                df = pd.DataFrame(selected)
+                import_page = parent.pages_stack.widget(0)
+                out_path = generate_output_filename(import_page.file_path)
+                df.to_csv(out_path, index=False)
+                parent.actual_export_path = out_path
+                parent.upload_stats = {'uploaded': len(selected)}
+                if hasattr(parent, "go_to_page") and hasattr(parent, "pages_stack"):
+                    cur = parent.pages_stack.indexOf(self)
+                    if cur >= 0:
+                        parent.go_to_page(cur + 1)
+                return True
+            except Exception as e:
+                QMessageBox.critical(self, "Export Error", str(e))
+                return False
+        else:
+            # Disable navigation to prevent double submission while uploading
+            if hasattr(parent, "next_button"):
+                parent.next_button.setEnabled(False)
+            print(
+                f"[ReviewUploadPage] Records: {len(getattr(self, 'records', []))}, "
+                f"Duplicates: {len(getattr(self, 'dup_idx', []))}, "
+                f"Skipped: {len(getattr(self, 'skipped_rows', []))}"
+            )
+            self.upload_transactions()
+            return True
 
     def on_upload_finished(self, count):
         self.success_icon.show()

@@ -5,7 +5,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QIcon
 import os
-from config import SETTINGS_FILE, KEY_FILE
+from config import SETTINGS_FILE, KEY_FILE, get_logger
 from cryptography.fernet import Fernet
 
 
@@ -14,6 +14,7 @@ class ActualAuthPage(QWizardPage):
         super().__init__()
         self.controller = controller
         self.setTitle("")
+        self.logger = get_logger(__name__)
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
@@ -76,10 +77,12 @@ class ActualAuthPage(QWizardPage):
         return bool(self.url_input.text().strip()) and bool(self.pwd_input.text().strip())
 
     def validate_and_proceed(self):
+        self.logger.info("[ActualAuthPage] validate_and_proceed called")
         url = self.url_input.text().strip()
         pwd = self.pwd_input.text().strip()
         if not url or not pwd:
             self.error_label.setText("Please enter both server URL and password.")
+            self.logger.info("[ActualAuthPage] Missing URL or password")
             return False
 
         if self.save_checkbox.isChecked():
@@ -97,17 +100,20 @@ class ActualAuthPage(QWizardPage):
                     f.writelines(url_lines)
             except Exception as e:
                 self.error_label.setText(f"Error saving credentials: {e}")
+                self.logger.error("[ActualAuthPage] Error saving credentials: %s", e)
                 return False
 
         ok = self.controller.authorize_actual(url, pwd)
         if not ok:
             self.error_label.setText("Failed to connect to Actual server with given credentials.")
+            self.logger.error("[ActualAuthPage] authorize_actual failed for url=%s", url)
             return False
 
         parent = self.window()
         if hasattr(parent, 'go_to_page') and hasattr(parent, 'pages_stack'):
             idx = parent.pages_stack.indexOf(self)
             if idx >= 0:
+                self.logger.info("[ActualAuthPage] Auth succeeded; navigating to AccountSelection")
                 parent.go_to_page(2)  # logical step for account selection
                 return True
         return False
@@ -146,4 +152,3 @@ class ActualAuthPage(QWizardPage):
             return key
         with open(KEY_FILE, 'rb') as f:
             return f.read()
-

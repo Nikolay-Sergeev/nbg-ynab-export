@@ -15,3 +15,4 @@ env/
 .claude/settings.local.json
 .coverage
 .gitignore
+.nbg-ynab-export/ynab_api.log

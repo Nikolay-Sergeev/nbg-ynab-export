@@ -1,6 +1,7 @@
 import sys
 import os
 import traceback
+import shutil
 from PyQt5.QtWidgets import (
     QApplication,
     QWizard,
@@ -14,10 +15,12 @@ from PyQt5.QtWidgets import (
     QFrame,
     QStackedWidget,
     QPushButton,
+    QButtonGroup,
 )
-from PyQt5.QtGui import QIcon, QPixmap, QPainter, QFont
+from PyQt5.QtGui import QIcon, QPixmap, QPainter, QFont, QPalette, QColor
 from PyQt5.QtCore import Qt
 from PyQt5.QtSvg import QSvgRenderer
+import logging
 
 # Fix relative imports when running directly
 if __name__ == "__main__":
@@ -166,6 +169,7 @@ class SidebarWizardWindow(QMainWindow):
 
     def __init__(self):
         super().__init__()
+        self.logger = logging.getLogger(__name__)
         self.setWindowTitle("NBG/Revolut to YNAB Wizard")
 
         # Use dimensions that fit content properly
@@ -224,6 +228,34 @@ class SidebarWizardWindow(QMainWindow):
 
         # Create controller for business logic
         self.controller = WizardController()
+
+        # Add a simple mode selector bar always visible at the top
+        mode_bar = QWidget()
+        mode_layout = QHBoxLayout(mode_bar)
+        mode_layout.setContentsMargins(16, 10, 16, 6)
+        mode_layout.setSpacing(8)
+        mode_label = QLabel("Mode:")
+        mode_label.setStyleSheet("font-size:13px;color:#333;")
+        mode_layout.addWidget(mode_label)
+        self.btn_mode_ynab = QPushButton("YNAB")
+        self.btn_mode_actual = QPushButton("Actual Budget")
+        self.btn_mode_file = QPushButton("File Converter")
+        for b in (self.btn_mode_ynab, self.btn_mode_actual, self.btn_mode_file):
+            b.setCheckable(True)
+            b.setFixedHeight(28)
+            mode_layout.addWidget(b)
+        mode_layout.addStretch(1)
+        self.mode_group = QButtonGroup(self)
+        self.mode_group.setExclusive(True)
+        self.mode_group.addButton(self.btn_mode_ynab)
+        self.mode_group.addButton(self.btn_mode_actual)
+        self.mode_group.addButton(self.btn_mode_file)
+        # Default selection
+        self.btn_mode_ynab.setChecked(True)
+        self.btn_mode_ynab.clicked.connect(lambda: self._set_mode('YNAB'))
+        self.btn_mode_actual.clicked.connect(lambda: self._set_mode('ACTUAL_API'))
+        self.btn_mode_file.clicked.connect(lambda: self._set_mode('FILE'))
+        content_layout.addWidget(mode_bar)
 
         # Create a container for the pages and navigation buttons
         page_container = QWidget()
@@ -318,13 +350,99 @@ class SidebarWizardWindow(QMainWindow):
 
         self.setCentralWidget(central)
 
-        # Start on the first page
+        # Initialize steps for default target and start on the first page
+        self.set_steps_for_target(self.controller.export_target)
         self.go_to_page(0)
 
     def update_sidebar(self, step: int):
-        """Update the sidebar labels to show the current step."""
+        """Highlight the current step label.
+
+        Primary rule is based on each label's mapped page index (step_index).
+        As a fallback for simple linear flows (1:1 label order to page index),
+        also consider the label's position to match the current page index. This
+        keeps default YNAB mapping intuitive and satisfies tests that check by
+        order while still working when labels are remapped for other targets.
+        """
+        for idx, lbl in enumerate(self.step_labels):
+            if not lbl.isVisible():
+                continue
+            lbl.set_selected((lbl.step_index == step) or (idx == step))
+
+    def set_steps_for_target(self, target: str):
+        target = (target or 'YNAB').upper()
+        self.logger.info("[Wizard] set_steps_for_target: %s", target)
+        # Default mapping for YNAB
+        mapping = [
+            (0, "Attach a file"),
+            (1, "Verify token"),
+            (2, "Select Budget and account"),
+            (3, "Check latest transactions"),
+            (4, "Choose what to import or skip"),
+            (5, "Finish"),
+        ]
+        if target == 'ACTUAL_API':
+            mapping = [
+                (0, "Attach a file"),
+                (1, "Verify server URL and password"),
+                (2, "Select Budget and account"),
+                (3, "Check latest transactions"),
+                (4, "Choose what to import or skip"),
+                (5, "Finish"),
+            ]
+        elif target == 'FILE':
+            mapping = [
+                (0, "Attach a file"),
+                (4, "Choose what to import or skip"),
+                (5, "Finish"),
+            ]
+
+        # Apply mapping to labels
         for i, lbl in enumerate(self.step_labels):
-            lbl.set_selected(i == step)
+            if i < len(mapping):
+                page_index, text = mapping[i]
+                lbl.setText(text)
+                lbl.step_index = page_index
+                lbl.show()
+            else:
+                lbl.step_index = -1
+                lbl.hide()
+        # Refresh selection
+        self.update_sidebar(self.pages_stack.currentIndex())
+
+        # Keep mode bar in sync with target
+        try:
+            if target == 'YNAB':
+                self.btn_mode_ynab.setChecked(True)
+            elif target == 'ACTUAL_API':
+                self.btn_mode_actual.setChecked(True)
+            elif target == 'FILE':
+                self.btn_mode_file.setChecked(True)
+        except Exception:
+            pass
+
+        # Keep Import page radio buttons in sync as well
+        try:
+            if hasattr(self, 'import_page') and self.import_page is not None:
+                if target == 'YNAB' and hasattr(self.import_page, 'rb_ynab'):
+                    self.import_page.rb_ynab.setChecked(True)
+                elif target == 'ACTUAL_API' and hasattr(self.import_page, 'rb_actual'):
+                    self.import_page.rb_actual.setChecked(True)
+                elif target == 'FILE' and hasattr(self.import_page, 'rb_file'):
+                    self.import_page.rb_file.setChecked(True)
+        except Exception:
+            pass
+
+    def _set_mode(self, mode_key: str):
+        """Update controller target and refresh steps from the always-visible mode bar."""
+        try:
+            self.controller.set_export_target(mode_key)
+        except Exception:
+            pass
+        self.set_steps_for_target(mode_key)
+        # If currently on auth step and switching to Actual API, ensure page content matches
+        current = self.pages_stack.currentIndex()
+        if mode_key == 'ACTUAL_API' and current == 1:
+            self.go_to_page(1)
 
     def go_to_page(self, index):
         """Navigate to the specified page index."""
@@ -350,6 +468,12 @@ class SidebarWizardWindow(QMainWindow):
 
                 # Update sidebar
                 self.update_sidebar(index)
+                # Defensive: enforce selection in case any visibility/mapping issues prevent highlight
+                try:
+                    for idx, lbl in enumerate(self.step_labels):
+                        lbl.set_selected((getattr(lbl, 'step_index', -1) == index) or (idx == index))
+                except Exception:
+                    pass
 
                 # Update navigation button states
                 self.update_nav_buttons()
@@ -417,6 +541,9 @@ class SidebarWizardWindow(QMainWindow):
                     else:
                         # Fallback to standard auth page if Actual page is unavailable
                         self.go_to_page(1)
+                elif current == 0 and getattr(self.controller, 'export_target', 'YNAB') == 'FILE':
+                    # Jump directly to review/selection step for File Converter
+                    self.go_to_page(4)
                 else:
                     # If on account selection page and in Actual CSV mode, export then finish
                     if page is self.account_page and getattr(self.controller, 'export_target', 'YNAB') == 'ACTUAL':
@@ -566,12 +693,45 @@ def load_style(app: QApplication):
 
 def main():
     try:
+        # Support a simple --debug flag for local runs
+        debug_mode = False
+        if '--debug' in sys.argv:
+            debug_mode = True
+            # Remove the flag so Qt doesn't try to parse it
+            sys.argv.remove('--debug')
+
+        # Cleanup caches when in debug mode to avoid stale bytecode
+        if debug_mode:
+            try:
+                project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                candidates = [
+                    os.path.join(project_root, '__pycache__'),
+                    os.path.join(project_root, '.pytest_cache'),
+                    os.path.join(project_root, 'ui', '__pycache__'),
+                    os.path.join(project_root, 'ui', 'pages', '__pycache__'),
+                    os.path.join(project_root, 'services', '__pycache__'),
+                    os.path.join(project_root, 'converter', '__pycache__'),
+                    os.path.join(project_root, 'tests', '__pycache__'),
+                ]
+                for path in candidates:
+                    if os.path.isdir(path):
+                        shutil.rmtree(path, ignore_errors=True)
+                print('[Wizard] Debug mode: caches cleared')
+            except Exception as e:
+                print(f"[Wizard] Debug mode cache cleanup error: {e}")
+
         # On Linux headless, use offscreen; skip on macOS
 
         if (sys.platform.startswith('linux') and
             not os.environ.get('DISPLAY') and
                 not os.environ.get('WAYLAND_DISPLAY')):
             os.environ['QT_QPA_PLATFORM'] = 'offscreen'
+
+        # Configure logging level (DEBUG if --debug)
+        logging.basicConfig(
+            level=logging.DEBUG if debug_mode else logging.INFO,
+            format='%(asctime)s %(levelname)s %(name)s: %(message)s'
+        )
 
         app = QApplication(sys.argv)
 

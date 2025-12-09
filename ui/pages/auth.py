@@ -39,7 +39,7 @@ class YNABAuthPage(QWizardPage):
         card_layout.setContentsMargins(20, 20, 20, 20)
         card_layout.setSpacing(0)
 
-        title = QLabel("Authorize with YNAB")
+        title = QLabel("Verify YNAB Token")
         title.setProperty('role', 'title')
         card_layout.addWidget(title)
 

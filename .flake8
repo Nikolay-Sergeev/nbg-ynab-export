@@ -1,4 +1,4 @@
-[flake8]
+/mo[flake8]
 max-line-length = 120
 per-file-ignores =
     tests/*:F401,W293,E261,E305,E302,E303,W292,E722,E402,W291

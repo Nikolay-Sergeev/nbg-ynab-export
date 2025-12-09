@@ -1,4 +1,7 @@
-from PyQt5.QtWidgets import QFrame, QLabel, QVBoxLayout, QWizardPage, QSizePolicy
+from PyQt5.QtWidgets import (
+    QFrame, QLabel, QVBoxLayout, QWizardPage, QSizePolicy,
+    QHBoxLayout, QPushButton
+)
 import sys
 
 
@@ -23,6 +26,21 @@ class FinishPage(QWizardPage):
         self.label.setWordWrap(True)
         card_layout.addWidget(self.label)
         card_layout.addStretch(1)
+
+        # Optional: quick mode chooser for starting another run
+        chooser_title = QLabel("Start another conversion:")
+        chooser_title.setStyleSheet("font-size:13px;color:#333;")
+        card_layout.addWidget(chooser_title)
+
+        btn_row = QHBoxLayout()
+        self.btn_mode_ynab = QPushButton("YNAB")
+        self.btn_mode_actual_api = QPushButton("Actual Budget (API)")
+        self.btn_mode_file = QPushButton("File Converter")
+        for b in (self.btn_mode_ynab, self.btn_mode_actual_api, self.btn_mode_file):
+            b.setFixedHeight(32)
+            btn_row.addWidget(b)
+        btn_row.addStretch(1)
+        card_layout.addLayout(btn_row)
 
         # Navigation buttons are completely handled by main window
         # No local buttons to avoid duplication
@@ -80,3 +98,22 @@ class FinishPage(QWizardPage):
         # Hide back button on last page if possible
         if hasattr(parent, "back_button"):
             parent.back_button.hide()
+
+        # Wire up mode chooser actions to restart flow at page 0
+        def _set_mode_and_restart(mode_key: str):
+            try:
+                if hasattr(parent, 'controller') and hasattr(parent.controller, 'set_export_target'):
+                    parent.controller.set_export_target(mode_key)
+                if hasattr(parent, 'set_steps_for_target'):
+                    parent.set_steps_for_target(mode_key)
+                if hasattr(parent, 'go_to_page'):
+                    parent.go_to_page(0)
+            except Exception:
+                pass
+
+        self.btn_mode_ynab.clicked.disconnect() if self.btn_mode_ynab.receivers(self.btn_mode_ynab.clicked) else None
+        self.btn_mode_actual_api.clicked.disconnect() if self.btn_mode_actual_api.receivers(self.btn_mode_actual_api.clicked) else None
+        self.btn_mode_file.clicked.disconnect() if self.btn_mode_file.receivers(self.btn_mode_file.clicked) else None
+        self.btn_mode_ynab.clicked.connect(lambda: _set_mode_and_restart('YNAB'))
+        self.btn_mode_actual_api.clicked.connect(lambda: _set_mode_and_restart('ACTUAL_API'))
+        self.btn_mode_file.clicked.connect(lambda: _set_mode_and_restart('FILE'))

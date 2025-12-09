@@ -2,6 +2,7 @@ from PyQt5.QtWidgets import (
     QVBoxLayout, QLabel, QComboBox, QFrame, QSizePolicy, QWidget, QWizard
 )
 from PyQt5.QtCore import Qt, pyqtSignal
+from config import get_logger
 
 
 class AccountSelectionPage(QWidget):
@@ -11,6 +12,7 @@ class AccountSelectionPage(QWidget):
     def __init__(self, controller):
         super().__init__()
         self.controller = controller
+        self.logger = get_logger(__name__)
 
         self.budgets = []
         self.accounts = []
@@ -120,7 +122,7 @@ class AccountSelectionPage(QWidget):
 
     def showEvent(self, event):
         """Called when the page is shown."""
-        print("[AccountSelectionPage] showEvent called")
+        self.logger.info("[AccountSelectionPage] showEvent called")
         super().showEvent(event)
 
         # Reset and re-initialize comboboxes to ensure they're interactive
@@ -133,7 +135,9 @@ class AccountSelectionPage(QWidget):
         self.budget_combo.setFocus()
 
     def initializePage(self):
-        print("[AccountSelectionPage] initializePage called")
+        self.logger.info("[AccountSelectionPage] initializePage called; target=%s client=%s",
+                         getattr(self.controller, 'export_target', None),
+                         type(getattr(self.controller, 'ynab', None)).__name__)
         target = getattr(self.controller, 'export_target', 'YNAB')
         if target == 'ACTUAL':
             # CSV export mode: allow entering a budget name only; hide account selection
@@ -148,16 +152,18 @@ class AccountSelectionPage(QWidget):
             self.helper_label.setText("Enter a budget name for reference. Account selection is disabled in CSV mode.")
             return
         if not self.controller.ynab:
-            print("[AccountSelectionPage] No API client, skipping fetch")
+            self.logger.info("[AccountSelectionPage] No API client, skipping fetch")
             return
         try:
-            print("[AccountSelectionPage] Fetching budgets from YNAB API")
+            self.logger.info("[AccountSelectionPage] Fetching budgets from client=%s",
+                             type(self.controller.ynab).__name__)
             self.controller.fetch_budgets()
         except Exception as e:
-            print(f"[AccountSelectionPage] Error fetching budgets: {e}")
+            self.logger.error("[AccountSelectionPage] Error fetching budgets: %s", e)
 
     def on_budgets_fetched(self, budgets):
-        print(f"[AccountSelectionPage] Budgets fetched: {len(budgets) if budgets else 0}")
+        self.logger.info("[AccountSelectionPage] Budgets fetched: %s",
+                         len(budgets) if budgets else 0)
         self.budgets = budgets or []
 
         # Update the combo box
@@ -170,12 +176,21 @@ class AccountSelectionPage(QWidget):
         # Add all budgets from the YNAB API
         if self.budgets:
             for b in self.budgets:
-                print(f"[AccountSelectionPage] Adding budget: {b['name']} ({b['id']})")
+                self.logger.info("[AccountSelectionPage] Adding budget: %s (%s)", b.get('name'), b.get('id'))
                 self.budget_combo.addItem(b['name'], b['id'])
         else:
-            print("[AccountSelectionPage] No budgets received from API")
+            self.logger.info("[AccountSelectionPage] No budgets received from API")
             # Add a message if no budgets were found
             self.budget_combo.addItem("No budgets found", None)
+            # Fallback: allow manual entry for Actual API mode
+            try:
+                if getattr(self.controller, 'export_target', 'YNAB') == 'ACTUAL_API':
+                    self.budget_combo.setEditable(True)
+                    self.budget_combo.setPlaceholderText("Enter budget ID")
+                    # When user types, update selected id and try fetching accounts
+                    self.budget_combo.editTextChanged.connect(self.on_budget_manual_text)
+            except Exception as e:
+                print(f"[AccountSelectionPage] Error enabling manual budget entry: {e}")
 
         # Force update the combo box
         self.budget_combo.setCurrentIndex(0)
@@ -196,8 +211,21 @@ class AccountSelectionPage(QWidget):
         self.update_helper()
         self.validate_fields()
 
+    def on_budget_manual_text(self, text: str):
+        text = (text or '').strip()
+        self.selected_budget_id = text or None
+        if self.selected_budget_id and self.controller and getattr(self.controller, 'ynab', None):
+            try:
+                print(f"[AccountSelectionPage] Manual budget id entered, fetching accounts: {self.selected_budget_id}")
+                self.controller.fetch_accounts(self.selected_budget_id)
+            except Exception as e:
+                print(f"[AccountSelectionPage] Error fetching accounts for manual budget: {e}")
+        self.update_helper()
+        self.validate_fields()
+
     def on_accounts_fetched(self, accounts):
-        print(f"[AccountSelectionPage] Accounts fetched: {len(accounts) if accounts else 0}")
+        self.logger.info("[AccountSelectionPage] Accounts fetched: %s",
+                         len(accounts) if accounts else 0)
         self.accounts = accounts or []
 
         # Update the account combo box
@@ -210,12 +238,20 @@ class AccountSelectionPage(QWidget):
         # Add all accounts from the YNAB API
         if self.accounts:
             for a in self.accounts:
-                print(f"[AccountSelectionPage] Adding account: {a['name']} ({a['id']})")
+                self.logger.info("[AccountSelectionPage] Adding account: %s (%s)", a.get('name'), a.get('id'))
                 self.account_combo.addItem(a['name'], a['id'])
         else:
-            print("[AccountSelectionPage] No accounts received from API")
+            self.logger.info("[AccountSelectionPage] No accounts received from API")
             # Add a message if no accounts were found
             self.account_combo.addItem("No accounts found", None)
+            # Fallback: allow manual entry for Actual API mode
+            try:
+                if getattr(self.controller, 'export_target', 'YNAB') == 'ACTUAL_API':
+                    self.account_combo.setEditable(True)
+                    self.account_combo.setPlaceholderText("Enter account ID")
+                    self.account_combo.editTextChanged.connect(self.on_account_manual_text)
+            except Exception as e:
+                print(f"[AccountSelectionPage] Error enabling manual account entry: {e}")
 
         # Force update the combo box
         self.account_combo.setCurrentIndex(0)
@@ -231,17 +267,17 @@ class AccountSelectionPage(QWidget):
         super().mousePressEvent(event)
 
     def on_budget_changed(self, idx):
-        print(f"[AccountSelectionPage] Budget changed to index {idx}")
+        self.logger.info("[AccountSelectionPage] Budget index changed: %s", idx)
         data = self.budget_combo.itemData(idx)
         self.selected_budget_id = data if data else None
-        print(f"[AccountSelectionPage] Selected budget ID: {self.selected_budget_id}")
+        self.logger.info("[AccountSelectionPage] Selected budget ID: %s", self.selected_budget_id)
 
         if self.selected_budget_id:
             try:
-                print(f"[AccountSelectionPage] Fetching accounts for budget: {self.selected_budget_id}")
+                self.logger.info("[AccountSelectionPage] Fetching accounts for budget: %s", self.selected_budget_id)
                 self.controller.fetch_accounts(self.selected_budget_id)
             except Exception as e:
-                print(f"[AccountSelectionPage] Error fetching accounts: {e}")
+                self.logger.error("[AccountSelectionPage] Error fetching accounts: %s", e)
         self.selected_account_id = None
         self.account_combo.setCurrentIndex(0)
         self.update_helper()
@@ -251,8 +287,16 @@ class AccountSelectionPage(QWidget):
         self.budget_combo.repaint()
 
     def on_account_changed(self, idx):
+        self.logger.info("[AccountSelectionPage] Account index changed: %s", idx)
         data = self.account_combo.itemData(idx)
         self.selected_account_id = data if data else None
+        self.logger.info("[AccountSelectionPage] Selected account ID: %s", self.selected_account_id)
+        self.update_helper()
+        self.validate_fields()
+
+    def on_account_manual_text(self, text: str):
+        text = (text or '').strip()
+        self.selected_account_id = text or None
         self.update_helper()
         self.validate_fields()
 

@@ -5,6 +5,7 @@ import pandas as pd
 import csv
 import re
 from typing import Union
+import unicodedata
 from constants import DATE_FMT_YNAB
 from config import get_logger
 
@@ -90,6 +91,23 @@ def convert_amount(amount: Union[str, float, int]) -> float:
             s = s.replace(',', '.')
         return float(s)
     return float(amount)
+
+
+def strip_accents(value: Union[str, pd.Series]) -> Union[str, pd.Series]:
+    """
+    Remove diacritical marks from Greek/Latin strings. Accepts a string or a pandas Series.
+    Useful for normalizing values like 'Χρέωση' -> 'Χρεωση' before uppercasing.
+    """
+    def _strip(s: str) -> str:
+        if s is None:
+            return ''
+        # Normalize to NFD and remove all combining marks (Mn)
+        nf = unicodedata.normalize('NFD', str(s))
+        return ''.join(ch for ch in nf if unicodedata.category(ch) != 'Mn')
+
+    if isinstance(value, pd.Series):
+        return value.astype(str).map(_strip)
+    return _strip(value)
 
 
 def normalize_column_name(column: str) -> str:
