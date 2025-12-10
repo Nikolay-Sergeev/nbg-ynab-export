@@ -94,6 +94,7 @@ class TransactionsPage(QWizardPage):
         self.setMaximumSize(16777215, 16777215)
 
         self.controller.transactionsFetched.connect(self.on_transactions_fetched)
+        self.controller.errorOccurred.connect(self.on_error)
         self._cache = None
         self._cache_ids = (None, None)
 
@@ -130,7 +131,8 @@ class TransactionsPage(QWizardPage):
             self.cache_label.setText("")
             self.spinner.show()
             try:
-                self.controller.fetch_transactions(budget_id, account_id)
+                # Limit to the latest 5 transactions for quick preview
+                self.controller.fetch_transactions(budget_id, account_id, count=5)
             except Exception as e:
                 self.spinner.hide()
                 self.error_icon.show()
@@ -232,3 +234,12 @@ class TransactionsPage(QWizardPage):
     def isComplete(self):
         # Always allow navigation
         return True
+
+    def on_error(self, msg: str):
+        """Surface API errors directly on the transactions step."""
+        self.spinner.hide()
+        self.error_icon.show()
+        self.error_label.setText(msg)
+        # Also clear cached data to force refetch on retry
+        self._cache = None
+        self._cache_ids = (None, None)

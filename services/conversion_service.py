@@ -165,7 +165,11 @@ def extract_date_from_filename(filename: str) -> str:
     return ''
 
 
-def generate_output_filename(input_file: str, is_revolut: bool = False) -> str:
+def generate_output_filename(
+    input_file: str,
+    is_revolut: bool = False,
+    output_dir: Optional[str] = None,
+) -> str:
     base, _ = os.path.splitext(os.path.basename(input_file))
     base = re.sub(r'(?:_)?(\d{2}-\d{2}-\d{4}|\d{4}-\d{2}-\d{2})$', '', base)
     if is_revolut:
@@ -175,7 +179,13 @@ def generate_output_filename(input_file: str, is_revolut: bool = False) -> str:
         if not date_str:
             date_str = datetime.now().strftime(DATE_FMT_YNAB)
     suffix = 'ynab.csv'
-    return os.path.join(SETTINGS_DIR, f"{base}_{date_str}_{suffix}")
+    target_dir = output_dir or SETTINGS_DIR
+    try:
+        os.makedirs(target_dir, exist_ok=True)
+    except Exception:
+        target_dir = SETTINGS_DIR
+        os.makedirs(target_dir, exist_ok=True)
+    return os.path.join(target_dir, f"{base}_{date_str}_{suffix}")
 
 
 def generate_actual_output_filename(input_file: str, is_revolut: bool = False) -> str:
@@ -203,7 +213,12 @@ class ConversionService:
     """Service for converting NBG/Revolut exports to YNAB format."""
 
     @staticmethod
-    def convert_to_ynab(input_file: str, previous_ynab: Optional[str] = None) -> pd.DataFrame:
+    def convert_to_ynab(
+        input_file: str,
+        previous_ynab: Optional[str] = None,
+        write_output: bool = True,
+        output_dir: Optional[str] = None,
+    ) -> pd.DataFrame:
         validate_input_file(input_file)
         file_ext = os.path.splitext(input_file)[1].lower()
         if file_ext in ['.xlsx', '.xls']:
@@ -225,9 +240,14 @@ class ConversionService:
         if previous_ynab:
             prev_df = load_previous_transactions(previous_ynab)
             ynab_df = exclude_existing_transactions(ynab_df, prev_df)
-        csv_file = generate_output_filename(input_file, is_revolut)
-        ynab_df.to_csv(csv_file, index=False, quoting=csv.QUOTE_MINIMAL)
-        logging.info(f"Conversion complete. The CSV file is saved as: {csv_file}")
+        if write_output:
+            csv_file = generate_output_filename(
+                input_file,
+                is_revolut,
+                output_dir=output_dir,
+            )
+            ynab_df.to_csv(csv_file, index=False, quoting=csv.QUOTE_MINIMAL)
+            logging.info("Conversion complete. The CSV file is saved as: %s", csv_file)
         return ynab_df
 
     @staticmethod

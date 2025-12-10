@@ -111,6 +111,7 @@ class AccountSelectionPage(QWidget):
         self.account_combo.activated.connect(lambda idx: print(f"Account combo activated: {idx}"))
         self.controller.budgetsFetched.connect(self.on_budgets_fetched)
         self.controller.accountsFetched.connect(self.on_accounts_fetched)
+        self.controller.errorOccurred.connect(self.on_error)
 
         # Set initial state
         self.update_helper()
@@ -298,6 +299,27 @@ class AccountSelectionPage(QWidget):
         text = (text or '').strip()
         self.selected_account_id = text or None
         self.update_helper()
+        self.validate_fields()
+
+    def on_error(self, msg: str):
+        """Display API errors (e.g., unauthorized) on the page."""
+        short_msg = (msg or "").strip().splitlines()[0]
+        if len(short_msg) > 300:
+            short_msg = short_msg[:300] + "…"
+        if "invalid JSON" in short_msg.lower() or "html" in msg.lower():
+            short_msg += " — check that your Actual server URL points to the API (e.g., https://host/api)."
+        self.helper_label.setText(short_msg)
+        self.helper_label.setStyleSheet("font-size:12px;color:#c62828;margin-bottom:0;")
+        self.budget_combo.blockSignals(True)
+        self.account_combo.blockSignals(True)
+        self.budget_combo.clear()
+        self.account_combo.clear()
+        self.budget_combo.addItem("Unable to load budgets", None)
+        self.account_combo.addItem("Unable to load accounts", None)
+        self.budget_combo.blockSignals(False)
+        self.account_combo.blockSignals(False)
+        self.selected_budget_id = None
+        self.selected_account_id = None
         self.validate_fields()
 
     def update_helper(self):

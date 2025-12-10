@@ -3,7 +3,7 @@ from PyQt5.QtCore import QObject, pyqtSignal, QThread
 from services.ynab_client import YnabClient
 from services.actual_client import ActualClient
 from services.conversion_service import ConversionService
-from config import DUP_CHECK_DAYS, DUP_CHECK_COUNT, get_logger
+from config import DUP_CHECK_DAYS, DUP_CHECK_COUNT, get_logger, SETTINGS_DIR, ensure_app_dir
 
 logger = get_logger(__name__)
 import re
@@ -55,15 +55,22 @@ class TransactionFetchWorker(QObject):
     finished = pyqtSignal(list)
     error = pyqtSignal(str)
 
-    def __init__(self, ynab_client, budget_id, account_id):
+    def __init__(self, ynab_client, budget_id, account_id, count=None, since_date=None):
         super().__init__()
         self.ynab_client = ynab_client
         self.budget_id = budget_id
         self.account_id = account_id
+        self.count = count
+        self.since_date = since_date
 
     def run(self):
         try:
-            txns = self.ynab_client.get_transactions(self.budget_id, self.account_id)
+            txns = self.ynab_client.get_transactions(
+                self.budget_id,
+                self.account_id,
+                count=self.count,
+                since_date=self.since_date,
+            )
             self.finished.emit(txns)
         except Exception as e:
             err_msg = f"Failed to fetch transactions: {e}"
@@ -163,8 +170,18 @@ class UploadWorker(QObject):
 
     def run(self):
         try:
-            # Use correct YnabClient method and parse upload count
-            response = self.ynab_client.upload_transactions(self.budget_id, self.transactions)
+            # Use correct upload signature per client:
+            # - ActualClient: upload_transactions(budget_id, account_id, transactions)
+            # - YnabClient: upload_transactions(budget_id, transactions)
+            response = None
+            try:
+                response = self.ynab_client.upload_transactions(
+                    self.budget_id, self.account_id, self.transactions
+                )
+            except TypeError:
+                response = self.ynab_client.upload_transactions(
+                    self.budget_id, self.transactions
+                )
             # YNAB API returns new transaction ids in
             # response['data']['transaction_ids'] or
             # the count in response['data']['transactions']
@@ -248,8 +265,18 @@ class WizardController(QObject):
                 self.last_error_message = msg
                 self.errorOccurred.emit(msg)
                 return False
-            self.ynab = ActualClient(base_url, password)  # Reuse same attribute for workers
+            ensure_app_dir()
+            data_dir = SETTINGS_DIR / "actual-data"
+            self.ynab = ActualClient(base_url, password, data_dir=str(data_dir))  # Reuse same attribute for workers
             logger.info("[WizardController] Actual client initialized for %s (%s)", base_url, type(self.ynab).__name__)
+            # Quick connectivity check to fail fast if server returns HTML/invalid API
+            try:
+                self.ynab.get_budgets()
+            except Exception as inner_e:
+                msg = f"Actual API error: {inner_e}"
+                self.last_error_message = msg
+                self.errorOccurred.emit(msg)
+                return False
             return True
         except Exception as e:
             msg = f"Failed to initialize Actual client: {str(e)}"
@@ -313,14 +340,14 @@ class WizardController(QObject):
         # You can process accounts here if needed before sending to UI
         self.accountsFetched.emit(accounts)
 
-    def fetch_transactions(self, budget_id: str, account_id: str):
+    def fetch_transactions(self, budget_id: str, account_id: str, count: int = None, since_date: str = None):
         """Fetch transactions for an account."""
         if not self.ynab:
             self.errorOccurred.emit("YNAB client not initialized.")
             return
         self._cleanup_thread()
         self.worker_thread = QThread()
-        self.worker = TransactionFetchWorker(self.ynab, budget_id, account_id)
+        self.worker = TransactionFetchWorker(self.ynab, budget_id, account_id, count=count, since_date=since_date)
         self.worker.moveToThread(self.worker_thread)
 
         self.worker_thread.started.connect(self.worker.run)

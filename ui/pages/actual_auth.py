@@ -51,6 +51,7 @@ class ActualAuthPage(QWizardPage):
 
         # Save checkbox
         self.save_checkbox = QCheckBox("Save credentials securely on this device")
+        self.save_checkbox.setChecked(True)
         layout.addWidget(self.save_checkbox, alignment=Qt.AlignLeft)
 
         # Helper and error
@@ -81,37 +82,47 @@ class ActualAuthPage(QWizardPage):
 
     def validate_and_proceed(self):
         self.logger.info("[ActualAuthPage] validate_and_proceed called")
-        url = self.url_input.text().strip()
-        pwd = self.pwd_input.text().strip()
-        if not url or not pwd:
-            self.error_label.setText("Please enter both server URL and password.")
-            self.logger.info("[ActualAuthPage] Missing URL or password")
-            return False
-
-        if self.save_checkbox.isChecked():
-            try:
-                ensure_app_dir()
-                url_lines = []
-                if os.path.exists(SETTINGS_FILE):
-                    with open(SETTINGS_FILE, 'r') as f:
-                        for line in f:
-                            if line.startswith("FOLDER:") or line.startswith("TOKEN:"):
-                                url_lines.append(line)
-                enc_pwd = self.encrypt(pwd)
-                url_lines.append(f"ACTUAL_URL:{url}\n")
-                url_lines.append(f"ACTUAL_PWD:{enc_pwd}\n")
-                with open(SETTINGS_FILE, 'w') as f:
-                    f.writelines(url_lines)
-            except Exception as e:
-                self.error_label.setText(f"Error saving credentials: {e}")
-                self.logger.error("[ActualAuthPage] Error saving credentials: %s", e)
+        try:
+            url = self.url_input.text().strip()
+            pwd = self.pwd_input.text().strip()
+            if not url or not pwd:
+                self.error_label.setText("Please enter both server URL and password.")
+                self.logger.info("[ActualAuthPage] Missing URL or password")
                 return False
 
-        ok = self.controller.authorize_actual(url, pwd)
-        if not ok:
-            msg = getattr(self.controller, "last_error_message", None)
-            self.error_label.setText(msg or "Failed to connect to Actual server with given credentials.")
-            self.logger.error("[ActualAuthPage] authorize_actual failed for url=%s; msg=%s", url, msg)
+            if self.save_checkbox.isChecked():
+                try:
+                    ensure_app_dir()
+                    url_lines = []
+                    if os.path.exists(SETTINGS_FILE):
+                        with open(SETTINGS_FILE, 'r') as f:
+                            for line in f:
+                                if line.startswith("FOLDER:") or line.startswith("TOKEN:"):
+                                    url_lines.append(line)
+                    enc_pwd = self.encrypt(pwd)
+                    url_lines.append(f"ACTUAL_URL:{url}\n")
+                    url_lines.append(f"ACTUAL_PWD:{enc_pwd}\n")
+                    with open(SETTINGS_FILE, 'w') as f:
+                        f.writelines(url_lines)
+                except Exception as e:
+                    self.error_label.setText(f"Error saving credentials: {e}")
+                    self.logger.error("[ActualAuthPage] Error saving credentials: %s", e)
+                    return False
+
+            ok = self.controller.authorize_actual(url, pwd)
+            if not ok:
+                msg = getattr(self.controller, "last_error_message", None)
+                short_msg = (msg or "Failed to connect to Actual server with given credentials.").strip()
+                if "invalid json" in short_msg.lower() or "html" in short_msg.lower():
+                    short_msg += "\nHint: ensure the URL points to the Actual API base (e.g., https://host/api)."
+                if len(short_msg) > 400:
+                    short_msg = short_msg[:400] + "…"
+                self.error_label.setText(short_msg)
+                self.logger.error("[ActualAuthPage] authorize_actual failed for url=%s; msg=%s", url, msg)
+                return False
+        except Exception as e:  # Defensive: avoid crashing Qt if anything unexpected happens
+            self.error_label.setText(f"Unexpected error: {e}")
+            self.logger.exception("[ActualAuthPage] Unexpected error during validation")
             return False
 
         parent = self.window()

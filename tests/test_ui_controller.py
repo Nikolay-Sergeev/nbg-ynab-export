@@ -29,6 +29,8 @@ class TestBudgetFetchWorker(unittest.TestCase):
         
         self.worker.finished.connect(self.handle_finished)
         self.worker.error.connect(self.handle_error)
+        # Default mock to YNAB-style signature; tests can override per-case
+        self.mock_ynab_client.upload_transactions.side_effect = None
 
     def handle_finished(self, data):
         """Handler for finished signal."""
@@ -145,7 +147,9 @@ class TestTransactionFetchWorker(unittest.TestCase):
         self.worker = TransactionFetchWorker(
             self.mock_ynab_client, 
             self.budget_id,
-            self.account_id
+            self.account_id,
+            count=None,
+            since_date=None,
         )
 
         # Connect to signals for testing
@@ -177,7 +181,7 @@ class TestTransactionFetchWorker(unittest.TestCase):
         
         # Check if the client method was called with correct IDs
         self.mock_ynab_client.get_transactions.assert_called_once_with(
-            self.budget_id, self.account_id
+            self.budget_id, self.account_id, count=None, since_date=None
         )
         
         # Check if signal emitted correct data
@@ -194,7 +198,7 @@ class TestTransactionFetchWorker(unittest.TestCase):
         
         # Check if the client method was called
         self.mock_ynab_client.get_transactions.assert_called_once_with(
-            self.budget_id, self.account_id
+            self.budget_id, self.account_id, count=None, since_date=None
         )
         
         # Check if error signal was emitted
@@ -398,7 +402,7 @@ class TestUploadWorker(unittest.TestCase):
         
         # Check if the client method was called with correct parameters
         self.mock_ynab_client.upload_transactions.assert_called_once_with(
-            self.budget_id, self.transactions
+            self.budget_id, self.account_id, self.transactions
         )
         
         # Check if signal emitted correct data (2 transactions uploaded)

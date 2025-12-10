@@ -10,6 +10,7 @@ from PyQt5.QtWidgets import (
     QHeaderView,
     QMessageBox,
     QCheckBox,
+    QAbstractItemView,
 )
 from PyQt5.QtCore import Qt
 from PyQt5.QtSvg import QSvgWidget
@@ -87,6 +88,10 @@ class ReviewAndUploadPage(QWizardPage):
 
         self.table = QTableWidget()
         self.table.setStyleSheet("color: #222; background: #fff;")
+        self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.table.setSelectionMode(QAbstractItemView.NoSelection)
+        self.table.setAlternatingRowColors(True)
         # Respond to Skip item changes
         self.table.itemChanged.connect(self.on_skip_item_changed)
         self.table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
@@ -114,6 +119,8 @@ class ReviewAndUploadPage(QWizardPage):
         self.records = []
         self.dup_idx = set()
         self.skipped_rows = set()
+        self.skip_column_index = None
+        self.skip_checked_value = True
         self.worker = None
 
     def initializePage(self):
@@ -130,12 +137,17 @@ class ReviewAndUploadPage(QWizardPage):
 
         # Branch by mode
         target = getattr(self.controller, 'export_target', 'YNAB')
+        if hasattr(parent, 'file_export_path'):
+            parent.file_export_path = None
         if target == 'FILE':
             # Pure file-converter mode: convert and show, no API
             try:
-                df = self.controller.converter.convert_to_ynab(file_path)
+                df = self.controller.converter.convert_to_ynab(
+                    file_path,
+                    write_output=False,
+                )
                 records = df.to_dict('records') if df is not None else []
-                self.on_duplicates_found(records, set())
+                self.populate_file_records(records)
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Error converting file: {str(e)}")
             return
@@ -160,6 +172,8 @@ class ReviewAndUploadPage(QWizardPage):
         self.records = records
         self.dup_idx = dup_idx
         self.skipped_rows = set(dup_idx)
+        self.skip_column_index = None
+        self.skip_checked_value = True
         # Clear existing content, then set dimensions and headers
         self.table.clearContents()
         row_count = len(records)
@@ -169,7 +183,8 @@ class ReviewAndUploadPage(QWizardPage):
         headers = list(records[0].keys()) if records else []
         headers += ["Status", "Skip"]
         self.table.setHorizontalHeaderLabels(headers)
-        skip_col = col_count - 1
+        skip_col = col_count - 1 if col_count else None
+        self.skip_column_index = skip_col
         # Block signals while initializing
         self.table.blockSignals(True)
         for row, rec in enumerate(records):
@@ -195,11 +210,18 @@ class ReviewAndUploadPage(QWizardPage):
         header = self.table.horizontalHeader()
         for c in range(col_count - 1):
             header.setSectionResizeMode(c, QHeaderView.Stretch)
-        header.setSectionResizeMode(skip_col, QHeaderView.ResizeToContents)
+        if skip_col is not None:
+            header.setSectionResizeMode(skip_col, QHeaderView.ResizeToContents)
         self.table.resizeRowsToContents()
         self.hide_dup_checkbox.setVisible(bool(dup_idx))
         self.hide_dup_checkbox.setChecked(False)
         self.on_hide_duplicates_toggled(self.hide_dup_checkbox.checkState())
+        self.info_icon.hide()
+        if records:
+            self.info_label.setText("")
+        else:
+            self.info_label.setText("No transactions to review.")
+            self.info_icon.show()
         # Enable Continue button
         # Button is now handled by the main window
         parent = self.window()
@@ -208,12 +230,19 @@ class ReviewAndUploadPage(QWizardPage):
 
     def on_skip_item_changed(self, item):
         # Track Skip column changes
-        if item.column() != self.table.columnCount() - 1:
+        if self.skip_column_index is None or item.column() != self.skip_column_index:
             return
-        if item.checkState() == Qt.Checked:
-            self.skipped_rows.add(item.row())
+        is_checked = item.checkState() == Qt.Checked
+        if self.skip_checked_value:
+            if is_checked:
+                self.skipped_rows.add(item.row())
+            else:
+                self.skipped_rows.discard(item.row())
         else:
-            self.skipped_rows.discard(item.row())
+            if is_checked:
+                self.skipped_rows.discard(item.row())
+            else:
+                self.skipped_rows.add(item.row())
 
     def on_hide_duplicates_toggled(self, state):
         hide = state == Qt.Checked
@@ -336,9 +365,16 @@ class ReviewAndUploadPage(QWizardPage):
                 import pandas as pd
                 df = pd.DataFrame(selected)
                 import_page = parent.pages_stack.widget(0)
-                out_path = generate_output_filename(import_page.file_path)
+                input_dir = os.path.dirname(os.path.abspath(import_page.file_path))
+                out_path = generate_output_filename(
+                    import_page.file_path,
+                    output_dir=input_dir,
+                )
+                os.makedirs(os.path.dirname(out_path), exist_ok=True)
                 df.to_csv(out_path, index=False)
-                parent.actual_export_path = out_path
+                parent.file_export_path = out_path
+                if hasattr(parent, 'actual_export_path'):
+                    parent.actual_export_path = None
                 parent.upload_stats = {'uploaded': len(selected)}
                 if hasattr(parent, "go_to_page") and hasattr(parent, "pages_stack"):
                     cur = parent.pages_stack.indexOf(self)
@@ -424,3 +460,57 @@ class ReviewAndUploadPage(QWizardPage):
     def isComplete(self):
         print("[DEBUG] isComplete called for ReviewAndUploadPage, always returns True")
         return True
+
+    def populate_file_records(self, records):
+        """Populate table for File Converter mode with selectable transactions."""
+        self.records = records
+        self.dup_idx = set()
+        self.skipped_rows = set()
+        self.skip_column_index = 0
+        self.skip_checked_value = False  # Checked means include
+        self.table.blockSignals(True)
+        headers = ["Import", "Date", "Payee", "Amount", "Memo"]
+        self.table.clearContents()
+        self.table.setRowCount(len(records))
+        self.table.setColumnCount(len(headers))
+        self.table.setHorizontalHeaderLabels(headers)
+        for row, rec in enumerate(records):
+            include_item = QTableWidgetItem()
+            include_item.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
+            include_item.setCheckState(Qt.Checked)
+            self.table.setItem(row, 0, include_item)
+            date_item = QTableWidgetItem(str(rec.get("Date", "")))
+            self.table.setItem(row, 1, date_item)
+            payee_item = QTableWidgetItem(str(rec.get("Payee", "") or ""))
+            self.table.setItem(row, 2, payee_item)
+            raw_amount = rec.get("Amount", "")
+            try:
+                amount_val = float(raw_amount)
+                amount_item = QTableWidgetItem(f"{amount_val:.2f}")
+                amount_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+            except (TypeError, ValueError):
+                amount_item = QTableWidgetItem(str(raw_amount))
+            self.table.setItem(row, 3, amount_item)
+            memo_item = QTableWidgetItem(str(rec.get("Memo", "") or ""))
+            self.table.setItem(row, 4, memo_item)
+        self.table.blockSignals(False)
+
+        header = self.table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        for col in range(1, self.table.columnCount() - 1):
+            header.setSectionResizeMode(col, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(self.table.columnCount() - 1, QHeaderView.Stretch)
+        self.table.resizeRowsToContents()
+
+        self.hide_dup_checkbox.setVisible(False)
+        self.success_icon.hide()
+        self.error_icon.hide()
+        if records:
+            self.info_icon.hide()
+            self.info_label.setText("Select or deselect transactions to include in the converted file.")
+        else:
+            self.info_icon.show()
+            self.info_label.setText("No transactions found to convert.")
+        parent = self.window()
+        if hasattr(parent, "next_button"):
+            parent.next_button.setEnabled(bool(records))

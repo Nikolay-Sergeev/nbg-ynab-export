@@ -1,6 +1,8 @@
-import requests
 import logging
+from typing import Optional
+from pathlib import Path
 from config import get_logger
+from services.actual_bridge_runner import ActualBridgeRunner
 
 
 logger = get_logger(__name__)
@@ -15,176 +17,73 @@ class ActualClient:
     in this client accordingly.
     """
 
-    def __init__(self, base_url: str, password: str):
+    def __init__(self, base_url: str, password: str, data_dir: Optional[str] = None, bridge: Optional[ActualBridgeRunner] = None):
+        # Bridge-based client using @actual-app/api via Node
         self.base_url = base_url.rstrip('/')
         self.password = password
-        self.session = requests.Session()
-        self.session.headers.update({'Content-Type': 'application/json'})
-        # Allow opting out of SSL verification for self-signed servers via env var
-        import os as _os
-        verify_ssl = (_os.getenv('ACTUAL_VERIFY_SSL', 'true').lower() not in ('0', 'false', 'no'))
-        self.session.verify = verify_ssl
-        logger.info("[ActualClient] verify_ssl=%s", verify_ssl)
-
-        # Attempt login to obtain a session/token if the server supports it; otherwise rely on password per call
-        try:
-            login_url = f"{self.base_url}/api/login"
-            logger.info("[ActualClient] POST %s (login)", login_url)
-            resp = self.session.post(login_url, json={"password": self.password}, timeout=10)
-            logger.info("[ActualClient] login status=%s", resp.status_code)
-            logger.debug("[ActualClient] login body: %s", resp.text[:500])
-            if resp.ok and 'token' in resp.json():
-                token = resp.json()['token']
-                self.session.headers.update({'Authorization': f"Bearer {token}"})
-        except Exception:
-            # Some servers don't require an explicit login; continue without token
-            logger.info("[ActualClient] Login endpoint not available or not required; continuing without token")
-
-    def _raise_with_context(self, resp, context: str):
-        """Raise HTTPError with server body included for easier debugging."""
-        body = ""
-        try:
-            body = resp.text or ""
-        except Exception:
-            body = "<unable to read body>"
-        snippet = body[:1000]  # avoid over-long messages
-        raise requests.HTTPError(f"{context} failed (status {resp.status_code}): {snippet}", response=resp)
-
-    def _auth_params(self):
-        """Build auth object if server expects password in body/query instead of bearer token."""
-        return {"password": self.password}
+        # Bridge can be injected for testing
+        self.bridge = bridge or ActualBridgeRunner(project_root=Path(__file__).resolve().parent.parent)
+        init_resp = self.bridge.init(self.base_url, self.password, data_dir)
+        if not init_resp.get("ok"):
+            raise RuntimeError(init_resp.get("error") or "Failed to init Actual bridge")
 
     def get_budgets(self) -> list:
         """Return list of budgets with keys id and name."""
-        try:
-            # Prefer bearer header, fallback to password param
-            url = f"{self.base_url}/api/budgets"
-            logger.info("[ActualClient] GET %s (budgets)", url)
-            resp = self.session.get(url, timeout=10)
-            if resp.status_code == 401:
-                logger.info("[ActualClient] 401 on GET; trying POST %s with auth body", url)
-                resp = self.session.post(url, json=self._auth_params(), timeout=10)
-            if not resp.ok:
-                self._raise_with_context(resp, "get_budgets")
-            data = resp.json()
-            logger.info("[ActualClient] Budgets response keys=%s", list(data.keys()) if isinstance(data, dict) else type(data))
-            budgets = data.get('budgets') or data.get('data') or data
-            out = []
-            for b in budgets:
-                if isinstance(b, dict):
-                    out.append({'id': b.get('id') or b.get('uuid') or b.get('budgetId'), 'name': b.get('name')})
-            return out
-        except Exception as e:
-            logger.error("[ActualClient] get_budgets failed: %s", e)
-            raise
+        logger.info("[ActualClient] Fetching budgets via bridge")
+        resp = self.bridge.list_budgets()
+        if not resp.get("ok"):
+            raise RuntimeError(resp.get("error") or "Failed to list budgets")
+        budgets = resp.get("budgets") or []
+        normalized = []
+        seen_ids = set()
+        seen_names = set()
+        for b in budgets:
+            # Prefer groupId because Actual's downloadBudget expects the sync id (groupId)
+            bid = (
+                b.get("groupId")
+                or b.get("id")
+                or b.get("cloudFileId")
+                or b.get("fileId")
+                or b.get("syncId")
+                or b.get("uuid")
+            )
+            name = b.get("name") or b.get("budgetName")
+            if not bid or not name:
+                continue
+            if bid in seen_ids or name in seen_names:
+                continue
+            normalized.append({"id": bid, "name": name})
+            seen_ids.add(bid)
+            seen_names.add(name)
+        return normalized
 
     def get_accounts(self, budget_id: str) -> list:
         """Return list of accounts for a budget with keys id and name."""
-        try:
-            url = f"{self.base_url}/api/budgets/{budget_id}/accounts"
-            logger.info("[ActualClient] GET %s (accounts)", url)
-            resp = self.session.get(url, timeout=10)
-            if resp.status_code == 401:
-                logger.info("[ActualClient] 401 on GET; trying POST %s with auth body", url)
-                resp = self.session.post(url, json=self._auth_params(), timeout=10)
-            if not resp.ok:
-                self._raise_with_context(resp, "get_accounts")
-            data = resp.json()
-            logger.info("[ActualClient] Accounts response keys=%s", list(data.keys()) if isinstance(data, dict) else type(data))
-            accounts = data.get('accounts') or data.get('data') or data
-            out = []
-            for a in accounts:
-                if isinstance(a, dict):
-                    out.append({'id': a.get('id') or a.get('uuid') or a.get('accountId'), 'name': a.get('name')})
-            return out
-        except Exception as e:
-            logger.error("[ActualClient] get_accounts failed: %s", e)
-            raise
+        logger.info("[ActualClient] Fetching accounts for budget=%s via bridge", budget_id)
+        resp = self.bridge.list_accounts(budget_id)
+        if not resp.get("ok"):
+            raise RuntimeError(resp.get("error") or "Failed to list accounts")
+        return resp.get("accounts") or []
 
     def get_transactions(self, budget_id: str, account_id: str, count: int = None, page: int = None, since_date: str = None) -> list:
-        """Return recent transactions in a YNAB-like shape for display: date, payee_name, amount, memo.
+        """Return recent transactions in a YNAB-like shape for display: date, payee_name, amount, memo."""
+        logger.info("[ActualClient] Fetching transactions for budget=%s account=%s via bridge", budget_id, account_id)
+        resp = self.bridge.list_transactions(budget_id, account_id, count=count)
+        if not resp.get("ok"):
+            raise RuntimeError(resp.get("error") or "Failed to list transactions")
+        txs = resp.get("transactions") or []
+        # Optional since_date filter (inclusive)
+        if since_date:
+            txs = [t for t in txs if (t.get("date") or "") >= since_date]
+        return txs
 
-        Amount is returned in milliunits to match existing UI formatting.
-        """
-        try:
-            params = {"limit": count or 50}
-            if since_date:
-                params["since_date"] = since_date
-            url = f"{self.base_url}/api/budgets/{budget_id}/accounts/{account_id}/transactions"
-            logger.info("[ActualClient] GET %s (transactions) params=%s", url, params)
-            resp = self.session.get(url, params=params, timeout=15)
-            if resp.status_code == 401:
-                logger.info("[ActualClient] 401 on GET; trying POST %s with auth body+params", url)
-                resp = self.session.post(url, json={**self._auth_params(), **params}, timeout=15)
-            if not resp.ok:
-                self._raise_with_context(resp, "get_transactions")
-            data = resp.json()
-            txs = data.get('transactions') or data.get('data') or data
-            out = []
-            for t in txs:
-                if not isinstance(t, dict):
-                    continue
-                # Try to normalize fields
-                date = t.get('date') or t.get('transactionDate')
-                payee = t.get('payee') or t.get('payee_name') or t.get('payeeName')
-                memo = t.get('notes') or t.get('memo')
-                amt = t.get('amount')
-                # If amount comes as decimal, convert to milliunits; if already int assume milliunits
-                try:
-                    if isinstance(amt, (int, float)):
-                        amount_milli = int(round(float(amt) * 1000)) if abs(amt) < 100000 else int(amt)
-                    elif isinstance(amt, str):
-                        amount_milli = int(round(float(amt) * 1000))
-                    else:
-                        amount_milli = 0
-                except Exception:
-                    amount_milli = 0
-                out.append({
-                    'date': date,
-                    'payee_name': payee,
-                    'amount': amount_milli,
-                    'memo': memo,
-                })
-            return out
-        except Exception as e:
-            logger.error("[ActualClient] get_transactions failed: %s", e)
-            raise
-
-    def upload_transactions(self, budget_id: str, transactions: list) -> dict:
+    def upload_transactions(self, budget_id: str, account_id: str, transactions: list) -> dict:
         """Upload transactions; expects transactions similar to YNAB formatting from the UI.
 
         Returns a dict with 'data' containing 'transactions' or 'transaction_ids' length for UI count.
         """
-        try:
-            # Map YNAB-like payload to Actual's expected shape
-            mapped = []
-            for tx in transactions:
-                amount_mu = tx.get('amount', 0)  # milliunits
-                # Actual commonly uses integer in milliunits as well; if server expects decimal, it can convert
-                mapped.append({
-                    'date': tx.get('date'),
-                    'amount': amount_mu,
-                    'payee_name': tx.get('payee_name') or tx.get('payee'),
-                    'notes': tx.get('memo', ''),
-                    'account_id': tx.get('account_id'),
-                })
-
-            url = f"{self.base_url}/api/budgets/{budget_id}/transactions/batch"
-            body = {'password': self.password, 'transactions': mapped}
-            logger.info("[ActualClient] POST %s (upload) count=%d", url, len(mapped))
-            resp = self.session.post(url, json=body, timeout=20)
-            if resp.status_code == 401:
-                logger.info("[ActualClient] 401 on POST; retrying with same body")
-                resp = self.session.post(url, json=body, timeout=20)
-            if not resp.ok:
-                self._raise_with_context(resp, "upload_transactions")
-            data = resp.json() if resp.content else {}
-            # Normalize to a YNAB-like response shape for the UI
-            tx_ids = []
-            tx_list = data.get('transactions') or data.get('data') or []
-            for i, t in enumerate(tx_list):
-                tx_ids.append(t.get('id') or t.get('uuid') or str(i))
-            return {'data': {'transaction_ids': tx_ids, 'transactions': tx_list}}
-        except Exception as e:
-            logger.error("[ActualClient] upload_transactions failed: %s", e)
-            raise
+        resp = self.bridge.upload_transactions(budget_id, account_id, transactions)
+        if not resp.get("ok"):
+            raise RuntimeError(resp.get("error") or "Failed to upload transactions")
+        uploaded = resp.get("uploaded", 0)
+        return {'data': {'transaction_ids': [str(i) for i in range(uploaded)], 'transactions': [{}] * uploaded}}

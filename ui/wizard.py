@@ -15,7 +15,6 @@ from PyQt5.QtWidgets import (
     QFrame,
     QStackedWidget,
     QPushButton,
-    QButtonGroup,
 )
 from PyQt5.QtGui import QIcon, QPixmap, QPainter, QFont, QPalette, QColor
 from PyQt5.QtCore import Qt
@@ -229,34 +228,6 @@ class SidebarWizardWindow(QMainWindow):
         # Create controller for business logic
         self.controller = WizardController()
 
-        # Add a simple mode selector bar always visible at the top
-        mode_bar = QWidget()
-        mode_layout = QHBoxLayout(mode_bar)
-        mode_layout.setContentsMargins(16, 10, 16, 6)
-        mode_layout.setSpacing(8)
-        mode_label = QLabel("Mode:")
-        mode_label.setStyleSheet("font-size:13px;color:#333;")
-        mode_layout.addWidget(mode_label)
-        self.btn_mode_ynab = QPushButton("YNAB")
-        self.btn_mode_actual = QPushButton("Actual Budget")
-        self.btn_mode_file = QPushButton("File Converter")
-        for b in (self.btn_mode_ynab, self.btn_mode_actual, self.btn_mode_file):
-            b.setCheckable(True)
-            b.setFixedHeight(28)
-            mode_layout.addWidget(b)
-        mode_layout.addStretch(1)
-        self.mode_group = QButtonGroup(self)
-        self.mode_group.setExclusive(True)
-        self.mode_group.addButton(self.btn_mode_ynab)
-        self.mode_group.addButton(self.btn_mode_actual)
-        self.mode_group.addButton(self.btn_mode_file)
-        # Default selection
-        self.btn_mode_ynab.setChecked(True)
-        self.btn_mode_ynab.clicked.connect(lambda: self._set_mode('YNAB'))
-        self.btn_mode_actual.clicked.connect(lambda: self._set_mode('ACTUAL_API'))
-        self.btn_mode_file.clicked.connect(lambda: self._set_mode('FILE'))
-        content_layout.addWidget(mode_bar)
-
         # Create a container for the pages and navigation buttons
         page_container = QWidget()
         page_container_layout = QVBoxLayout(page_container)
@@ -409,17 +380,6 @@ class SidebarWizardWindow(QMainWindow):
         # Refresh selection
         self.update_sidebar(self.pages_stack.currentIndex())
 
-        # Keep mode bar in sync with target
-        try:
-            if target == 'YNAB':
-                self.btn_mode_ynab.setChecked(True)
-            elif target == 'ACTUAL_API':
-                self.btn_mode_actual.setChecked(True)
-            elif target == 'FILE':
-                self.btn_mode_file.setChecked(True)
-        except Exception:
-            pass
-
         # Keep Import page radio buttons in sync as well
         try:
             if hasattr(self, 'import_page') and self.import_page is not None:
@@ -431,18 +391,6 @@ class SidebarWizardWindow(QMainWindow):
                     self.import_page.rb_file.setChecked(True)
         except Exception:
             pass
-
-    def _set_mode(self, mode_key: str):
-        """Update controller target and refresh steps from the always-visible mode bar."""
-        try:
-            self.controller.set_export_target(mode_key)
-        except Exception:
-            pass
-        self.set_steps_for_target(mode_key)
-        # If currently on auth step and switching to Actual API, ensure page content matches
-        current = self.pages_stack.currentIndex()
-        if mode_key == 'ACTUAL_API' and current == 1:
-            self.go_to_page(1)
 
     def go_to_page(self, index):
         """Navigate to the specified page index."""
@@ -602,9 +550,11 @@ class SidebarWizardWindow(QMainWindow):
         else:
             self.back_button.show()
 
-        # Next button text changes on last page
-        if current == self.pages_stack.count() - 1:
-            self.next_button.setText("Finish")
+        # Next button text: default Continue, Exit only on FinishPage
+        page = self.pages_stack.currentWidget()
+        is_finish_page = hasattr(page, "__class__") and page.__class__.__name__ == "FinishPage"
+        if is_finish_page:
+            self.next_button.setText("Exit")
         else:
             self.next_button.setText("Continue")
 
