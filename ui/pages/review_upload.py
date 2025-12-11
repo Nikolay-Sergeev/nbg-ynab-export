@@ -5,6 +5,7 @@ from PyQt5.QtWidgets import (
     QTableWidget,
     QTableWidgetItem,
     QHBoxLayout,
+    QPushButton,
     QFrame,
     QSizePolicy,
     QHeaderView,
@@ -97,6 +98,16 @@ class ReviewAndUploadPage(QWizardPage):
         self.table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         card_layout.addWidget(self.table)
 
+        controls_layout = QHBoxLayout()
+        controls_layout.addStretch()
+        self.select_all_btn = QPushButton("Select All")
+        self.deselect_all_btn = QPushButton("Skip All")
+        self.select_all_btn.clicked.connect(lambda: self.apply_selection_to_all(include=True))
+        self.deselect_all_btn.clicked.connect(lambda: self.apply_selection_to_all(include=False))
+        controls_layout.addWidget(self.select_all_btn)
+        controls_layout.addWidget(self.deselect_all_btn)
+        card_layout.addLayout(controls_layout)
+
         self.hide_dup_checkbox = QCheckBox("Hide duplicate records")
         self.hide_dup_checkbox.stateChanged.connect(self.on_hide_duplicates_toggled)
         self.hide_dup_checkbox.setVisible(False)
@@ -122,6 +133,7 @@ class ReviewAndUploadPage(QWizardPage):
         self.skip_column_index = None
         self.skip_checked_value = True
         self.worker = None
+        self.set_bulk_buttons_enabled(False)
 
     def initializePage(self):
         parent = self.window()
@@ -134,6 +146,7 @@ class ReviewAndUploadPage(QWizardPage):
             return
         file_path = import_page.file_path
         self.skipped_rows = set()
+        self.set_bulk_buttons_enabled(False)
 
         # Branch by mode
         target = getattr(self.controller, 'export_target', 'YNAB')
@@ -222,6 +235,7 @@ class ReviewAndUploadPage(QWizardPage):
         else:
             self.info_label.setText("No transactions to review.")
             self.info_icon.show()
+        self.set_bulk_buttons_enabled(bool(records))
         # Enable Continue button
         # Button is now handled by the main window
         parent = self.window()
@@ -401,6 +415,7 @@ class ReviewAndUploadPage(QWizardPage):
         self.error_icon.hide()
         self.info_icon.hide()
         self.table.setRowCount(0)
+        self.set_bulk_buttons_enabled(False)
         self.info_label.setText(f"Upload complete. {count} transactions uploaded.")
         # Save upload stats and account name to parent window for FinishPage
         parent = self.window()
@@ -511,6 +526,29 @@ class ReviewAndUploadPage(QWizardPage):
         else:
             self.info_icon.show()
             self.info_label.setText("No transactions found to convert.")
+        self.set_bulk_buttons_enabled(bool(records))
         parent = self.window()
         if hasattr(parent, "next_button"):
             parent.next_button.setEnabled(bool(records))
+
+    def apply_selection_to_all(self, include: bool):
+        """Toggle all rows to include or skip based on current checkbox semantics."""
+        if self.skip_column_index is None or self.table.rowCount() == 0:
+            return
+        target_state = Qt.Unchecked if (include and self.skip_checked_value) else Qt.Checked
+        if not self.skip_checked_value:
+            target_state = Qt.Checked if include else Qt.Unchecked
+
+        row_count = self.table.rowCount()
+        self.table.blockSignals(True)
+        for row in range(row_count):
+            item = self.table.item(row, self.skip_column_index)
+            if item is not None:
+                item.setCheckState(target_state)
+        self.table.blockSignals(False)
+
+        self.skipped_rows = set() if include else set(range(row_count))
+
+    def set_bulk_buttons_enabled(self, enabled: bool):
+        self.select_all_btn.setEnabled(enabled)
+        self.deselect_all_btn.setEnabled(enabled)
