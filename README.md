@@ -1,6 +1,13 @@
-# NBG/Revolut to YNAB Converter
+# NBG/Revolut to YNAB / Actual Budget Converter
 
-This Python script converts transaction data from National Bank of Greece (NBG) and Revolut exports to YNAB-compatible CSV format. It supports NBG account statements, NBG card statements, and Revolut CSV exports.
+This project converts transaction exports from National Bank of Greece (NBG) and Revolut into:
+- **YNAB-compatible CSV** (CLI and GUI)
+- **Actual Budget-compatible CSV / direct upload** (GUI, via Node bridge)
+
+Supported inputs:
+- NBG account statements (`.xlsx` / `.xls`)
+- NBG card statements (`.xlsx` / `.xls`)
+- Revolut exports (`.csv`, EUR only)
 
 ## Features
 
@@ -8,6 +15,10 @@ This Python script converts transaction data from National Bank of Greece (NBG) 
   - NBG Account Operations
   - NBG Card Operations
   - Revolut CSV exports
+- **Multiple Export Targets (GUI):**
+  - YNAB upload
+  - Actual Budget API upload
+  - File converter (no upload, just a YNAB CSV)
 - **Date Handling:** 
   - NBG Account statements: Uses 'Valeur' (value date)
   - NBG Card statements: Extracts date from datetime field
@@ -29,7 +40,7 @@ This Python script converts transaction data from National Bank of Greece (NBG) 
 - **Transaction Filtering:**
   - NBG: Processes all transactions
   - Revolut: Only includes COMPLETED transactions
-  - Optional: Exclude previously imported transactions
+  - Optional: Exclude previously imported transactions (see `--previous`)
 - **Smart File Naming:**
   - Uses date from input filename (NBG)
   - Uses current date for Revolut exports
@@ -88,7 +99,7 @@ pip install -r requirements.txt
 
 ## Usage
 
-Convert a statement to YNAB format:
+Convert a statement to YNAB format (recommended CLI entry point):
 ```bash
 python cli.py path/to/statement.[xlsx|csv]
 ```
@@ -97,6 +108,10 @@ Exclude previously imported transactions:
 ```bash
 python cli.py path/to/statement.[xlsx|csv] --previous path/to/previous_ynab.csv
 ```
+
+De-duplication semantics:
+- Transactions older than the latest date in the previous export are dropped.
+- Remaining rows are deduplicated by `(Date, Payee, Amount, Memo)` (case-insensitive for Payee/Memo).
 
 ### Supported File Types
 
@@ -124,14 +139,39 @@ For an interactive GUI, launch:
 python ui/wizard.py
 ```
 
-The wizard will guide you through:
-1. Step 1: Select your input file (dialog remembers last-used folder).
-2. Step 2: Enter and securely save your YNAB personal access token.
-3. Step 3: Choose YNAB budget and account.
-4. Step 4: Confirm and generate/upload transactions.
+On the first page you can choose an export mode:
+- **YNAB**: verify token, select budget/account, review & upload to YNAB.
+- **Actual API**: verify Actual server URL/password, select budget/account, review & upload to Actual Budget.
+- **File Converter**: review & choose rows to export; generates a YNAB CSV without uploading anywhere.
 
-Settings are stored in `~/.nbg-ynab-export/nbg_ynab_settings.txt`.
-Duplicate checking uses configurable range defined in config.py (DUP_CHECK_DAYS and DUP_CHECK_COUNT).
+### Settings and Logs
+
+All local config is stored under `~/.nbg-ynab-export/` with file mode `0600`:
+- `settings.txt`: encrypted YNAB token (`TOKEN:` line) and last-used folder (`FOLDER:` line).
+- `settings.key`: Fernet key used to encrypt/decrypt tokens.
+- `actual_settings.txt`: encrypted Actual server URL/password (`ACTUAL_URL:` / `ACTUAL_PWD:`).
+- `ynab_api.log`: YNAB API debug log (request/response summaries).
+
+Environment variables:
+- `YNAB_TOKEN`: overrides the saved YNAB token.
+- `YNAB_LOG_DIR`: overrides where `ynab_api.log` is written.
+
+Duplicate checking in GUI uses configurable range in `config.py` (`DUP_CHECK_DAYS`, `DUP_CHECK_COUNT`).
+
+### Actual Budget Notes
+
+Actual API mode uses a small Node bridge (`scripts/actual_bridge.js`) backed by `@actual-app/api`.
+If `node_modules/` is missing, run `npm install` in the repo root.
+For connectivity troubleshooting, run:
+```bash
+python scripts/actual_diag.py https://your-actual-host/api yourPassword
+```
+
+### Known Limitations
+
+- Format detection requires exact column names; if your export headers differ slightly (extra spaces/case),
+  rename the columns in the input file to match the expected bank format.
+- Revolut exports must be EUR-only; mixed-currency files are rejected.
 
 ## License
 

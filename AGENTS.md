@@ -7,12 +7,17 @@
 - `ui/`: PyQt5 wizard (`wizard.py`), controller, and pages.
 - `resources/`: UI assets (e.g., `icons/`, `style.qss`).
 - `tests/`: Pytest suite (`test_*.py`).
+- `scripts/`: Node bridge and diagnostics for Actual Budget (`actual_bridge.js`, `actual_diag.py`).
 
 ## Build, Test, and Development
 Initialize environment and install deps:
 ```bash
 python3 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
+```
+Actual API mode also requires Node dependencies:
+```bash
+npm install
 ```
 Run locally:
 ```bash
@@ -44,6 +49,16 @@ flake8 .            # style check (max line length 120)
 
 ## Security & Configuration
 - Do not commit secrets. The wizard stores tokens securely; user config lives under `~/.nbg-ynab-export/`.
+- Settings files:
+  - `settings.txt`: encrypted YNAB token and last-used folder.
+  - `settings.key`: Fernet key for encryption.
+  - `actual_settings.txt`: encrypted Actual server URL/password.
+  - `ynab_api.log`: YNAB API debug log (override with `YNAB_LOG_DIR`).
+- Environment override: `YNAB_TOKEN` takes precedence over saved token.
 - Log files may be created there as well; prefer local paths in development when debugging.
 - When handling files, never overwrite inputs; outputs follow `original_name_YYYY-MM-DD_ynab.csv`.
 
+## Consistency Rules
+- **De-duplication**: always use `converter/utils.py:exclude_existing` (re-exported via `ConversionService`) so CLI/GUI behavior stays identical.
+- **Secret storage**: never re-implement Fernet/key logic in UI; use `services/token_manager.py` and keep file permissions at `0600`.
+- **Format detection**: if you change required columns or detection logic, update `converter/dispatcher.py`, converters, and related tests together.
