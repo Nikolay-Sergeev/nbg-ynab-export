@@ -1,26 +1,29 @@
-import converter.revolut as _revolut
-import converter.card as _card
-import converter.account as _account
-import converter.utils as _utils
-import pandas as pd
 import os
 import sys
 import csv
 import logging
 from typing import Optional
+import pandas as pd
+
+import converter.revolut as _revolut
+import converter.card as _card
+import converter.account as _account
+import converter.utils as _utils
 
 from constants import (
     ACCOUNT_REQUIRED_COLUMNS,
     CARD_REQUIRED_COLUMNS,
     DATE_FMT_YNAB,
 )
+from config import SUPPORTED_EXT
+from converter.dispatcher import detect_processor
 
 # Configuration
 LOGGING_FORMAT = '%(asctime)s - %(levelname)s - %(message)s'
 LOGGING_LEVEL = logging.INFO
 
 # File formats
-SUPPORTED_EXTENSIONS = ('.xlsx', '.xls', '.csv')
+SUPPORTED_EXTENSIONS = tuple(SUPPORTED_EXT)
 OUTPUT_FORMAT = 'csv'
 
 # Set up logging
@@ -170,20 +173,18 @@ def convert_nbg_to_ynab(
         # Add debug logging
         logging.debug(f"Found columns in file: {list(df.columns)}")
 
-        # Determine file type and process accordingly
-        is_revolut = False
-        if set(REVOLUT_REQUIRED_COLUMNS).issubset(df.columns):
-            logging.info("Processing as Revolut statement")
-            ynab_df = process_revolut_operations(df)
-            is_revolut = True
-        elif set(ACCOUNT_REQUIRED_COLUMNS).issubset(df.columns):
-            logging.info("Processing as NBG account statement")
-            ynab_df = process_account_operations(df)
-        elif set(CARD_REQUIRED_COLUMNS).issubset(df.columns):
-            logging.info("Processing as NBG card statement")
-            ynab_df = process_card_operations(df)
-        else:
-            raise ValueError("File format not recognized")
+        processor, is_revolut, source = detect_processor(df, {
+            'revolut': process_revolut_operations,
+            'account': process_account_operations,
+            'card': process_card_operations,
+        })
+        source_labels = {
+            'revolut': "Revolut statement",
+            'account': "NBG account statement",
+            'card': "NBG card statement",
+        }
+        logging.info("Processing as %s", source_labels[source])
+        ynab_df = processor(df)
 
         # After creating ynab_df but before saving:
         if previous_ynab:

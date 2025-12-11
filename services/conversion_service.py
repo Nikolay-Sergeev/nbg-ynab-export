@@ -6,15 +6,11 @@ from typing import Optional
 
 import pandas as pd
 
-from config import SETTINGS_DIR
-from constants import (
-    ACCOUNT_REQUIRED_COLUMNS,
-    CARD_REQUIRED_COLUMNS,
-    REVOLUT_REQUIRED_COLUMNS,
-)
+from config import SETTINGS_DIR, SUPPORTED_EXT
 from converter.account import process_account
 from converter.card import process_card
 from converter.revolut import process_revolut, validate_revolut_currency
+from converter.dispatcher import detect_processor
 from converter.utils import (
     exclude_existing,
     extract_date_from_filename,
@@ -41,6 +37,7 @@ __all__ = [
     'validate_input_file',
     'ConversionService',
     'load_previous_transactions',
+    'detect_processor',
 ]
 
 # Keep shared helpers imported from converter.utils to avoid divergence.
@@ -106,7 +103,7 @@ def validate_input_file(file_path: str) -> None:
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"File not found: '{file_path}'")
     file_ext = os.path.splitext(file_path)[1].lower()
-    if file_ext not in ('.xlsx', '.xls', '.csv'):
+    if file_ext not in SUPPORTED_EXT:
         raise ValueError(f"Unsupported file type: '{file_ext}' (must be .xlsx, .xls, or .csv)")
 
 
@@ -128,16 +125,13 @@ class ConversionService:
             df = pd.read_csv(input_file)
         else:
             raise ValueError(f"Unsupported file extension: {file_ext}")
-        is_revolut = False
-        if set(REVOLUT_REQUIRED_COLUMNS).issubset(df.columns):
-            ynab_df = process_revolut_operations(df)
-            is_revolut = True
-        elif set(ACCOUNT_REQUIRED_COLUMNS).issubset(df.columns):
-            ynab_df = process_account_operations(df)
-        elif set(CARD_REQUIRED_COLUMNS).issubset(df.columns):
-            ynab_df = process_card_operations(df)
-        else:
-            raise ValueError("File format not recognized")
+        processor, is_revolut, source = detect_processor(df, {
+            'revolut': process_revolut_operations,
+            'account': process_account_operations,
+            'card': process_card_operations,
+        })
+        logging.info("Processing as %s", source)
+        ynab_df = processor(df)
         if previous_ynab:
             prev_df = load_previous_transactions(previous_ynab)
             ynab_df = exclude_existing_transactions(ynab_df, prev_df)
@@ -167,16 +161,13 @@ class ConversionService:
         else:
             raise ValueError(f"Unsupported file extension: {file_ext}")
 
-        is_revolut = False
-        if set(REVOLUT_REQUIRED_COLUMNS).issubset(df.columns):
-            base_df = process_revolut_operations(df)
-            is_revolut = True
-        elif set(ACCOUNT_REQUIRED_COLUMNS).issubset(df.columns):
-            base_df = process_account_operations(df)
-        elif set(CARD_REQUIRED_COLUMNS).issubset(df.columns):
-            base_df = process_card_operations(df)
-        else:
-            raise ValueError("File format not recognized")
+        processor, is_revolut, source = detect_processor(df, {
+            'revolut': process_revolut_operations,
+            'account': process_account_operations,
+            'card': process_card_operations,
+        })
+        logging.info("Processing as %s for Actual export", source)
+        base_df = processor(df)
 
         # Map to Actual Budget friendly columns
         actual_df = base_df.rename(columns={

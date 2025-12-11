@@ -9,6 +9,7 @@ from converter.utils import read_input, exclude_existing, write_output
 from converter.account import process_account, REQUIRED as ACCOUNT_REQUIRED
 from converter.card import process_card, REQUIRED as CARD_REQUIRED
 from converter.revolut import process_revolut, REQUIRED as REVOLUT_REQUIRED
+from converter.dispatcher import detect_processor
 
 logger = get_logger(__name__)
 
@@ -36,18 +37,23 @@ def main():
         return 1
     try:
         df = read_input(in_path)
-        if set(REVOLUT_REQUIRED).issubset(df.columns):
-            logger.info("Detected Revolut export")
-            out_df = process_revolut(df)
-        elif set(ACCOUNT_REQUIRED).issubset(df.columns):
-            logger.info("Detected NBG Account export")
-            out_df = process_account(df)
-        elif set(CARD_REQUIRED).issubset(df.columns):
-            logger.info("Detected NBG Card export")
-            out_df = process_card(df)
-        else:
+        processors = {
+            'revolut': process_revolut,
+            'account': process_account,
+            'card': process_card,
+        }
+        try:
+            processor, _, source = detect_processor(df, processors)
+        except ValueError:
             logger.error("Unrecognized format: columns %s", list(df.columns))
             return 1
+        source_labels = {
+            'revolut': "Revolut",
+            'account': "NBG Account",
+            'card': "NBG Card",
+        }
+        logger.info("Detected %s export", source_labels[source])
+        out_df = processor(df)
         if args.previous:
             prev_df = read_input(args.previous)
             out_df = exclude_existing(out_df, prev_df)
