@@ -35,22 +35,54 @@ def exclude_existing(
     new_df: pd.DataFrame,
     prev_df: pd.DataFrame
 ) -> pd.DataFrame:
+    """Remove duplicate and older transactions.
+
+    Behavior matches legacy main.py exclusion:
+    - If a previous export is provided, drop any new transactions older than
+      the latest date in the previous export.
+    - Then drop exact duplicates based on Date, Payee, Amount, and Memo
+      (case-insensitive for Payee/Memo).
+    """
     logger.info("Excluding existing transactions")
 
-    def make_key(df):
-        # Date, payee, amount, memo (empty if missing)
-        date = df['Date'].astype(str)
-        payee = df['Payee'].astype(str).str.lower().str.strip()
-        amount = df['Amount'].astype(str)
+    if prev_df is None or prev_df.empty:
+        return new_df
+
+    new_copy = new_df.copy()
+    prev_copy = prev_df.copy()
+
+    new_copy['Date'] = pd.to_datetime(new_copy['Date'], errors='coerce')
+    prev_copy['Date'] = pd.to_datetime(prev_copy['Date'], errors='coerce')
+
+    latest_prev_date = prev_copy['Date'].max()
+    if pd.isna(latest_prev_date):
+        mask_newer = pd.Series([True] * len(new_copy), index=new_copy.index)
+    else:
+        mask_newer = new_copy['Date'] >= latest_prev_date
+
+    def make_key(df: pd.DataFrame) -> pd.Series:
+        date_part = df['Date'].dt.strftime(DATE_FMT_YNAB).fillna('')
+        payee_part = df['Payee'].astype(str).str.lower().str.strip()
+        amount_part = df['Amount'].astype(str)
         if 'Memo' in df.columns:
-            memo = df['Memo'].astype(str).str.lower().str.strip()
+            memo_part = df['Memo'].astype(str).str.lower().str.strip()
         else:
-            memo = pd.Series([''] * len(df), index=df.index)
-        return date + '|' + payee + '|' + amount + '|' + memo
-    new_keys = make_key(new_df)
-    prev_keys = set(make_key(prev_df))
-    mask = ~new_keys.isin(prev_keys)
-    return new_df[mask].copy()
+            memo_part = pd.Series([''] * len(df), index=df.index)
+        return date_part + '|' + payee_part + '|' + amount_part + '|' + memo_part
+
+    new_keys = make_key(new_copy)
+    prev_keys = set(make_key(prev_copy))
+    mask_unique = ~new_keys.isin(prev_keys)
+
+    filtered = new_copy[mask_newer & mask_unique].copy()
+    filtered['Date'] = filtered['Date'].dt.strftime(DATE_FMT_YNAB)
+
+    excluded_count = len(new_copy) - len(filtered)
+    if excluded_count > 0:
+        logger.info("Excluded %d duplicate or older transactions", excluded_count)
+
+    # Preserve original column order
+    return filtered[new_df.columns].copy()
 
 
 def validate_dataframe(df: pd.DataFrame, required_columns: list) -> None:

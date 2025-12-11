@@ -7,7 +7,7 @@ __all__ = [
     'APP_NAME', 'ORGANIZATION',
     'DATE_FMT_ACCOUNT', 'DATE_FMT_YNAB',
     'SUPPORTED_EXT',
-    'get_settings', 'SETTINGS_DIR', 'SETTINGS_FILE', 'KEY_FILE',
+    'get_settings', 'SETTINGS_DIR', 'SETTINGS_FILE', 'KEY_FILE', 'ACTUAL_SETTINGS_FILE',
     'get_logger',
     'DUP_CHECK_DAYS', 'DUP_CHECK_COUNT',
 ]
@@ -27,6 +27,7 @@ DUP_CHECK_COUNT = 500
 SETTINGS_DIR = Path.home() / f".{APP_NAME}"
 SETTINGS_FILE = str(SETTINGS_DIR / "settings.txt")
 KEY_FILE = str(SETTINGS_DIR / "settings.key")
+ACTUAL_SETTINGS_FILE = str(SETTINGS_DIR / "actual_settings.txt")
 
 
 def ensure_app_dir() -> None:

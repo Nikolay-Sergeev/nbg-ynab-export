@@ -73,7 +73,12 @@ class ActualBridgeRunner:
         return self._send(payload)
 
     def upload_transactions(self, budget_id: str, account_id: str, transactions: list) -> Dict[str, Any]:
-        return self._send({"cmd": "uploadTransactions", "budgetId": budget_id, "accountId": account_id, "transactions": transactions})
+        return self._send({
+            "cmd": "uploadTransactions",
+            "budgetId": budget_id,
+            "accountId": account_id,
+            "transactions": transactions,
+        })
 
     def close(self):
         try:

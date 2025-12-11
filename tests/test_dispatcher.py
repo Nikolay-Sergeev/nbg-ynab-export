@@ -14,6 +14,7 @@ class TestDetectProcessor(unittest.TestCase):
             'Amount': ['-4.50'],
             'Fee': ['0.00'],
             'State': ['COMPLETED'],
+            'Currency': ['EUR'],
         })
         self.account_df = pd.DataFrame({
             'Valeur': ['15/07/2025'],
@@ -55,4 +56,3 @@ class TestDetectProcessor(unittest.TestCase):
         df = pd.DataFrame({'Column1': [1], 'Column2': [2]})
         with self.assertRaises(ValueError):
             detect_processor(df, self.processors)
-

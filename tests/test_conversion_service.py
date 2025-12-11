@@ -458,10 +458,10 @@ class TestTransactionExclusion(unittest.TestCase):
         """Test excluding existing transactions."""
         result = exclude_existing_transactions(self.new_transactions, self.previous_transactions)
         
-        # Should exclude transactions that exist in previous_transactions
-        self.assertEqual(len(result), 2)
-        self.assertListEqual(list(result['Payee']), ['Grocery Store', 'Gas Station'])
-        self.assertListEqual(list(result['Amount']), [-65.30, -35.75])
+        # Should exclude duplicates and transactions older than latest previous date
+        self.assertEqual(len(result), 1)
+        self.assertListEqual(list(result['Payee']), ['Gas Station'])
+        self.assertListEqual(list(result['Amount']), [-35.75])
 
     def test_exclude_existing_case_insensitive(self):
         """Test excluding transactions with case-insensitive matching."""
@@ -472,9 +472,9 @@ class TestTransactionExclusion(unittest.TestCase):
         
         result = exclude_existing_transactions(self.new_transactions, case_insensitive_prev)
         
-        # Should still exclude the coffee shop transaction despite case difference
-        self.assertEqual(len(result), 2)
-        self.assertListEqual(list(result['Payee']), ['Grocery Store', 'Gas Station'])
+        # Should still exclude duplicates and older transactions despite case difference
+        self.assertEqual(len(result), 1)
+        self.assertListEqual(list(result['Payee']), ['Gas Station'])
 
     def test_exclude_existing_empty_previous(self):
         """Test excluding with empty previous transactions."""

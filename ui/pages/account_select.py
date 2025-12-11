@@ -139,7 +139,6 @@ class AccountSelectionPage(QWidget):
         self.logger.info("[AccountSelectionPage] initializePage called; target=%s client=%s",
                          getattr(self.controller, 'export_target', None),
                          type(getattr(self.controller, 'ynab', None)).__name__)
-        target = getattr(self.controller, 'export_target', 'YNAB')
         if not self.controller.ynab:
             self.logger.info("[AccountSelectionPage] No API client, skipping fetch")
             return

@@ -407,7 +407,11 @@ class SidebarWizardWindow(QMainWindow):
                     self.update_nav_buttons()
                     return
             # Route Authorize step to Actual auth when selected
-            if index == 1 and getattr(self.controller, 'export_target', 'YNAB') == 'ACTUAL_API' and hasattr(self, 'actual_auth_page') and self.actual_auth_page is not None:
+            if (
+                index == 1
+                and getattr(self.controller, 'export_target', 'YNAB') == 'ACTUAL_API'
+                and getattr(self, 'actual_auth_page', None) is not None
+            ):
                 page = self.actual_auth_page
                 if hasattr(page, 'initializePage'):
                     page.initializePage()
@@ -583,8 +587,6 @@ def load_style(app: QApplication):
         print(f"[Icon] app_icon.svg not found at {ICON_PATH}. Using default icon.")
 
     # Setup platform-specific style
-    from PyQt5.QtGui import QPalette, QColor
-
     # Use system font on macOS
     if sys.platform.startswith('darwin'):
         # Try to load system font

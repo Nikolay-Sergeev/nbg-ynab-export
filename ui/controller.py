@@ -4,9 +4,9 @@ from services.ynab_client import YnabClient
 from services.actual_client import ActualClient
 from services.conversion_service import ConversionService
 from config import DUP_CHECK_DAYS, DUP_CHECK_COUNT, get_logger, SETTINGS_DIR, ensure_app_dir
+import re
 
 logger = get_logger(__name__)
-import re
 
 
 # --- Worker Classes --- #

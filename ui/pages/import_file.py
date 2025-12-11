@@ -337,6 +337,10 @@ class ImportFilePage(QWizardPage):
         lines.append(f"FOLDER:{folder}\n")
         with open(SETTINGS_FILE, "w") as f:
             f.writelines(lines)
+        try:
+            os.chmod(SETTINGS_FILE, 0o600)
+        except OSError:
+            pass
 
     def handle_file_selected(self, file_path):
         logger.info("[ImportFilePage] handle_file_selected: %s", file_path)

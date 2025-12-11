@@ -16,8 +16,9 @@ from PyQt5.QtCore import Qt, QUrl
 from PyQt5.QtGui import QIcon, QColor, QCursor, QDesktopServices
 import os
 import sys
-from config import SETTINGS_FILE, KEY_FILE
-from cryptography.fernet import Fernet
+from config import SETTINGS_FILE
+from cryptography.fernet import Fernet  # noqa: F401 (kept for tests patching)
+from services import token_manager as _token_manager
 
 YNAB_DOCS_URL = "https://api.ynab.com/#personal-access-tokens"
 
@@ -155,6 +156,10 @@ class YNABAuthPage(QWizardPage):
                 lines.append(f"TOKEN:{enc_token}\n")
                 with open(SETTINGS_FILE, "w") as f:
                     f.writelines(lines)
+                try:
+                    os.chmod(SETTINGS_FILE, 0o600)
+                except OSError:
+                    pass
             except Exception as e:
                 self.error_label.setText(f"Error saving token: {str(e)}")
                 return False
@@ -222,6 +227,10 @@ class YNABAuthPage(QWizardPage):
             lines.append(f"TOKEN:{enc_token}\n")
             with open(SETTINGS_FILE, "w") as f:
                 f.writelines(lines)
+            try:
+                os.chmod(SETTINGS_FILE, 0o600)
+            except OSError:
+                pass
         self.controller.authorize(token, save)
         self.go_forward()
 
@@ -242,24 +251,19 @@ class YNABAuthPage(QWizardPage):
                 pass
 
     def encrypt_token(self, token):
-        key = self.load_key()
-        f = Fernet(key)
-        return f.encrypt(token.encode()).decode()
+        # Delegate to shared token manager for key generation and encryption.
+        return _token_manager.encrypt_token(token).decode()
 
     def decrypt_token(self, token_enc):
-        key = self.load_key()
-        f = Fernet(key)
-        return f.decrypt(token_enc.encode()).decode()
+        return _token_manager.decrypt_token(token_enc.encode())
 
     def load_key(self):
-        if not os.path.exists(KEY_FILE):
-            key = Fernet.generate_key()
-            with open(KEY_FILE, "wb") as f:
-                f.write(key)
-        else:
-            with open(KEY_FILE, "rb") as f:
-                key = f.read()
-        return key
+        try:
+            return _token_manager.load_key()
+        except FileNotFoundError:
+            key = _token_manager.generate_key()
+            _token_manager.save_key(key)
+            return key
 
     def go_back(self):
         """Navigate to the previous page."""

@@ -6,9 +6,9 @@ from pathlib import Path
 
 from config import get_logger, SUPPORTED_EXT
 from converter.utils import read_input, exclude_existing, write_output
-from converter.account import process_account, REQUIRED as ACCOUNT_REQUIRED
-from converter.card import process_card, REQUIRED as CARD_REQUIRED
-from converter.revolut import process_revolut, REQUIRED as REVOLUT_REQUIRED
+from converter.account import process_account
+from converter.card import process_card
+from converter.revolut import process_revolut
 from converter.dispatcher import detect_processor
 
 logger = get_logger(__name__)

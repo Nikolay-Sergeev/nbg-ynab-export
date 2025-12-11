@@ -1,4 +1,3 @@
-import logging
 from typing import Optional
 from pathlib import Path
 from config import get_logger
@@ -17,12 +16,20 @@ class ActualClient:
     in this client accordingly.
     """
 
-    def __init__(self, base_url: str, password: str, data_dir: Optional[str] = None, bridge: Optional[ActualBridgeRunner] = None):
+    def __init__(
+        self,
+        base_url: str,
+        password: str,
+        data_dir: Optional[str] = None,
+        bridge: Optional[ActualBridgeRunner] = None,
+    ):
         # Bridge-based client using @actual-app/api via Node
         self.base_url = base_url.rstrip('/')
         self.password = password
         # Bridge can be injected for testing
-        self.bridge = bridge or ActualBridgeRunner(project_root=Path(__file__).resolve().parent.parent)
+        self.bridge = bridge or ActualBridgeRunner(
+            project_root=Path(__file__).resolve().parent.parent
+        )
         init_resp = self.bridge.init(self.base_url, self.password, data_dir)
         if not init_resp.get("ok"):
             raise RuntimeError(init_resp.get("error") or "Failed to init Actual bridge")
@@ -65,9 +72,20 @@ class ActualClient:
             raise RuntimeError(resp.get("error") or "Failed to list accounts")
         return resp.get("accounts") or []
 
-    def get_transactions(self, budget_id: str, account_id: str, count: int = None, page: int = None, since_date: str = None) -> list:
+    def get_transactions(
+        self,
+        budget_id: str,
+        account_id: str,
+        count: int = None,
+        page: int = None,
+        since_date: str = None,
+    ) -> list:
         """Return recent transactions in a YNAB-like shape for display: date, payee_name, amount, memo."""
-        logger.info("[ActualClient] Fetching transactions for budget=%s account=%s via bridge", budget_id, account_id)
+        logger.info(
+            "[ActualClient] Fetching transactions for budget=%s account=%s via bridge",
+            budget_id,
+            account_id,
+        )
         resp = self.bridge.list_transactions(budget_id, account_id, count=count)
         if not resp.get("ok"):
             raise RuntimeError(resp.get("error") or "Failed to list transactions")
@@ -86,4 +104,9 @@ class ActualClient:
         if not resp.get("ok"):
             raise RuntimeError(resp.get("error") or "Failed to upload transactions")
         uploaded = resp.get("uploaded", 0)
-        return {'data': {'transaction_ids': [str(i) for i in range(uploaded)], 'transactions': [{}] * uploaded}}
+        return {
+            'data': {
+                'transaction_ids': [str(i) for i in range(uploaded)],
+                'transactions': [{}] * uploaded,
+            }
+        }

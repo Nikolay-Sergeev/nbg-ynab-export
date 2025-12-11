@@ -1,6 +1,7 @@
 import requests
 import logging
 import os
+from config import SETTINGS_DIR, ensure_app_dir
 
 # Setup YNAB API debug logging
 # Prefer a writable path inside the project to avoid sandbox issues.
@@ -11,9 +12,13 @@ try:
     # Allow overriding via env var
     base_dir = os.getenv('YNAB_LOG_DIR')
     if not base_dir:
-        # Default to project root /.nbg-ynab-export (services/.. = project root)
-        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        base_dir = os.path.join(project_root, '.nbg-ynab-export')
+        # Default to user settings dir (~/.nbg-ynab-export), fallback to project-local if needed.
+        try:
+            ensure_app_dir()
+            base_dir = str(SETTINGS_DIR)
+        except Exception:
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            base_dir = os.path.join(project_root, '.nbg-ynab-export')
     os.makedirs(base_dir, exist_ok=True)
     ynab_log_file = os.path.join(base_dir, 'ynab_api.log')
 
@@ -22,7 +27,7 @@ try:
         logging.Formatter('%(asctime)s %(levelname)s %(message)s')
     )
     api_logger.addHandler(api_file_handler)
-except Exception as _e:
+except Exception:
     # Fall back to a null handler if we cannot write logs
     api_logger.addHandler(logging.NullHandler())
 

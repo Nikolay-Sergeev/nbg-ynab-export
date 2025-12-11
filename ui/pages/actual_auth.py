@@ -1,12 +1,11 @@
 from PyQt5.QtWidgets import (
     QWizardPage, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QCheckBox,
-    QPushButton, QFrame, QSizePolicy
+    QFrame, QSizePolicy
 )
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QIcon
 import os
-from config import SETTINGS_FILE, KEY_FILE, get_logger, ensure_app_dir
-from cryptography.fernet import Fernet
+from config import SETTINGS_FILE, ACTUAL_SETTINGS_FILE, get_logger, ensure_app_dir
+from services import token_manager as _token_manager
 
 
 class ActualAuthPage(QWizardPage):
@@ -93,17 +92,30 @@ class ActualAuthPage(QWizardPage):
             if self.save_checkbox.isChecked():
                 try:
                     ensure_app_dir()
-                    url_lines = []
+                    enc_pwd = _token_manager.encrypt_token(pwd).decode()
+                    with open(ACTUAL_SETTINGS_FILE, 'w') as f:
+                        f.write(f"ACTUAL_URL:{url}\n")
+                        f.write(f"ACTUAL_PWD:{enc_pwd}\n")
+                    try:
+                        os.chmod(ACTUAL_SETTINGS_FILE, 0o600)
+                    except OSError:
+                        pass
+                    # Remove legacy Actual credentials from shared settings file if present.
                     if os.path.exists(SETTINGS_FILE):
-                        with open(SETTINGS_FILE, 'r') as f:
-                            for line in f:
-                                if line.startswith("FOLDER:") or line.startswith("TOKEN:"):
-                                    url_lines.append(line)
-                    enc_pwd = self.encrypt(pwd)
-                    url_lines.append(f"ACTUAL_URL:{url}\n")
-                    url_lines.append(f"ACTUAL_PWD:{enc_pwd}\n")
-                    with open(SETTINGS_FILE, 'w') as f:
-                        f.writelines(url_lines)
+                        try:
+                            with open(SETTINGS_FILE, 'r') as f:
+                                lines = [
+                                    ln for ln in f
+                                    if not (ln.startswith("ACTUAL_URL:") or ln.startswith("ACTUAL_PWD:"))
+                                ]
+                            with open(SETTINGS_FILE, 'w') as f:
+                                f.writelines(lines)
+                            try:
+                                os.chmod(SETTINGS_FILE, 0o600)
+                            except OSError:
+                                pass
+                        except Exception:
+                            pass
                 except Exception as e:
                     self.error_label.setText(f"Error saving credentials: {e}")
                     self.logger.error("[ActualAuthPage] Error saving credentials: %s", e)
@@ -136,36 +148,51 @@ class ActualAuthPage(QWizardPage):
 
     def load_saved(self):
         ensure_app_dir()
-        if os.path.exists(SETTINGS_FILE):
+        # Prefer dedicated Actual settings file.
+        if os.path.exists(ACTUAL_SETTINGS_FILE):
             try:
-                with open(SETTINGS_FILE, 'r') as f:
+                with open(ACTUAL_SETTINGS_FILE, 'r') as f:
                     for line in f:
                         if line.startswith('ACTUAL_URL:'):
                             self.url_input.setText(line.split('ACTUAL_URL:', 1)[1].strip())
                         elif line.startswith('ACTUAL_PWD:'):
                             enc = line.split('ACTUAL_PWD:', 1)[1].strip()
                             try:
-                                self.pwd_input.setText(self.decrypt(enc))
+                                self.pwd_input.setText(_token_manager.decrypt_token(enc.encode()))
                             except Exception:
                                 pass
+                return
             except Exception:
                 pass
 
-    def encrypt(self, text: str) -> str:
-        key = self._load_key()
-        f = Fernet(key)
-        return f.encrypt(text.encode()).decode()
-
-    def decrypt(self, token: str) -> str:
-        key = self._load_key()
-        f = Fernet(key)
-        return f.decrypt(token.encode()).decode()
-
-    def _load_key(self) -> bytes:
-        if not os.path.exists(KEY_FILE):
-            key = Fernet.generate_key()
-            with open(KEY_FILE, 'wb') as f:
-                f.write(key)
-            return key
-        with open(KEY_FILE, 'rb') as f:
-            return f.read()
+        # Legacy fallback: read from shared settings.txt and migrate if found.
+        if os.path.exists(SETTINGS_FILE):
+            legacy_url = None
+            legacy_pwd = None
+            try:
+                with open(SETTINGS_FILE, 'r') as f:
+                    for line in f:
+                        if line.startswith('ACTUAL_URL:'):
+                            legacy_url = line.split('ACTUAL_URL:', 1)[1].strip()
+                        elif line.startswith('ACTUAL_PWD:'):
+                            legacy_pwd = line.split('ACTUAL_PWD:', 1)[1].strip()
+                if legacy_url:
+                    self.url_input.setText(legacy_url)
+                if legacy_pwd:
+                    try:
+                        self.pwd_input.setText(_token_manager.decrypt_token(legacy_pwd.encode()))
+                    except Exception:
+                        pass
+                if legacy_url and legacy_pwd:
+                    try:
+                        with open(ACTUAL_SETTINGS_FILE, 'w') as f:
+                            f.write(f"ACTUAL_URL:{legacy_url}\n")
+                            f.write(f"ACTUAL_PWD:{legacy_pwd}\n")
+                        try:
+                            os.chmod(ACTUAL_SETTINGS_FILE, 0o600)
+                        except OSError:
+                            pass
+                    except Exception:
+                        pass
+            except Exception:
+                pass

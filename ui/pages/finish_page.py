@@ -1,6 +1,5 @@
 from PyQt5.QtWidgets import (
     QFrame, QLabel, QVBoxLayout, QWizardPage, QSizePolicy,
-    QHBoxLayout, QPushButton
 )
 from PyQt5.QtCore import Qt
 import sys

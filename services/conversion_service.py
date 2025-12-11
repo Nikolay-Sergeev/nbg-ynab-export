@@ -182,8 +182,14 @@ class ConversionService:
             prev_df = load_previous_transactions(previous_ynab)
             # Align prev_df columns to same names for comparison if needed
             if set(['Date', 'Payee', 'Memo', 'Amount']).issubset(prev_df.columns):
-                prev_df = prev_df.rename(columns={'Date': 'date', 'Payee': 'payee', 'Memo': 'notes', 'Amount': 'amount'})
+                prev_df = prev_df.rename(columns={
+                    'Date': 'date',
+                    'Payee': 'payee',
+                    'Memo': 'notes',
+                    'Amount': 'amount',
+                })
             # Use the same exclusion logic (case-insensitive)
+
             def create_key(df):
                 return (
                     df['date'].astype(str) + '|' +
@@ -192,7 +198,8 @@ class ConversionService:
                     df['notes'].astype(str).str.lower().str.strip()
                 )
             new_keys = create_key(actual_df)
-            prev_keys = set(create_key(prev_df)) if set(['date','payee','amount','notes']).issubset(prev_df.columns) else set()
+            prev_cols = {'date', 'payee', 'amount', 'notes'}
+            prev_keys = set(create_key(prev_df)) if prev_cols.issubset(prev_df.columns) else set()
             mask = ~new_keys.isin(prev_keys)
             actual_df = actual_df[mask].copy()
 

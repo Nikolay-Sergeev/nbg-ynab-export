@@ -10,7 +10,7 @@ import converter.card as _card
 import converter.account as _account
 import converter.utils as _utils
 
-from constants import (
+from constants import (  # noqa: F401 (re-exported for legacy/tests)
     ACCOUNT_REQUIRED_COLUMNS,
     CARD_REQUIRED_COLUMNS,
     DATE_FMT_YNAB,
@@ -67,38 +67,8 @@ def exclude_existing_transactions(
     new_df: pd.DataFrame,
     prev_df: pd.DataFrame,
 ) -> pd.DataFrame:
-    """Remove duplicate and older transactions."""
-    if prev_df.empty:
-        return new_df
-
-    new_df = new_df.copy()
-    new_df['Date'] = pd.to_datetime(new_df['Date'])
-    prev_df['Date'] = pd.to_datetime(prev_df['Date'])
-
-    latest_prev_date = prev_df['Date'].max()
-
-    # Allow same-day transactions if they're not duplicates
-    mask_newer = new_df['Date'] >= latest_prev_date
-
-    # Create unique transaction identifier
-    def create_key(df: pd.DataFrame) -> pd.Series:
-        return (df['Date'].dt.strftime('%Y-%m-%d') + '_' +
-                df['Payee'] + '_' +
-                df['Amount'].astype(str))
-
-    new_keys = create_key(new_df)
-    prev_keys = create_key(prev_df)
-    mask_unique = ~new_keys.isin(prev_keys)
-
-    filtered_df = new_df[mask_newer & mask_unique].copy()
-    filtered_df['Date'] = filtered_df['Date'].dt.strftime(DATE_FMT_YNAB)
-
-    excluded_count = len(new_df) - len(filtered_df)
-    if excluded_count > 0:
-        logging.info(
-            f"Excluded {excluded_count} duplicate or older transactions")
-
-    return filtered_df
+    """Remove duplicate and older transactions using shared utils logic."""
+    return _utils.exclude_existing(new_df, prev_df)
 
 
 def generate_output_filename(input_file: str, is_revolut: bool = False) -> str:
