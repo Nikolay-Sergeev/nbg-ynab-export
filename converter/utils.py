@@ -4,7 +4,7 @@ from datetime import datetime
 import pandas as pd
 import csv
 import re
-from typing import Union
+from typing import Optional, Union
 import unicodedata
 from constants import DATE_FMT_YNAB
 from config import get_logger
@@ -132,7 +132,12 @@ def extract_date_from_filename(filename: str) -> str:
     return ''
 
 
-def generate_output_filename(input_file: str) -> str:
+def generate_output_filename(
+    input_file: str,
+    *,
+    output_dir: Optional[Union[str, Path]] = None,
+    force_today: bool = False,
+) -> str:
     """
     Generate YNAB CSV output filename based on input file path, stripping existing date.
     """
@@ -140,8 +145,11 @@ def generate_output_filename(input_file: str) -> str:
     base = path.stem
     # Remove existing trailing date patterns
     base = re.sub(r'(_)?(\d{4}-\d{2}-\d{2}|\d{2}-\d{2}-\d{4})$', '', base)
-    date_str = extract_date_from_filename(path.stem)
+    date_str = ''
+    if not force_today:
+        date_str = extract_date_from_filename(path.stem)
     if not date_str:
         date_str = datetime.now().strftime(DATE_FMT_YNAB)
     filename = f"{base}_{date_str}_ynab.csv"
-    return str(path.with_name(filename))
+    directory = Path(output_dir) if output_dir else path.parent
+    return str(directory / filename)

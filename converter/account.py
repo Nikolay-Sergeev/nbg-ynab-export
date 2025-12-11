@@ -4,9 +4,11 @@ from constants import (
     DATE_FMT_ACCOUNT,
     DATE_FMT_YNAB,
     ACCOUNT_REQUIRED_COLUMNS,
+    ECOMMERCE_CLEANUP_PATTERN,
+    SECURE_ECOMMERCE_CLEANUP_PATTERN,
 )
 from config import get_logger
-from .utils import validate_dataframe, convert_amount
+from .utils import validate_dataframe, convert_amount, strip_accents
 
 logger = get_logger(__name__)
 
@@ -25,8 +27,12 @@ def process_account(df: pd.DataFrame) -> pd.DataFrame:
           .dt.strftime(DATE_FMT_YNAB)
     )
     if df_copy['Date'].isna().any():
-        raise ValueError("Invalid dates in account export")
-    df_copy['Payee'] = df_copy['Ονοματεπώνυμο αντισυμβαλλόμενου']
+        raise ValueError("Invalid date format in account export")
+    payee = df_copy['Ονοματεπώνυμο αντισυμβαλλόμενου'].fillna('')
+    payee = payee.astype(str)
+    payee = payee.str.replace(SECURE_ECOMMERCE_CLEANUP_PATTERN, '', regex=True)
+    payee = payee.str.replace(ECOMMERCE_CLEANUP_PATTERN, '', regex=True)
+    df_copy['Payee'] = payee.str.strip()
     df_copy['Memo'] = df_copy['Περιγραφή']
     # Fallback: use memo text when payee is missing/blank
     df_copy['Payee'] = df_copy['Payee'].mask(
@@ -35,7 +41,7 @@ def process_account(df: pd.DataFrame) -> pd.DataFrame:
     )
     # Amount with robust sign handling based on debit/credit column
     df_copy['Amount'] = df_copy['Ποσό συναλλαγής'].apply(convert_amount)
-    indicator = df_copy['Χρέωση / Πίστωση'].astype(str).str.strip().str.upper()
+    indicator = strip_accents(df_copy['Χρέωση / Πίστωση'].astype(str).str.strip()).str.upper()
     is_debit = (
         indicator.eq('ΧΡΕΩΣΗ') |
         indicator.eq('Χ') |

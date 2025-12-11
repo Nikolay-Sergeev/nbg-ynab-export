@@ -1,139 +1,86 @@
-import pandas as pd
-import os
 import csv
 import logging
+import os
+from pathlib import Path
 from typing import Optional
-from datetime import datetime
-import re
+
+import pandas as pd
+
 from config import SETTINGS_DIR
 from constants import (
-    DATE_FMT_ACCOUNT,
-    DATE_FMT_CARD,
-    DATE_FMT_YNAB,
     ACCOUNT_REQUIRED_COLUMNS,
     CARD_REQUIRED_COLUMNS,
     REVOLUT_REQUIRED_COLUMNS,
-    ACCOUNT_DATE_COLUMN,
-    ACCOUNT_PAYEE_COLUMN,
-    ACCOUNT_MEMO_COLUMN,
-    ACCOUNT_AMOUNT_COLUMN,
-    ACCOUNT_DEBIT_CREDIT_COLUMN,
-    CARD_DATE_COLUMN,
-    CARD_PAYEE_COLUMN,
-    CARD_AMOUNT_COLUMN,
-    CARD_DEBIT_CREDIT_COLUMN,
-    REVOLUT_DATE_COLUMN,
-    REVOLUT_PAYEE_COLUMN,
-    REVOLUT_TYPE_COLUMN,
-    REVOLUT_AMOUNT_COLUMN,
-    REVOLUT_FEE_COLUMN,
-    REVOLUT_STATE_COLUMN,
-    REVOLUT_CURRENCY_COLUMN,
-    MEMO_CLEANUP_PATTERN,
-    ECOMMERCE_CLEANUP_PATTERN,
-    SECURE_ECOMMERCE_CLEANUP_PATTERN,
 )
+from converter.account import process_account
+from converter.card import process_card
+from converter.revolut import process_revolut, validate_revolut_currency
 from converter.utils import (
+    exclude_existing,
+    extract_date_from_filename,
+    generate_output_filename as utils_generate_output_filename,
     normalize_column_name,
     validate_dataframe,
     convert_amount,
     strip_accents,
 )
 
-# --- Conversion functions ---
+__all__ = [
+    'normalize_column_name',
+    'validate_dataframe',
+    'convert_amount',
+    'strip_accents',
+    'process_account_operations',
+    'process_card_operations',
+    'process_revolut_operations',
+    'validate_revolut_currency',
+    'exclude_existing_transactions',
+    'extract_date_from_filename',
+    'generate_output_filename',
+    'generate_actual_output_filename',
+    'validate_input_file',
+    'ConversionService',
+    'load_previous_transactions',
+]
+
+# Keep shared helpers imported from converter.utils to avoid divergence.
+exclude_existing_transactions = exclude_existing
+
+
 def process_account_operations(df: pd.DataFrame) -> pd.DataFrame:
-    validate_dataframe(df, ACCOUNT_REQUIRED_COLUMNS)
     try:
-        ynab_df = pd.DataFrame()
-        ynab_df['Date'] = pd.to_datetime(
-            df[ACCOUNT_DATE_COLUMN], format=DATE_FMT_ACCOUNT, errors='coerce'
-        ).dt.strftime(DATE_FMT_YNAB)
-        if ynab_df['Date'].isna().any():
-            raise ValueError(f"Invalid date format found in {ACCOUNT_DATE_COLUMN}")
-        ynab_df['Payee'] = df[ACCOUNT_PAYEE_COLUMN].str.replace(ECOMMERCE_CLEANUP_PATTERN, '', regex=True)
-        ynab_df['Payee'] = ynab_df['Payee'].str.replace(SECURE_ECOMMERCE_CLEANUP_PATTERN, '', regex=True)
-        ynab_df['Memo'] = df[ACCOUNT_MEMO_COLUMN]
-        # Fallback: if Payee is empty, use Memo
-        ynab_df['Payee'] = ynab_df['Payee'].mask(ynab_df['Payee'].isnull() | (
-            ynab_df['Payee'].astype(str).str.strip() == ''), ynab_df['Memo'])
-        # Robust sign handling: use debit/credit indicator to set sign deterministically
-        ynab_df['Amount'] = df[ACCOUNT_AMOUNT_COLUMN].apply(convert_amount)
-        # Normalize accents before uppercasing to match 'Χρέωση'/'Πίστωση' reliably
-        indicator = strip_accents(df[ACCOUNT_DEBIT_CREDIT_COLUMN].astype(str).str.strip()).str.upper()
-        # Greek Χρέωση/Πίστωση plus English fallbacks
-        is_debit = (
-            indicator.eq('ΧΡΕΩΣΗ') |
-            indicator.eq('Χ') |
-            indicator.eq('DEBIT') |
-            indicator.eq('D')
-        )
-        is_credit = (
-            indicator.eq('ΠΙΣΤΩΣΗ') |
-            indicator.eq('Π') |
-            indicator.eq('CREDIT') |
-            indicator.eq('C')
-        )
-        ynab_df.loc[is_debit, 'Amount'] = -ynab_df.loc[is_debit, 'Amount'].abs()
-        ynab_df.loc[is_credit, 'Amount'] = ynab_df.loc[is_credit, 'Amount'].abs()
-        ynab_df['Amount'] = ynab_df['Amount'].round(2)
-        return ynab_df
-    except Exception as e:
-        raise ValueError(f"Error processing account operations: {str(e)}")
+        return process_account(df)
+    except Exception as exc:
+        raise ValueError(f"Error processing account operations: {exc}")
 
 
 def process_card_operations(df: pd.DataFrame) -> pd.DataFrame:
-    validate_dataframe(df, CARD_REQUIRED_COLUMNS)
     try:
-        ynab_df = pd.DataFrame()
-        ynab_df['Date'] = pd.to_datetime(
-            df[CARD_DATE_COLUMN].apply(lambda x: x.split()[0]),
-            format=DATE_FMT_CARD
-        ).dt.strftime(DATE_FMT_YNAB)
-        if ynab_df['Date'].isna().any():
-            raise ValueError(f"Invalid date format found in {CARD_DATE_COLUMN}")
-        # Clean up payee: remove parenthetical text, then ecommerce prefixes
-        raw_payee = df[CARD_PAYEE_COLUMN].str.replace(MEMO_CLEANUP_PATTERN, '', regex=True)
-        payee = raw_payee.str.replace(SECURE_ECOMMERCE_CLEANUP_PATTERN, '', regex=True)
-        payee = payee.str.replace(ECOMMERCE_CLEANUP_PATTERN, '', regex=True)
-        ynab_df['Payee'] = payee.str.strip()
-        ynab_df['Memo'] = df[CARD_PAYEE_COLUMN]
-        # Robust sign handling for card statements
-        ynab_df['Amount'] = df[CARD_AMOUNT_COLUMN].apply(convert_amount)
-        if CARD_DEBIT_CREDIT_COLUMN in df.columns:
-            indicator = strip_accents(df[CARD_DEBIT_CREDIT_COLUMN].astype(str).str.strip()).str.upper()
-            is_debit = indicator.eq('Χ') | indicator.eq('DEBIT') | indicator.eq('D')
-            is_credit = indicator.eq('Π') | indicator.eq('CREDIT') | indicator.eq('C')
-            ynab_df.loc[is_debit, 'Amount'] = -ynab_df.loc[is_debit, 'Amount'].abs()
-            ynab_df.loc[is_credit, 'Amount'] = ynab_df.loc[is_credit, 'Amount'].abs()
-        ynab_df['Amount'] = ynab_df['Amount'].round(2)
-        return ynab_df
-    except Exception as e:
-        raise ValueError(f"Error processing card operations: {str(e)}")
-
-
-def validate_revolut_currency(df: pd.DataFrame) -> None:
-    if not all(df[REVOLUT_CURRENCY_COLUMN] == 'EUR'):
-        raise ValueError("Revolut export must only contain EUR transactions.")
+        return process_card(df)
+    except Exception as exc:
+        raise ValueError(f"Error processing card operations: {exc}")
 
 
 def process_revolut_operations(df: pd.DataFrame) -> pd.DataFrame:
-    validate_dataframe(df, REVOLUT_REQUIRED_COLUMNS)
-    validate_revolut_currency(df)
     try:
-        ynab_df = pd.DataFrame()
-        ynab_df['Date'] = pd.to_datetime(df[REVOLUT_DATE_COLUMN]).dt.strftime(DATE_FMT_YNAB)
-        ynab_df['Payee'] = df[REVOLUT_PAYEE_COLUMN]
-        ynab_df['Memo'] = df[REVOLUT_TYPE_COLUMN]
-        # Amount minus fee, only for COMPLETED
-        completed = df[REVOLUT_STATE_COLUMN] == 'COMPLETED'
-        amounts = df[REVOLUT_AMOUNT_COLUMN].apply(convert_amount)
-        fees = df[REVOLUT_FEE_COLUMN].apply(convert_amount)
-        ynab_df['Amount'] = amounts - fees
-        ynab_df = ynab_df[completed].copy()
-        ynab_df['Amount'] = ynab_df['Amount'].round(2)
-        return ynab_df
-    except Exception as e:
-        raise ValueError(f"Error processing Revolut operations: {str(e)}")
+        return process_revolut(df)
+    except Exception as exc:
+        raise ValueError(f"Error processing Revolut operations: {exc}")
+
+
+def generate_output_filename(
+    input_file: str,
+    is_revolut: bool = False,
+    output_dir: Optional[str] = None,
+) -> str:
+    """Consistently build YNAB output filenames without duplicating logic."""
+    target_dir = Path(output_dir) if output_dir else Path(input_file).parent
+    target_dir.mkdir(parents=True, exist_ok=True)
+    return utils_generate_output_filename(
+        input_file,
+        output_dir=target_dir,
+        force_today=is_revolut,
+    )
 
 
 def load_previous_transactions(csv_file: str) -> pd.DataFrame:
@@ -143,62 +90,16 @@ def load_previous_transactions(csv_file: str) -> pd.DataFrame:
         raise ValueError(f"Failed to load previous transactions: {str(e)}")
 
 
-def exclude_existing_transactions(new_df: pd.DataFrame, prev_df: pd.DataFrame) -> pd.DataFrame:
-    def create_key(df):
-        return (
-            df['Date'].astype(str) + '|' +
-            df['Payee'].astype(str).str.lower().str.strip() + '|' +
-            df['Amount'].astype(str) + '|' +
-            df['Memo'].astype(str).str.lower().str.strip()
-        )
-    new_keys = create_key(new_df)
-    prev_keys = set(create_key(prev_df))
-    mask = ~new_keys.isin(prev_keys)
-    return new_df[mask].copy()
-
-
-def extract_date_from_filename(filename: str) -> str:
-    match = re.search(r'(\d{2}-\d{2}-\d{4})', filename)
-    if match:
-        dt = datetime.strptime(match.group(1), '%d-%m-%Y')
-        return dt.strftime(DATE_FMT_YNAB)
-    return ''
-
-
-def generate_output_filename(
-    input_file: str,
-    is_revolut: bool = False,
-    output_dir: Optional[str] = None,
-) -> str:
-    base, _ = os.path.splitext(os.path.basename(input_file))
-    base = re.sub(r'(?:_)?(\d{2}-\d{2}-\d{4}|\d{4}-\d{2}-\d{2})$', '', base)
-    if is_revolut:
-        date_str = datetime.now().strftime(DATE_FMT_YNAB)
-    else:
-        date_str = extract_date_from_filename(os.path.basename(input_file))
-        if not date_str:
-            date_str = datetime.now().strftime(DATE_FMT_YNAB)
-    suffix = 'ynab.csv'
-    target_dir = output_dir or SETTINGS_DIR
-    try:
-        os.makedirs(target_dir, exist_ok=True)
-    except Exception:
-        target_dir = SETTINGS_DIR
-        os.makedirs(target_dir, exist_ok=True)
-    return os.path.join(target_dir, f"{base}_{date_str}_{suffix}")
-
-
 def generate_actual_output_filename(input_file: str, is_revolut: bool = False) -> str:
-    base, _ = os.path.splitext(os.path.basename(input_file))
-    base = re.sub(r'(?:_)?(\d{2}-\d{2}-\d{4}|\d{4}-\d{2}-\d{2})$', '', base)
-    if is_revolut:
-        date_str = datetime.now().strftime(DATE_FMT_YNAB)
-    else:
-        date_str = extract_date_from_filename(os.path.basename(input_file))
-        if not date_str:
-            date_str = datetime.now().strftime(DATE_FMT_YNAB)
-    suffix = 'actual.csv'
-    return os.path.join(SETTINGS_DIR, f"{base}_{date_str}_{suffix}")
+    ynab_path = Path(
+        generate_output_filename(
+            input_file,
+            is_revolut=is_revolut,
+            output_dir=SETTINGS_DIR,
+        )
+    )
+    actual_name = ynab_path.name.replace('_ynab.csv', '_actual.csv')
+    return str(ynab_path.with_name(actual_name))
 
 
 def validate_input_file(file_path: str) -> None:

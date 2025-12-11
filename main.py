@@ -6,10 +6,8 @@ import pandas as pd
 import os
 import sys
 import csv
-import re
 import logging
 from typing import Optional
-from datetime import datetime
 
 from constants import (
     ACCOUNT_REQUIRED_COLUMNS,
@@ -43,6 +41,7 @@ process_revolut_operations = _revolut.process_revolut
 validate_revolut_currency = _revolut.validate_revolut_currency
 REVOLUT_REQUIRED_COLUMNS = _revolut.REQUIRED
 REVOLUT_CURRENCY_COLUMN = 'Currency'
+extract_date_from_filename = _utils.extract_date_from_filename
 
 
 def load_previous_transactions(csv_file: str) -> pd.DataFrame:
@@ -99,66 +98,11 @@ def exclude_existing_transactions(
     return filtered_df
 
 
-def extract_date_from_filename(filename: str) -> str:
-    """Extract date from filename if present.
-
-    Args:
-        filename: Name of the file to check
-
-    Returns:
-        str: Date in YYYY-MM-DD format if found, empty string otherwise
-    """
-    import re
-    # Match patterns like "25-02-2025" or "2025-02-25"
-    patterns = [
-        r'(\d{2})-(\d{2})-(\d{4})',  # DD-MM-YYYY
-        r'(\d{4})-(\d{2})-(\d{2})'   # YYYY-MM-DD
-    ]
-
-    for pattern in patterns:
-        match = re.search(pattern, filename)
-        if match:
-            groups = match.groups()
-            if len(groups[0]) == 4:  # YYYY-MM-DD format
-                return f"{groups[0]}-{groups[1]}-{groups[2]}"
-            else:  # DD-MM-YYYY format
-                return f"{groups[2]}-{groups[1]}-{groups[0]}"
-    return ""
-
-
 def generate_output_filename(input_file: str, is_revolut: bool = False) -> str:
-    """Generate output filename with appropriate date.
-
-    Args:
-        input_file: Path to the input file
-        is_revolut: Whether the file is a Revolut export
-
-    Returns:
-        str: Path to the output CSV file
-    """
-    base_name = os.path.splitext(os.path.basename(input_file))[0]
-
-    # For Revolut exports, always use current date
-    if is_revolut:
-        date_str = datetime.now().strftime('%Y-%m-%d')
-    else:
-        # Try to extract date from filename
-        date_str = extract_date_from_filename(base_name)
-        if not date_str:
-            # If no date in filename, use current date
-            date_str = datetime.now().strftime('%Y-%m-%d')
-
-    # Remove any trailing date from base_name
-    # (supports DD-MM-YYYY and YYYY-MM-DD)
-    base_name = re.sub(
-        r'_?(\d{2}-\d{2}-\d{4}|\d{4}-\d{2}-\d{2})',
-        '',
-        base_name,
-    )
-
-    return os.path.join(
-        os.path.dirname(input_file),
-        f"{base_name}_{date_str}_ynab.{OUTPUT_FORMAT}"
+    """Generate output filename with consistent logic used across the app."""
+    return _utils.generate_output_filename(
+        input_file,
+        force_today=is_revolut,
     )
 
 

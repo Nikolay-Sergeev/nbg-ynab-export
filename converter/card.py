@@ -8,7 +8,7 @@ from constants import (
     SECURE_ECOMMERCE_CLEANUP_PATTERN,
 )
 from config import get_logger
-from .utils import validate_dataframe, convert_amount
+from .utils import validate_dataframe, convert_amount, strip_accents
 
 logger = get_logger(__name__)
 
@@ -31,7 +31,7 @@ def process_card(df: pd.DataFrame) -> pd.DataFrame:
         errors='coerce'
     ).dt.strftime(DATE_FMT_YNAB)
     if df_copy['Date'].isna().any():
-        raise ValueError("Invalid dates in card export")
+        raise ValueError("Invalid date format in card export")
     # Clean up payee
     raw_payee = df_copy['Περιγραφή Κίνησης']
     # Remove any parentheses and their contents
@@ -45,7 +45,7 @@ def process_card(df: pd.DataFrame) -> pd.DataFrame:
     # Convert and sign amount robustly using debit/credit indicator when present
     df_copy['Amount'] = df_copy['Ποσό'].apply(convert_amount)
     if 'Χ/Π' in df_copy.columns:
-        indicator = df_copy['Χ/Π'].astype(str).str.strip().str.upper()
+        indicator = strip_accents(df_copy['Χ/Π'].astype(str).str.strip()).str.upper()
         is_debit = indicator.eq('Χ') | indicator.eq('DEBIT') | indicator.eq('D')
         is_credit = indicator.eq('Π') | indicator.eq('CREDIT') | indicator.eq('C')
         df_copy.loc[is_debit, 'Amount'] = -df_copy.loc[is_debit, 'Amount'].abs()
