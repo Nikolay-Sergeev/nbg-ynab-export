@@ -25,6 +25,7 @@ class ReviewAndUploadPage(QWizardPage):
         super().__init__()
         self.controller = controller
         self.setTitle("Review & Select Transactions")
+        self._busy = False
 
         card = QFrame()
         card.setObjectName("card-panel")
@@ -135,6 +136,31 @@ class ReviewAndUploadPage(QWizardPage):
         self.worker = None
         self.set_bulk_buttons_enabled(False)
 
+    def set_busy(self, busy: bool, message: str = ""):
+        """Toggle a simple busy state with spinner and label."""
+        self._busy = busy
+        if busy:
+            self.spinner.show()
+            self.info_label.setText(message)
+            self.select_all_btn.setEnabled(False)
+            self.deselect_all_btn.setEnabled(False)
+            self.table.setEnabled(False)
+        else:
+            self.spinner.hide()
+            if not self.info_label.text().startswith("Upload"):
+                self.info_label.setText("")
+            self.select_all_btn.setEnabled(True)
+            self.deselect_all_btn.setEnabled(True)
+            self.table.setEnabled(True)
+        try:
+            from PyQt5.QtWidgets import QApplication
+            if busy:
+                QApplication.setOverrideCursor(Qt.WaitCursor)
+            else:
+                QApplication.restoreOverrideCursor()
+        except Exception:
+            pass
+
     def initializePage(self):
         parent = self.window()
         if not hasattr(parent, "pages_stack"):
@@ -155,6 +181,7 @@ class ReviewAndUploadPage(QWizardPage):
         if target == 'FILE':
             # Pure file-converter mode: convert and show, no API
             try:
+                self.set_busy(True, "Converting file…")
                 df = self.controller.converter.convert_to_ynab(
                     file_path,
                     write_output=False,
@@ -163,6 +190,8 @@ class ReviewAndUploadPage(QWizardPage):
                 self.populate_file_records(records)
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Error converting file: {str(e)}")
+            finally:
+                self.set_busy(False, "")
             return
 
         if not self.controller.ynab:
@@ -176,9 +205,11 @@ class ReviewAndUploadPage(QWizardPage):
         budget_id, account_id = account_page.get_selected_ids()
         if file_path and budget_id and account_id:
             try:
+                self.set_busy(True, "Checking for duplicates…")
                 self.controller.check_duplicates(file_path, budget_id, account_id)
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Error checking duplicates: {str(e)}")
+                self.set_busy(False, "")
 
     def on_duplicates_found(self, records, dup_idx):
         # Populate table with records and duplicates
@@ -218,6 +249,7 @@ class ReviewAndUploadPage(QWizardPage):
             if row in dup_idx:
                 self.skipped_rows.add(row)
             self.table.setItem(row, skip_col, skip_item)
+        self.set_busy(False, "")
         self.table.blockSignals(False)
         # Resize columns and rows to show checkboxes
         header = self.table.horizontalHeader()
@@ -302,6 +334,7 @@ class ReviewAndUploadPage(QWizardPage):
                 print(f"[DEBUG] formatted: {len(formatted)} transactions")
                 if formatted:
                     print("[DEBUG] Calling controller.upload_transactions")
+                    self.set_busy(True, "Uploading transactions…")
                     self.controller.upload_transactions(budget_id, account_id, formatted)
                 else:
                     print(
@@ -411,6 +444,7 @@ class ReviewAndUploadPage(QWizardPage):
             return True
 
     def on_upload_finished(self, count):
+        self.set_busy(False, "")
         self.success_icon.show()
         self.error_icon.hide()
         self.info_icon.hide()
@@ -446,9 +480,10 @@ class ReviewAndUploadPage(QWizardPage):
         self.error_icon.show()
         self.info_icon.hide()
         self.info_label.setText(f"Error: {msg}")
+        self.set_busy(False, "")
 
     def show_success(self, msg):
-        self.spinner.hide()
+        self.set_busy(False, "")
         self.success_icon.show()
         self.error_icon.hide()
         self.info_icon.hide()
@@ -457,7 +492,7 @@ class ReviewAndUploadPage(QWizardPage):
         self.info_label.setStyleSheet("")
 
     def show_error(self, msg):
-        self.spinner.hide()
+        self.set_busy(False, "")
         self.success_icon.hide()
         self.error_icon.show()
         self.info_icon.hide()
@@ -471,6 +506,7 @@ class ReviewAndUploadPage(QWizardPage):
             self.show_error("Processing error occurred. Check logs for details.")
         except Exception as e:
             logging.exception("Error handling duplicate check error: %s", e)
+        self.set_busy(False, "")
 
     def isComplete(self):
         print("[DEBUG] isComplete called for ReviewAndUploadPage, always returns True")

@@ -15,6 +15,7 @@ from PyQt5.QtWidgets import (
     QFrame,
     QStackedWidget,
     QPushButton,
+    QMessageBox,
 )
 from PyQt5.QtGui import QIcon, QPixmap, QPainter, QFont, QPalette, QColor
 from PyQt5.QtCore import Qt
@@ -171,10 +172,8 @@ class SidebarWizardWindow(QMainWindow):
         self.logger = logging.getLogger(__name__)
         self.setWindowTitle("NBG/Revolut to YNAB Wizard")
 
-        # Use dimensions that fit content properly
-        fixed_w, fixed_h = 960, 600
-
-        self.setFixedSize(fixed_w, fixed_h)
+        # Use dimensions that fit content properly while allowing resize
+        self.setMinimumSize(960, 600)
 
         # Create single widget with no borders or spacing
         central = QWidget()
@@ -395,6 +394,18 @@ class SidebarWizardWindow(QMainWindow):
     def go_to_page(self, index):
         """Navigate to the specified page index."""
         if 0 <= index:
+            # Guard against skipping mandatory steps (e.g., file not selected)
+            if index > 0:
+                try:
+                    file_path = getattr(self.import_page, 'file_path', None)
+                except Exception:
+                    file_path = None
+                if not file_path:
+                    QMessageBox.information(self, "Select a file", "Please choose a file before continuing.")
+                    self.pages_stack.setCurrentIndex(0)
+                    self.update_sidebar(0)
+                    self.update_nav_buttons()
+                    return
             # Route Authorize step to Actual auth when selected
             if index == 1 and getattr(self.controller, 'export_target', 'YNAB') == 'ACTUAL_API' and hasattr(self, 'actual_auth_page') and self.actual_auth_page is not None:
                 page = self.actual_auth_page
@@ -459,26 +470,8 @@ class SidebarWizardWindow(QMainWindow):
                 # If no validation needed, proceed to next page, with special handling for Actual export
                 print(f"[SidebarWizardWindow] No validate_and_proceed method "
                       f"for page {current}, proceeding")
-                # If leaving Import page and target is Actual (CSV), export and jump to Finish
-                if current == 0 and getattr(self.controller, 'export_target', 'YNAB') == 'ACTUAL':
-                    try:
-                        file_path = getattr(self.import_page, 'file_path', None)
-                        if file_path:
-                            df = self.controller.converter.convert_to_actual(file_path)
-                            # Save export path hint on window for FinishPage
-                            # The converter writes to SETTINGS_DIR; reconstruct path similarly
-                            from services.conversion_service import generate_actual_output_filename
-                            export_path = generate_actual_output_filename(file_path)
-                            self.actual_export_path = export_path
-                            print(f"[Wizard] Actual CSV saved to {export_path}")
-                        else:
-                            print("[Wizard] No file_path set on import page for Actual export")
-                    except Exception as e:
-                        print(f"[Wizard] Error exporting for Actual: {e}")
-                    # Jump to Finish page (last index)
-                    self.go_to_page(self.pages_stack.count() - 1)
                 # If leaving Import page and target is Actual API, go to Actual auth page and keep sidebar on step 1
-                elif current == 0 and getattr(self.controller, 'export_target', 'YNAB') == 'ACTUAL_API':
+                if current == 0 and getattr(self.controller, 'export_target', 'YNAB') == 'ACTUAL_API':
                     if hasattr(self, 'actual_auth_page') and self.actual_auth_page is not None:
                         page = self.actual_auth_page
                         if hasattr(page, 'initializePage'):
@@ -493,23 +486,7 @@ class SidebarWizardWindow(QMainWindow):
                     # Jump directly to review/selection step for File Converter
                     self.go_to_page(4)
                 else:
-                    # If on account selection page and in Actual CSV mode, export then finish
-                    if page is self.account_page and getattr(self.controller, 'export_target', 'YNAB') == 'ACTUAL':
-                        try:
-                            file_path = getattr(self.import_page, 'file_path', None)
-                            if file_path:
-                                from services.conversion_service import generate_actual_output_filename
-                                self.controller.converter.convert_to_actual(file_path)
-                                export_path = generate_actual_output_filename(file_path)
-                                self.actual_export_path = export_path
-                                print(f"[Wizard] Actual CSV saved to {export_path}")
-                            else:
-                                print("[Wizard] No file_path set on import page for Actual CSV export")
-                        except Exception as e:
-                            print(f"[Wizard] Error exporting for Actual CSV: {e}")
-                        self.go_to_page(self.pages_stack.count() - 1)
-                    else:
-                        self.go_to_page(current + 1)
+                    self.go_to_page(current + 1)
         elif current == self.pages_stack.count() - 1:
             # On the last page, check if we should close the app
             page = self.pages_stack.currentWidget()

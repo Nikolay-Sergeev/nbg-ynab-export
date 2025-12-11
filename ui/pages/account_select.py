@@ -140,18 +140,6 @@ class AccountSelectionPage(QWidget):
                          getattr(self.controller, 'export_target', None),
                          type(getattr(self.controller, 'ynab', None)).__name__)
         target = getattr(self.controller, 'export_target', 'YNAB')
-        if target == 'ACTUAL':
-            # CSV export mode: allow entering a budget name only; hide account selection
-            self.title_label.setText("Select Budget (CSV export)")
-            self.budget_combo.blockSignals(True)
-            self.budget_combo.clear()
-            self.budget_combo.setEditable(True)
-            self.budget_combo.setPlaceholderText("Enter budget name (optional)")
-            self.budget_combo.blockSignals(False)
-            self.account_combo.setVisible(False)
-            self.account_label.setVisible(False)
-            self.helper_label.setText("Enter a budget name for reference. Account selection is disabled in CSV mode.")
-            return
         if not self.controller.ynab:
             self.logger.info("[AccountSelectionPage] No API client, skipping fetch")
             return
