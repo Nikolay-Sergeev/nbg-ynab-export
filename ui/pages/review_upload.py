@@ -310,7 +310,8 @@ class ReviewAndUploadPage(QWizardPage):
             return
 
         budget_id, account_id = account_page.get_selected_ids()
-        to_upload = [r for i, r in enumerate(self.records) if i not in self.dup_idx and i not in self.skipped_rows]
+        # Allow users to explicitly include rows even if they were flagged as duplicates
+        to_upload = [r for i, r in enumerate(self.records) if i not in self.skipped_rows]
         print(f"[DEBUG] to_upload: {len(to_upload)} transactions")
         if not self.controller.ynab:
             print("[DEBUG] YNAB client not initialized")

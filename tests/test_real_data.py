@@ -109,7 +109,7 @@ class TestRealNBGData(unittest.TestCase):
         self.assertEqual(len(result), 1)
         self.assertEqual(result.iloc[0]['Date'], '2025-07-23')
         self.assertEqual(result.iloc[0]['Payee'], 'MERCHANT NAME')
-        self.assertEqual(result.iloc[0]['Memo'], 'E-COMMERCE ΑΓΟΡΑ - MERCHANT NAME')
+        self.assertEqual(result.iloc[0]['Memo'], 'MERCHANT NAME')
         self.assertEqual(result.iloc[0]['Amount'], -78.33)
 
 if __name__ == '__main__':

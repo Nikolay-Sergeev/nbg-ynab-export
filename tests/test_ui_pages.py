@@ -468,6 +468,32 @@ class TestReviewAndUploadPage(unittest.TestCase):
         self.page.hide_dup_checkbox.setChecked(False)
         self.assertFalse(self.page.table.isRowHidden(1))
 
+    def test_duplicates_can_be_overridden(self):
+        """Ensure users can include rows marked as duplicates by unskipping them."""
+        self.page.records = [
+            {"Date": "2025-12-12", "Payee": "CUBE 1", "Memo": "CUBE 1", "Amount": -2.6},
+            {"Date": "2025-12-13", "Payee": "Shop", "Memo": "Shop", "Amount": -5.0},
+        ]
+        # Simulate duplicate detection but user chooses to include everything
+        self.page.dup_idx = {1}
+        self.page.skipped_rows = set()
+
+        account_page = MagicMock()
+        account_page.get_selected_ids.return_value = ("bud123", "acc456")
+        stack = MagicMock()
+        stack.count.return_value = 3
+        stack.widget.return_value = account_page
+        self.container.pages_stack = stack
+
+        self.page.controller.ynab = True
+        self.page.controller.upload_transactions = MagicMock()
+
+        self.page.upload_transactions()
+
+        self.page.controller.upload_transactions.assert_called_once()
+        uploaded = self.page.controller.upload_transactions.call_args[0][2]
+        self.assertEqual(len(uploaded), 2)
+
 
 if __name__ == '__main__':
     unittest.main()

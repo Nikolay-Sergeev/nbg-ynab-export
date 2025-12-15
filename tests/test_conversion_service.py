@@ -293,7 +293,7 @@ class TestCardOperations(unittest.TestCase):
         # Check conversion of first row (debit)
         self.assertEqual(result.iloc[0]['Date'], '2025-02-21')
         self.assertEqual(result.iloc[0]['Payee'], 'SHOP.EXAMPLE.COM')
-        self.assertEqual(result.iloc[0]['Memo'], 'E-COMMERCE ΑΓΟΡΑ - SHOP.EXAMPLE.COM')
+        self.assertEqual(result.iloc[0]['Memo'], 'SHOP.EXAMPLE.COM')
         self.assertAlmostEqual(result.iloc[0]['Amount'], -12.34)
         
         # Check conversion of second row (credit)
@@ -317,7 +317,7 @@ class TestCardOperations(unittest.TestCase):
         # Check parenthesis cleanup
         self.assertEqual(result.iloc[2]['Date'], '2025-02-13')
         self.assertEqual(result.iloc[2]['Payee'], 'AMAZON')
-        self.assertEqual(result.iloc[2]['Memo'], '3D SECURE E-COMMERCE ΑΓΟΡΑ - AMAZON (REF: 12345)')
+        self.assertEqual(result.iloc[2]['Memo'], 'AMAZON (REF: 12345)')
         self.assertAlmostEqual(result.iloc[2]['Amount'], -45.99)
 
     def test_process_card_operations_invalid_date(self):

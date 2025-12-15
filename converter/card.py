@@ -33,7 +33,7 @@ def process_card(df: pd.DataFrame) -> pd.DataFrame:
     if df_copy['Date'].isna().any():
         raise ValueError("Invalid date format in card export")
     # Clean up payee
-    raw_payee = df_copy['Περιγραφή Κίνησης']
+    raw_payee = df_copy['Περιγραφή Κίνησης'].fillna('')
     # Remove any parentheses and their contents
     payee = raw_payee.str.replace(r'\s*\([^)]*\)', '', regex=True)
     # Remove secure ecommerce prefix first
@@ -41,7 +41,11 @@ def process_card(df: pd.DataFrame) -> pd.DataFrame:
     # Remove standard ecommerce prefix
     payee = payee.str.replace(ECOMMERCE_CLEANUP_PATTERN, '', regex=True)
     df_copy['Payee'] = payee.str.strip()
-    df_copy['Memo'] = df_copy['Περιγραφή Κίνησης']
+    # Memo keeps any parenthetical info but drops ecommerce prefixes
+    memo = df_copy['Περιγραφή Κίνησης'].fillna('')
+    memo = memo.str.replace(SECURE_ECOMMERCE_CLEANUP_PATTERN, '', regex=True)
+    memo = memo.str.replace(ECOMMERCE_CLEANUP_PATTERN, '', regex=True)
+    df_copy['Memo'] = memo.str.strip()
     # Convert and sign amount robustly using debit/credit indicator when present
     df_copy['Amount'] = df_copy['Ποσό'].apply(convert_amount)
     if 'Χ/Π' in df_copy.columns:
