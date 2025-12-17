@@ -14,9 +14,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt, QUrl
 from PyQt5.QtGui import QIcon, QColor, QCursor, QDesktopServices
-import os
 import sys
-from config import SETTINGS_FILE
 from cryptography.fernet import Fernet  # noqa: F401 (kept for tests patching)
 from services import token_manager as _token_manager
 
@@ -145,21 +143,7 @@ class YNABAuthPage(QWizardPage):
 
         if save:
             try:
-                enc_token = self.encrypt_token(token)
-                # Save token, preserving only FOLDER entries
-                lines = []
-                if os.path.exists(SETTINGS_FILE):
-                    with open(SETTINGS_FILE, "r") as f:
-                        for line in f:
-                            if line.startswith("FOLDER:"):
-                                lines.append(line)
-                lines.append(f"TOKEN:{enc_token}\n")
-                with open(SETTINGS_FILE, "w") as f:
-                    f.writelines(lines)
-                try:
-                    os.chmod(SETTINGS_FILE, 0o600)
-                except OSError:
-                    pass
+                _token_manager.save_token(token)
             except Exception as e:
                 self.error_label.setText(f"Error saving token: {str(e)}")
                 return False
@@ -216,39 +200,22 @@ class YNABAuthPage(QWizardPage):
         token = self.token_input.text().strip()
         save = self.save_checkbox.isChecked()
         if save:
-            enc_token = self.encrypt_token(token)
-            # Save token, preserving only FOLDER entries
-            lines = []
-            if os.path.exists(SETTINGS_FILE):
-                with open(SETTINGS_FILE, "r") as f:
-                    for line in f:
-                        if line.startswith("FOLDER:"):
-                            lines.append(line)
-            lines.append(f"TOKEN:{enc_token}\n")
-            with open(SETTINGS_FILE, "w") as f:
-                f.writelines(lines)
-            try:
-                os.chmod(SETTINGS_FILE, 0o600)
-            except OSError:
-                pass
+            _token_manager.save_token(token)
         self.controller.authorize(token, save)
         self.go_forward()
 
     def load_saved_token(self):
-        if os.path.exists(SETTINGS_FILE):
-            try:
-                with open(SETTINGS_FILE, "r") as f:
-                    lines = f.readlines()
-                for line in lines:
-                    if line.startswith("TOKEN:"):
-                        enc_token = line.split("TOKEN:", 1)[1].strip()
-                        token = self.decrypt_token(enc_token)
-                        self.token_input.setText(token)
-                        self.save_checkbox.setChecked(True)
-                        self._auto_validated = True
-                        break
-            except Exception:
-                pass
+        try:
+            token = _token_manager.load_token()
+            if token:
+                self.token_input.setText(token)
+                self.save_checkbox.setChecked(True)
+                self._auto_validated = True
+        except FileNotFoundError:
+            pass
+        except Exception:
+            # Ignore corrupt/legacy files to avoid breaking the UI
+            pass
 
     def encrypt_token(self, token):
         # Delegate to shared token manager for key generation and encryption.

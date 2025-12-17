@@ -91,7 +91,8 @@ class DuplicateCheckWorker(QObject):
 
     def run(self):
         try:
-            df = self.converter.convert_to_ynab(self.file_path)
+            # Avoid writing any files during duplicate check; we only need the DataFrame.
+            df = self.converter.convert_to_ynab(self.file_path, write_output=False)
             # Fetch recent YNAB transactions for duplicate checking
             from datetime import datetime, timedelta
             since_date = (
@@ -260,6 +261,8 @@ class WizardController(QObject):
         """Initialize Actual client using provided server URL and password."""
         try:
             self.last_error_message = None
+            # Clear any previous client to avoid leaving stale instances on failure
+            self.ynab = None
             if not base_url or not password:
                 msg = "Actual server URL and password are required"
                 self.last_error_message = msg
@@ -267,16 +270,17 @@ class WizardController(QObject):
                 return False
             ensure_app_dir()
             data_dir = SETTINGS_DIR / "actual-data"
-            self.ynab = ActualClient(base_url, password, data_dir=str(data_dir))  # Reuse same attribute for workers
-            logger.info("[WizardController] Actual client initialized for %s (%s)", base_url, type(self.ynab).__name__)
+            client = ActualClient(base_url, password, data_dir=str(data_dir))
+            logger.info("[WizardController] Actual client initialized for %s (%s)", base_url, type(client).__name__)
             # Quick connectivity check to fail fast if server returns HTML/invalid API
             try:
-                self.ynab.get_budgets()
+                client.get_budgets()
             except Exception as inner_e:
                 msg = f"Actual API error: {inner_e}"
                 self.last_error_message = msg
                 self.errorOccurred.emit(msg)
                 return False
+            self.ynab = client  # Only set after successful connectivity check
             return True
         except Exception as e:
             msg = f"Failed to initialize Actual client: {str(e)}"

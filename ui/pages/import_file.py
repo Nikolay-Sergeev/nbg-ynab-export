@@ -278,8 +278,7 @@ class ImportFilePage(QWizardPage):
     def show_error(self, msg):
         self.error_text = msg
         self.error_label.setText(msg)
-        self.continue_button.setEnabled(False)
-        self.continue_button.setStyleSheet("background:#1976d2;color:#fff;font-weight:600;opacity:0.5;")
+        self._set_continue_enabled(False)
 
     def update_file_display(self):
         if self.selected_file_path:
@@ -294,14 +293,12 @@ class ImportFilePage(QWizardPage):
     def validate_file(self):
         if not self.selected_file_path:
             self.error_label.setText("")
-            self.continue_button.setEnabled(False)
-            self.continue_button.setStyleSheet("background:#1976d2;color:#fff;font-weight:600;opacity:0.5;")
+            self._set_continue_enabled(False)
         elif not self.selected_file_path.lower().endswith((".csv", ".xlsx", ".xls")):
             self.show_error("Please select a valid CSV or XLSX file.")
         else:
             self.error_label.setText("")
-            self.continue_button.setEnabled(True)
-            self.continue_button.setStyleSheet("background:#1976d2;color:#fff;font-weight:600;opacity:1;")
+            self._set_continue_enabled(True)
 
     def isComplete(self):
         # Allow navigation if a valid file path is set, even if there are warnings
@@ -421,6 +418,13 @@ class ImportFilePage(QWizardPage):
                 self.error_label.show()
             else:
                 self.error_label.hide()
+
+    def _set_continue_enabled(self, enabled: bool):
+        """Toggle the host window's Continue button when available."""
+        parent = self.window()
+        btn = getattr(parent, "next_button", None)
+        if btn:
+            btn.setEnabled(enabled)
 
     def wizard(self):
         """Return the wizard containing this page, or None if not in a wizard."""

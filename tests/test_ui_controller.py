@@ -278,7 +278,10 @@ class TestDuplicateCheckWorker(unittest.TestCase):
         self.worker.run()
 
         # Check if the methods were called with correct parameters
-        self.mock_converter.convert_to_ynab.assert_called_once_with(self.file_path)
+        self.mock_converter.convert_to_ynab.assert_called_once_with(
+            self.file_path,
+            write_output=False,
+        )
         self.mock_ynab_client.get_transactions.assert_called_once_with(
             self.budget_id,
             self.account_id,

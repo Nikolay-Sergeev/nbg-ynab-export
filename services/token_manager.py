@@ -47,10 +47,31 @@ def decrypt_token(token_bytes: bytes) -> str:
 
 
 def save_token(token: str) -> None:
-    """Encrypt and save token to settings file."""
-    encrypted_token = encrypt_token(token)
-    Path(SETTINGS_FILE).write_bytes(encrypted_token)
-    os.chmod(SETTINGS_FILE, 0o600)  # Secure permissions
+    """Encrypt and save token to settings file.
+
+    Preserves non-token metadata lines (e.g., last-used folder) when the file
+    is text-based, and remains compatible with legacy binary-only storage.
+    """
+    encrypted_token = encrypt_token(token).decode()
+    token_path = Path(SETTINGS_FILE)
+    token_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Preserve existing non-token lines if the file is text-readable
+    lines = []
+    try:
+        with token_path.open("r", encoding="utf-8") as f:
+            for line in f:
+                if not line.startswith("TOKEN:") and line.strip():
+                    lines.append(line.rstrip("\n"))
+    except FileNotFoundError:
+        pass
+    except UnicodeDecodeError:
+        # Legacy binary content; drop it when rewriting with structured lines
+        lines = []
+
+    lines.insert(0, f"TOKEN:{encrypted_token}")
+    token_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    os.chmod(token_path, 0o600)  # Secure permissions
     logger.info("Token saved securely")
 
 
@@ -67,5 +88,25 @@ def load_token() -> str:
     if not token_path.exists():
         raise FileNotFoundError(f"Token file not found: {SETTINGS_FILE}")
 
+    # First, try to read token from structured text (TOKEN:<cipher>)
+    try:
+        content = token_path.read_text(encoding="utf-8")
+        for line in content.splitlines():
+            if line.startswith("TOKEN:"):
+                enc = line.split("TOKEN:", 1)[1].strip()
+                if enc:
+                    return decrypt_token(enc.encode())
+        # If no prefixed line but content exists, try to decrypt the raw text
+        stripped = content.strip()
+        if stripped:
+            try:
+                return decrypt_token(stripped.encode())
+            except Exception:
+                pass
+    except UnicodeDecodeError:
+        # Fall back to binary decryption
+        pass
+
+    # Fallback to legacy binary format
     encrypted_token = token_path.read_bytes()
     return decrypt_token(encrypted_token)
