@@ -78,6 +78,11 @@ class ReviewAndUploadPage(QWizardPage):
         icon_label_layout.addWidget(self.info_label)
         icon_label_layout.addStretch()
         card_layout.addLayout(icon_label_layout)
+        # Quick stats about selections/duplicates
+        self.counts_label = QLabel("")
+        self.counts_label.setObjectName("counts-label")
+        self.counts_label.setWordWrap(True)
+        card_layout.addWidget(self.counts_label)
         # Spinner icon
         spinner_path = os.path.join(base, 'spinner.svg')
         try:
@@ -267,6 +272,7 @@ class ReviewAndUploadPage(QWizardPage):
         else:
             self.info_label.setText("No transactions to review.")
             self.info_icon.show()
+        self.update_counts_label()
         self.set_bulk_buttons_enabled(bool(records))
         # Enable Continue button
         # Button is now handled by the main window
@@ -289,6 +295,7 @@ class ReviewAndUploadPage(QWizardPage):
                 self.skipped_rows.discard(item.row())
             else:
                 self.skipped_rows.add(item.row())
+        self.update_counts_label()
 
     def on_hide_duplicates_toggled(self, state):
         hide = state == Qt.Checked
@@ -335,6 +342,10 @@ class ReviewAndUploadPage(QWizardPage):
                 print(f"[DEBUG] formatted: {len(formatted)} transactions")
                 if formatted:
                     print("[DEBUG] Calling controller.upload_transactions")
+                    if not hasattr(parent, 'upload_stats'):
+                        parent.upload_stats = {}
+                    parent.upload_stats['selected'] = len(formatted)
+                    parent.upload_stats['uploaded'] = 0
                     self.set_busy(True, "Uploading transactions…")
                     self.controller.upload_transactions(budget_id, account_id, formatted)
                 else:
@@ -380,6 +391,7 @@ class ReviewAndUploadPage(QWizardPage):
             if not hasattr(parent, 'upload_stats'):
                 parent.upload_stats = {}
             parent.upload_stats['uploaded'] = 0
+            parent.upload_stats['selected'] = len(to_upload)
 
             # Save account name
             acct_page = parent.pages_stack.widget(2) if hasattr(parent, 'pages_stack') else None
@@ -456,6 +468,9 @@ class ReviewAndUploadPage(QWizardPage):
         parent = self.window()
         if not hasattr(parent, 'upload_stats'):
             parent.upload_stats = {}
+        # Preserve previously recorded 'selected' count if present
+        if 'selected' not in parent.upload_stats:
+            parent.upload_stats['selected'] = len(getattr(self, 'records', []))
         parent.upload_stats['uploaded'] = count
 
         # Save account name
@@ -497,9 +512,11 @@ class ReviewAndUploadPage(QWizardPage):
         self.success_icon.hide()
         self.error_icon.show()
         self.info_icon.hide()
-        self.info_label.setText(msg)
+        fallback = msg or "An unexpected error occurred. Please check the logs."
+        self.info_label.setText(fallback)
         self.info_label.setObjectName("error-label")
         self.info_label.setStyleSheet("")
+        self.update_counts_label()
 
     def on_duplicates_error(self, error_msg):
         try:
@@ -563,6 +580,7 @@ class ReviewAndUploadPage(QWizardPage):
         else:
             self.info_icon.show()
             self.info_label.setText("No transactions found to convert.")
+        self.update_counts_label()
         self.set_bulk_buttons_enabled(bool(records))
         parent = self.window()
         if hasattr(parent, "next_button"):
@@ -585,7 +603,21 @@ class ReviewAndUploadPage(QWizardPage):
         self.table.blockSignals(False)
 
         self.skipped_rows = set() if include else set(range(row_count))
+        self.update_counts_label()
 
     def set_bulk_buttons_enabled(self, enabled: bool):
         self.select_all_btn.setEnabled(enabled)
         self.deselect_all_btn.setEnabled(enabled)
+
+    def update_counts_label(self):
+        """Show quick stats: total, duplicates, skipped, selected."""
+        total = len(self.records)
+        dups = len(self.dup_idx)
+        skipped = len(self.skipped_rows)
+        selected = max(total - skipped, 0)
+        if total == 0:
+            self.counts_label.setText("No transactions loaded.")
+        else:
+            self.counts_label.setText(
+                f"Total: {total} • Duplicates: {dups} • Skipped: {skipped} • Selected: {selected}"
+            )

@@ -242,29 +242,26 @@ class TestNBGToYNAB(unittest.TestCase):
         """Test Revolut operations processing."""
         result = process_revolut_operations(self.revolut_data)
 
-        # Test expense transaction with fee
-        self.assertEqual(result.iloc[0]['Date'], '2024-12-22')
-        self.assertEqual(result.iloc[0]['Payee'], 'OpenAI')
-        self.assertEqual(result.iloc[0]['Amount'], -19.45)  # -19.26 - 0.19
-        self.assertEqual(result.iloc[0]['Memo'], 'CARD_PAYMENT')
+        # Newest first ordering by date
+        self.assertEqual(result.iloc[0]['Date'], '2025-02-02')
+        self.assertEqual(result.iloc[0]['Payee'], 'From JANE DOE')
+        self.assertEqual(result.iloc[0]['Amount'], 500.00)
+        self.assertEqual(result.iloc[0]['Memo'], 'TRANSFER')
 
-        # Test another expense with fee
-        self.assertEqual(result.iloc[1]['Date'], '2024-11-24')
-        self.assertEqual(result.iloc[1]['Payee'], 'Yandex Plus')
-        self.assertEqual(result.iloc[1]['Amount'], -28.00)  # -27.72 - 0.28
+        self.assertEqual(result.iloc[1]['Date'], '2024-12-22')
+        self.assertEqual(result.iloc[1]['Payee'], 'OpenAI')
+        self.assertEqual(result.iloc[1]['Amount'], -19.45)  # -19.26 - 0.19
         self.assertEqual(result.iloc[1]['Memo'], 'CARD_PAYMENT')
 
-        # Test incoming transfer without fee
         self.assertEqual(result.iloc[2]['Date'], '2024-11-27')
         self.assertEqual(result.iloc[2]['Payee'], 'From JOHN DOE')
         self.assertEqual(result.iloc[2]['Amount'], 8.00)
         self.assertEqual(result.iloc[2]['Memo'], 'TRANSFER')
 
-        # Test another incoming transfer without fee
-        self.assertEqual(result.iloc[3]['Date'], '2025-02-02')
-        self.assertEqual(result.iloc[3]['Payee'], 'From JANE DOE')
-        self.assertEqual(result.iloc[3]['Amount'], 500.00)
-        self.assertEqual(result.iloc[3]['Memo'], 'TRANSFER')
+        self.assertEqual(result.iloc[3]['Date'], '2024-11-24')
+        self.assertEqual(result.iloc[3]['Payee'], 'Yandex Plus')
+        self.assertEqual(result.iloc[3]['Amount'], -28.00)  # -27.72 - 0.28
+        self.assertEqual(result.iloc[3]['Memo'], 'CARD_PAYMENT')
 
         # Check columns
         self.assertEqual(list(result.columns), ['Date', 'Payee', 'Memo', 'Amount'])

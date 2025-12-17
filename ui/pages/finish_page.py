@@ -65,6 +65,7 @@ class FinishPage(QWizardPage):
             )
         elif stats and acct:
             uploaded = stats.get('uploaded', 0)
+            selected = stats.get('selected')
             if uploaded == 0:
                 text = (
                     f"<b>No new transactions were uploaded to <b>{acct}</b>.</b>"
@@ -72,11 +73,15 @@ class FinishPage(QWizardPage):
                 )
             else:
                 text = "<b>Import complete!</b><br><br>"
-                details = (
+                uploaded_text = (
                     f"<span style='font-size:18px;color:#1976d2;'><b>{uploaded}</b>"
                     f" transaction{'s' if uploaded != 1 else ''} uploaded to <b>{acct}</b>"
-                    ".</span><br><br>You may now close the wizard."
+                    ".</span>"
                 )
+                if selected is not None:
+                    details = f"{uploaded_text}<br><span style='color:#555;'>Selected to import: {selected}</span><br><br>You may now close the wizard."
+                else:
+                    details = f"{uploaded_text}<br><br>You may now close the wizard."
                 text += details
         else:
             text = "<b>Import complete!</b> You may now close the wizard."

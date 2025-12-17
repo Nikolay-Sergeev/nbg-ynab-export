@@ -112,16 +112,11 @@ class TestCLIIntegration(unittest.TestCase):
         )
 
         # Check the transactions are correctly converted
-        self.assertEqual(
-            output_df.iloc[0]['Payee'], 'Coffee Shop'
-        )
-        self.assertAlmostEqual(
-            float(output_df.iloc[0]['Amount']), -4.5, places=2
-        )
-        self.assertEqual(output_df.iloc[1]['Payee'], 'From John')
-        self.assertAlmostEqual(
-            float(output_df.iloc[1]['Amount']), 50.0, places=2
-        )
+        # Newest first ordering
+        self.assertEqual(output_df.iloc[0]['Payee'], 'From John')
+        self.assertAlmostEqual(float(output_df.iloc[0]['Amount']), 50.0, places=2)
+        self.assertEqual(output_df.iloc[1]['Payee'], 'Coffee Shop')
+        self.assertAlmostEqual(float(output_df.iloc[1]['Amount']), -4.5, places=2)
 
     @patch('converter.utils.read_input')
     def test_nbg_account_conversion(self, mock_read_input):

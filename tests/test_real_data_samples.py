@@ -102,8 +102,9 @@ def test_convert_revolut_sample(tmp_path: Path):
     )
 
     assert list(df.columns) == ["Date", "Payee", "Memo", "Amount"]
-    assert df.iloc[0]["Date"] == "2025-12-09"
-    assert df.iloc[0]["Payee"] == "COFFEE SPOT"
-    assert df.iloc[0]["Amount"] == -3.50
-    assert df.iloc[1]["Payee"] == "FROM PARTNER"
-    assert df.iloc[1]["Amount"] == 250.00
+    # Newest first ordering
+    assert df.iloc[0]["Date"] == "2025-12-10"
+    assert df.iloc[0]["Payee"] == "FROM PARTNER"
+    assert df.iloc[0]["Amount"] == 250.00
+    assert df.iloc[1]["Payee"] == "COFFEE SPOT"
+    assert df.iloc[1]["Amount"] == -3.50

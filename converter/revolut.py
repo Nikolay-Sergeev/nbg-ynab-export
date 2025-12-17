@@ -31,7 +31,7 @@ def process_revolut(df: pd.DataFrame) -> pd.DataFrame:
     df_copy = df.copy()
     # Parse and format date
     try:
-        df_copy['Date'] = pd.to_datetime(df_copy['Started Date']).dt.strftime(DATE_FMT_YNAB)
+        df_copy['Date'] = pd.to_datetime(df_copy['Started Date'])
     except pd.errors.ParserError as e:
         raise ValueError(f"Date parsing failed: {str(e)}")
     # Amount minus fee
@@ -46,4 +46,7 @@ def process_revolut(df: pd.DataFrame) -> pd.DataFrame:
         'Memo': df_copy.loc[completed, 'Type'],
         'Amount': df_copy.loc[completed, 'Amount_sum'].round(2)
     })
+    # Show newest first
+    df_out = df_out.sort_values(by='Date', ascending=False, kind='mergesort')
+    df_out['Date'] = df_out['Date'].dt.strftime(DATE_FMT_YNAB)
     return df_out.reset_index(drop=True)

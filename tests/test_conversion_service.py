@@ -377,18 +377,17 @@ class TestRevolutOperations(unittest.TestCase):
         # Check basic structure
         self.assertEqual(len(result), 2)
         self.assertListEqual(list(result.columns), ['Date', 'Payee', 'Memo', 'Amount'])
-        
-        # Check conversion of first row (debit)
-        self.assertEqual(result.iloc[0]['Date'], '2025-07-01')
-        self.assertEqual(result.iloc[0]['Payee'], 'Coffee Shop')
-        self.assertEqual(result.iloc[0]['Memo'], 'CARD_PAYMENT')
-        self.assertAlmostEqual(result.iloc[0]['Amount'], -4.50)
-        
-        # Check conversion of second row (credit)
-        self.assertEqual(result.iloc[1]['Date'], '2025-07-02')
-        self.assertEqual(result.iloc[1]['Payee'], 'From John')
-        self.assertEqual(result.iloc[1]['Memo'], 'TRANSFER')
-        self.assertAlmostEqual(result.iloc[1]['Amount'], 50.00)
+
+        # Newest first: transfer on 2025-07-02 comes before 2025-07-01 payment
+        self.assertEqual(result.iloc[0]['Date'], '2025-07-02')
+        self.assertEqual(result.iloc[0]['Payee'], 'From John')
+        self.assertEqual(result.iloc[0]['Memo'], 'TRANSFER')
+        self.assertAlmostEqual(result.iloc[0]['Amount'], 50.00)
+
+        self.assertEqual(result.iloc[1]['Date'], '2025-07-01')
+        self.assertEqual(result.iloc[1]['Payee'], 'Coffee Shop')
+        self.assertEqual(result.iloc[1]['Memo'], 'CARD_PAYMENT')
+        self.assertAlmostEqual(result.iloc[1]['Amount'], -4.50)
 
     def test_process_revolut_operations_with_fee(self):
         """Test processing Revolut operations with fees."""
@@ -405,11 +404,11 @@ class TestRevolutOperations(unittest.TestCase):
         
         result = process_revolut_operations(fee_data)
         
-        # Check fee is subtracted from amount
-        self.assertEqual(result.iloc[2]['Date'], '2025-07-03')
-        self.assertEqual(result.iloc[2]['Payee'], 'ATM Withdrawal')
-        self.assertEqual(result.iloc[2]['Memo'], 'ATM_WITHDRAWAL')
-        self.assertAlmostEqual(result.iloc[2]['Amount'], 97.50)  # 100 - 2.50
+        # Newest first ordering; ATM withdrawal should be first
+        self.assertEqual(result.iloc[0]['Date'], '2025-07-03')
+        self.assertEqual(result.iloc[0]['Payee'], 'ATM Withdrawal')
+        self.assertEqual(result.iloc[0]['Memo'], 'ATM_WITHDRAWAL')
+        self.assertAlmostEqual(result.iloc[0]['Amount'], 97.50)  # 100 - 2.50
 
     def test_process_revolut_operations_incomplete_state(self):
         """Test processing Revolut operations with non-COMPLETED state."""
