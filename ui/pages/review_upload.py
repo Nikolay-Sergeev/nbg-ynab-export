@@ -141,6 +141,14 @@ class ReviewAndUploadPage(QWizardPage):
         self.worker = None
         self.set_bulk_buttons_enabled(False)
 
+    def _reset_status_ui(self):
+        self.success_icon.hide()
+        self.error_icon.hide()
+        self.info_icon.hide()
+        self.info_label.setText("")
+        self.info_label.setObjectName("info-label")
+        self.info_label.setStyleSheet("")
+
     def set_busy(self, busy: bool, message: str = ""):
         """Toggle a simple busy state with spinner and label."""
         self._busy = busy
@@ -167,6 +175,7 @@ class ReviewAndUploadPage(QWizardPage):
             pass
 
     def initializePage(self):
+        self._reset_status_ui()
         parent = self.window()
         if not hasattr(parent, "pages_stack"):
             print("[ReviewUploadPage] Cannot access pages stack")
@@ -255,6 +264,7 @@ class ReviewAndUploadPage(QWizardPage):
                 self.skipped_rows.add(row)
             self.table.setItem(row, skip_col, skip_item)
         self.set_busy(False, "")
+        self._reset_status_ui()
         self.table.blockSignals(False)
         # Resize columns and rows to show checkboxes
         header = self.table.horizontalHeader()
@@ -266,10 +276,7 @@ class ReviewAndUploadPage(QWizardPage):
         self.hide_dup_checkbox.setVisible(bool(dup_idx))
         self.hide_dup_checkbox.setChecked(False)
         self.on_hide_duplicates_toggled(self.hide_dup_checkbox.checkState())
-        self.info_icon.hide()
-        if records:
-            self.info_label.setText("")
-        else:
+        if not records:
             self.info_label.setText("No transactions to review.")
             self.info_icon.show()
         self.update_counts_label()
@@ -332,6 +339,15 @@ class ReviewAndUploadPage(QWizardPage):
                         amount_milliunits = int(round(float(tx.get("Amount", 0)) * 1000))
                     except (ValueError, TypeError):
                         continue
+                    import_id = (
+                        tx.get("ImportId")
+                        or tx.get("Import ID")
+                        or tx.get("import_id")
+                    )
+                    if isinstance(import_id, str):
+                        import_id = import_id.strip()
+                        if import_id.lower() in ("", "nan", "none"):
+                            import_id = None
                     formatted.append({
                         "account_id": account_id,
                         "date": str(tx.get("Date", "")),
@@ -339,6 +355,8 @@ class ReviewAndUploadPage(QWizardPage):
                         "payee_name": str(tx.get("Payee", "") or ""),
                         "memo": str(tx.get("Memo", "") or "")
                     })
+                    if import_id:
+                        formatted[-1]["import_id"] = import_id
                 print(f"[DEBUG] formatted: {len(formatted)} transactions")
                 if formatted:
                     print("[DEBUG] Calling controller.upload_transactions")
@@ -532,6 +550,7 @@ class ReviewAndUploadPage(QWizardPage):
 
     def populate_file_records(self, records):
         """Populate table for File Converter mode with selectable transactions."""
+        self._reset_status_ui()
         self.records = records
         self.dup_idx = set()
         self.skipped_rows = set()

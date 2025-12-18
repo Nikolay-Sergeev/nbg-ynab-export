@@ -226,8 +226,10 @@ class TestNBGToYNAB(unittest.TestCase):
         self.assertEqual(result.iloc[1]['Payee'], 'JOHN DOE')
         self.assertEqual(result.iloc[1]['Amount'], 1234.56)
         self.assertEqual(result.iloc[1]['Memo'], 'EXAMPLE COMPANY LTD')
+        self.assertEqual(result.iloc[0]['ImportId'], 'TX123456')
+        self.assertEqual(result.iloc[1]['ImportId'], 'TX789012')
 
-        self.assertEqual(list(result.columns), ['Date', 'Payee', 'Memo', 'Amount'])
+        self.assertEqual(list(result.columns), ['Date', 'Payee', 'Memo', 'Amount', 'ImportId'])
 
     def test_validate_dataframe(self):
         """Test DataFrame validation."""

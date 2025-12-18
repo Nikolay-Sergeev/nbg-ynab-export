@@ -141,7 +141,8 @@ class ConversionService:
                 is_revolut,
                 output_dir=output_dir,
             )
-            ynab_df.to_csv(csv_file, index=False, quoting=csv.QUOTE_MINIMAL)
+            write_df = ynab_df.drop(columns=['ImportId'], errors='ignore')
+            write_df.to_csv(csv_file, index=False, quoting=csv.QUOTE_MINIMAL)
             logging.info("Conversion complete. The CSV file is saved as: %s", csv_file)
         return ynab_df
 

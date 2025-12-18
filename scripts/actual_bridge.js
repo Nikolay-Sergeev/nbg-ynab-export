@@ -124,8 +124,9 @@ async function handleCommand(cmd) {
           cleared: false,
           imported_id: tx.import_id || undefined,
         }));
-        const result = await actual.importTransactions(accountId, formatted);
-        return { ok: true, uploaded: (result && result.length) || formatted.length };
+        // Use addTransactions to avoid Actual's fuzzy dedupe matching by amount within ±7 days.
+        await actual.addTransactions(accountId, formatted);
+        return { ok: true, uploaded: formatted.length };
       }
       default:
         throw new Error(`Unknown cmd: ${cmd.cmd}`);

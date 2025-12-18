@@ -57,4 +57,9 @@ def process_account(df: pd.DataFrame) -> pd.DataFrame:
     df_copy.loc[is_debit, 'Amount'] = -df_copy.loc[is_debit, 'Amount'].abs()
     df_copy.loc[is_credit, 'Amount'] = df_copy.loc[is_credit, 'Amount'].abs()
     df_copy['Amount'] = df_copy['Amount'].round(2)
-    return df_copy[['Date', 'Payee', 'Memo', 'Amount']]
+    if 'Αριθμός αναφοράς' in df_copy.columns:
+        df_copy['ImportId'] = df_copy['Αριθμός αναφοράς'].fillna('').astype(str).str.strip()
+    columns = ['Date', 'Payee', 'Memo', 'Amount']
+    if 'ImportId' in df_copy.columns:
+        columns.append('ImportId')
+    return df_copy[columns]

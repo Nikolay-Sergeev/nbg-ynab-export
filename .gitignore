@@ -17,4 +17,7 @@ node_modules/
 .claude/settings.local.json
 .coverage
 .gitignore
+actual-data/
 .nbg-ynab-export/ynab_api.log
+actual-data/Nikolai-s-Budget-0275a89/cache.sqlite
+actual-data/Nikolai-s-Budget-0275a89/db.sqlite
