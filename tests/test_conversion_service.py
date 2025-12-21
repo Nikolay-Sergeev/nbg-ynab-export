@@ -1,6 +1,7 @@
 import unittest
 import os
 import tempfile
+from pathlib import Path
 import pandas as pd
 from unittest.mock import patch
 
@@ -15,7 +16,9 @@ from services.conversion_service import (
     exclude_existing_transactions,
     extract_date_from_filename,
     generate_output_filename,
-    validate_input_file
+    validate_input_file,
+    generate_actual_output_filename,
+    ConversionService,
 )
 
 
@@ -511,6 +514,81 @@ class TestTransactionExclusion(unittest.TestCase):
         
         # Should return empty DataFrame when all transactions match
         self.assertEqual(len(result), 0)
+
+
+class TestActualConversion(unittest.TestCase):
+    """Tests for Actual Budget export behavior."""
+
+    def test_generate_actual_output_filename_uses_settings_dir(self):
+        with tempfile.TemporaryDirectory() as td:
+            settings_dir = Path(td) / "settings"
+            input_file = Path(td) / "statement_2025-02-25.xlsx"
+            input_file.touch()
+            with patch('services.conversion_service.SETTINGS_DIR', settings_dir):
+                result = generate_actual_output_filename(str(input_file))
+            result_path = Path(result)
+            self.assertEqual(result_path.parent, settings_dir)
+            self.assertTrue(result_path.name.endswith('_actual.csv'))
+
+    def test_convert_to_actual_filters_previous_transactions(self):
+        base_df = pd.DataFrame({
+            'Date': ['2025-07-01', '2025-07-02'],
+            'Payee': ['Coffee Shop', 'Grocery Store'],
+            'Memo': ['Coffee', 'Food'],
+            'Amount': [-4.50, -65.30],
+        })
+        prev_df = base_df.iloc[[0]]
+
+        with tempfile.TemporaryDirectory() as td:
+            input_path = Path(td) / "input.csv"
+            pd.DataFrame({'A': [1]}).to_csv(input_path, index=False)
+            prev_path = Path(td) / "prev.csv"
+            prev_df.to_csv(prev_path, index=False)
+            settings_dir = Path(td) / "settings"
+
+            def fake_processor(_df):
+                return base_df.copy()
+
+            with patch('services.conversion_service.detect_processor',
+                       return_value=(fake_processor, False, 'mock')):
+                with patch('services.conversion_service.SETTINGS_DIR', settings_dir):
+                    output_path = ConversionService.convert_to_actual(
+                        str(input_path),
+                        previous_ynab=str(prev_path),
+                    )
+
+            output_df = pd.read_csv(output_path)
+            self.assertEqual(list(output_df.columns), ['date', 'payee', 'amount', 'notes'])
+            self.assertEqual(len(output_df), 1)
+            self.assertEqual(output_df.iloc[0]['payee'], 'Grocery Store')
+
+    def test_convert_to_actual_falls_back_to_input_dir(self):
+        base_df = pd.DataFrame({
+            'Date': ['2025-07-01'],
+            'Payee': ['Coffee Shop'],
+            'Memo': ['Coffee'],
+            'Amount': [-4.50],
+        })
+
+        with tempfile.TemporaryDirectory() as td:
+            input_path = Path(td) / "input.csv"
+            pd.DataFrame({'A': [1]}).to_csv(input_path, index=False)
+            settings_dir = Path(td) / "settings"
+
+            def fake_processor(_df):
+                return base_df.copy()
+
+            with patch('services.conversion_service.detect_processor',
+                       return_value=(fake_processor, False, 'mock')):
+                with patch('services.conversion_service.SETTINGS_DIR', settings_dir):
+                    with patch('services.conversion_service.os.makedirs',
+                               side_effect=PermissionError("no access")):
+                        output_path = ConversionService.convert_to_actual(str(input_path))
+
+            output_path = Path(output_path)
+            self.assertEqual(output_path.parent, input_path.parent)
+            output_df = pd.read_csv(output_path)
+            self.assertEqual(len(output_df), 1)
 
 
 if __name__ == '__main__':
