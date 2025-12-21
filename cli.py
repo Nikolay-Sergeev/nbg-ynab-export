@@ -4,12 +4,8 @@ import argparse
 import sys
 from pathlib import Path
 
-from config import get_logger, SUPPORTED_EXT
-from converter.utils import read_input, exclude_existing, write_output
-from converter.account import process_account
-from converter.card import process_card
-from converter.revolut import process_revolut
-from converter.dispatcher import detect_processor
+from config import get_logger
+from services.conversion_service import ConversionService
 
 logger = get_logger(__name__)
 
@@ -31,37 +27,13 @@ def parse_args():
 
 def main():
     args = parse_args()
-    in_path = args.input_file
-    if not in_path.exists() or in_path.suffix.lower() not in SUPPORTED_EXT:
-        logger.error("Invalid input: %s", in_path)
-        return 1
     try:
-        df = read_input(in_path)
-        processors = {
-            'revolut': process_revolut,
-            'account': process_account,
-            'card': process_card,
-        }
-        try:
-            processor, _, source = detect_processor(df, processors)
-        except ValueError:
-            logger.error("Unrecognized format: columns %s", list(df.columns))
-            return 1
-        source_labels = {
-            'revolut': "Revolut",
-            'account': "NBG Account",
-            'card': "NBG Card",
-        }
-        logger.info("Detected %s export", source_labels[source])
-        out_df = processor(df)
-        if args.previous:
-            prev_df = read_input(args.previous)
-            out_df = exclude_existing(out_df, prev_df)
-        out_path = write_output(in_path, out_df)
-        logger.info("Wrote %d rows to %s", len(out_df), out_path)
+        previous = str(args.previous) if args.previous else None
+        out_df = ConversionService.convert_to_ynab(str(args.input_file), previous_ynab=previous)
+        logger.info("Wrote %d rows", len(out_df))
         return 0
-    except Exception as e:
-        logger.error("Processing failed: %s", e)
+    except Exception as exc:
+        logger.error("Processing failed: %s", exc)
         return 1
 
 

@@ -12,6 +12,7 @@ from converter.card import process_card
 from converter.revolut import process_revolut, validate_revolut_currency
 from converter.dispatcher import detect_processor
 from converter.utils import (
+    read_input,
     exclude_existing,
     extract_date_from_filename,
     generate_output_filename as utils_generate_output_filename,
@@ -67,14 +68,28 @@ def process_revolut_operations(df: pd.DataFrame) -> pd.DataFrame:
         raise ValueError(f"Error processing Revolut operations: {exc}")
 
 
+PROCESSOR_MAP = {
+    'revolut': process_revolut_operations,
+    'account': process_account_operations,
+    'card': process_card_operations,
+}
+
+
+def _load_input_dataframe(input_file: str) -> pd.DataFrame:
+    return read_input(Path(input_file))
+
+
 def generate_output_filename(
     input_file: str,
     is_revolut: bool = False,
     output_dir: Optional[str] = None,
 ) -> str:
     """Consistently build YNAB output filenames without duplicating logic."""
-    target_dir = Path(output_dir) if output_dir else Path(input_file).parent
-    target_dir.mkdir(parents=True, exist_ok=True)
+    if output_dir:
+        target_dir = Path(output_dir)
+        target_dir.mkdir(parents=True, exist_ok=True)
+    else:
+        target_dir = Path(input_file).parent
     return utils_generate_output_filename(
         input_file,
         output_dir=target_dir,
@@ -87,6 +102,24 @@ def load_previous_transactions(csv_file: str) -> pd.DataFrame:
         return pd.read_csv(csv_file)
     except Exception as e:
         raise ValueError(f"Failed to load previous transactions: {str(e)}")
+
+
+def _normalize_prev_df_for_dedup(prev_df: pd.DataFrame) -> pd.DataFrame:
+    lower_cols = {col.lower(): col for col in prev_df.columns}
+    if {'date', 'payee', 'amount'}.issubset(lower_cols):
+        rename_map = {
+            lower_cols['date']: 'Date',
+            lower_cols['payee']: 'Payee',
+            lower_cols['amount']: 'Amount',
+        }
+        if 'memo' in lower_cols:
+            rename_map[lower_cols['memo']] = 'Memo'
+        elif 'notes' in lower_cols:
+            rename_map[lower_cols['notes']] = 'Memo'
+        return prev_df.rename(columns=rename_map)
+    if {'Date', 'Payee', 'Amount'}.issubset(prev_df.columns):
+        return prev_df
+    raise ValueError("Previous transactions file must include date/payee/amount columns")
 
 
 def generate_actual_output_filename(input_file: str, is_revolut: bool = False) -> str:
@@ -120,18 +153,8 @@ class ConversionService:
         output_dir: Optional[str] = None,
     ) -> pd.DataFrame:
         validate_input_file(input_file)
-        file_ext = os.path.splitext(input_file)[1].lower()
-        if file_ext in ['.xlsx', '.xls']:
-            df = pd.read_excel(input_file)
-        elif file_ext == '.csv':
-            df = pd.read_csv(input_file)
-        else:
-            raise ValueError(f"Unsupported file extension: {file_ext}")
-        processor, is_revolut, source = detect_processor(df, {
-            'revolut': process_revolut_operations,
-            'account': process_account_operations,
-            'card': process_card_operations,
-        })
+        df = _load_input_dataframe(input_file)
+        processor, is_revolut, source = detect_processor(df, PROCESSOR_MAP)
         logging.info("Processing as %s", source)
         ynab_df = processor(df)
         if previous_ynab:
@@ -157,21 +180,14 @@ class ConversionService:
         Amount is negative for outflow, positive for inflow.
         """
         validate_input_file(input_file)
-        file_ext = os.path.splitext(input_file)[1].lower()
-        if file_ext in ['.xlsx', '.xls']:
-            df = pd.read_excel(input_file)
-        elif file_ext == '.csv':
-            df = pd.read_csv(input_file)
-        else:
-            raise ValueError(f"Unsupported file extension: {file_ext}")
-
-        processor, is_revolut, source = detect_processor(df, {
-            'revolut': process_revolut_operations,
-            'account': process_account_operations,
-            'card': process_card_operations,
-        })
+        df = _load_input_dataframe(input_file)
+        processor, is_revolut, source = detect_processor(df, PROCESSOR_MAP)
         logging.info("Processing as %s for Actual export", source)
         base_df = processor(df)
+        if previous_ynab:
+            prev_df = load_previous_transactions(previous_ynab)
+            prev_df = _normalize_prev_df_for_dedup(prev_df)
+            base_df = exclude_existing_transactions(base_df, prev_df)
 
         # Map to Actual Budget friendly columns
         actual_df = base_df.rename(columns={
@@ -180,32 +196,6 @@ class ConversionService:
             'Memo': 'notes',
             'Amount': 'amount',
         })[['date', 'payee', 'amount', 'notes']]
-
-        # Optionally filter against previous file if provided
-        if previous_ynab:
-            prev_df = load_previous_transactions(previous_ynab)
-            # Align prev_df columns to same names for comparison if needed
-            if set(['Date', 'Payee', 'Memo', 'Amount']).issubset(prev_df.columns):
-                prev_df = prev_df.rename(columns={
-                    'Date': 'date',
-                    'Payee': 'payee',
-                    'Memo': 'notes',
-                    'Amount': 'amount',
-                })
-            # Use the same exclusion logic (case-insensitive)
-
-            def create_key(df):
-                return (
-                    df['date'].astype(str) + '|' +
-                    df['payee'].astype(str).str.lower().str.strip() + '|' +
-                    df['amount'].astype(str) + '|' +
-                    df['notes'].astype(str).str.lower().str.strip()
-                )
-            new_keys = create_key(actual_df)
-            prev_cols = {'date', 'payee', 'amount', 'notes'}
-            prev_keys = set(create_key(prev_df)) if prev_cols.issubset(prev_df.columns) else set()
-            mask = ~new_keys.isin(prev_keys)
-            actual_df = actual_df[mask].copy()
 
         # Write CSV for Actual with fallback if home dir is not writable
         csv_file = generate_actual_output_filename(input_file, is_revolut)

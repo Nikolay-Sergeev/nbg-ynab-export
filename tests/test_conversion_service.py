@@ -562,6 +562,43 @@ class TestActualConversion(unittest.TestCase):
             self.assertEqual(len(output_df), 1)
             self.assertEqual(output_df.iloc[0]['payee'], 'Grocery Store')
 
+    def test_convert_to_actual_filters_previous_actual_format(self):
+        base_df = pd.DataFrame({
+            'Date': ['2025-07-01', '2025-07-02'],
+            'Payee': ['Coffee Shop', 'Grocery Store'],
+            'Memo': ['Coffee', 'Food'],
+            'Amount': [-4.50, -65.30],
+        })
+        prev_df = pd.DataFrame({
+            'date': ['2025-07-01'],
+            'payee': ['Coffee Shop'],
+            'amount': [-4.50],
+            'notes': ['Coffee'],
+        })
+
+        with tempfile.TemporaryDirectory() as td:
+            input_path = Path(td) / "input.csv"
+            pd.DataFrame({'A': [1]}).to_csv(input_path, index=False)
+            prev_path = Path(td) / "prev_actual.csv"
+            prev_df.to_csv(prev_path, index=False)
+            settings_dir = Path(td) / "settings"
+
+            def fake_processor(_df):
+                return base_df.copy()
+
+            with patch('services.conversion_service.detect_processor',
+                       return_value=(fake_processor, False, 'mock')):
+                with patch('services.conversion_service.SETTINGS_DIR', settings_dir):
+                    output_path = ConversionService.convert_to_actual(
+                        str(input_path),
+                        previous_ynab=str(prev_path),
+                    )
+
+            output_df = pd.read_csv(output_path)
+            self.assertEqual(list(output_df.columns), ['date', 'payee', 'amount', 'notes'])
+            self.assertEqual(len(output_df), 1)
+            self.assertEqual(output_df.iloc[0]['payee'], 'Grocery Store')
+
     def test_convert_to_actual_falls_back_to_input_dir(self):
         base_df = pd.DataFrame({
             'Date': ['2025-07-01'],

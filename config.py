@@ -2,6 +2,7 @@ import sys
 import logging
 from pathlib import Path
 from PyQt5.QtCore import QSettings
+from constants import DATE_FMT_ACCOUNT, DATE_FMT_YNAB
 
 __all__ = [
     'APP_NAME', 'ORGANIZATION',
@@ -15,8 +16,6 @@ __all__ = [
 APP_NAME = "nbg-ynab-export"
 ORGANIZATION = "Me"
 
-DATE_FMT_ACCOUNT = "%d/%m/%Y"
-DATE_FMT_YNAB = "%Y-%m-%d"
 SUPPORTED_EXT = {'.csv', '.xls', '.xlsx'}
 
 # Duplicate checking configuration
