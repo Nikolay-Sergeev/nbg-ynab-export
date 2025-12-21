@@ -72,6 +72,7 @@ Supported inputs:
 - cryptography
 - flake8 (development)
 - pytest (development)
+- Node.js + npm (required for Actual API mode)
 
 ## Installation
 
@@ -95,6 +96,11 @@ python -m venv venv
 3. Install dependencies:
 ```bash
 pip install -r requirements.txt
+```
+
+4. (Actual API mode only) Install Node dependencies:
+```bash
+npm install
 ```
 
 ## Usage
@@ -175,4 +181,4 @@ python scripts/actual_diag.py https://your-actual-host/api yourPassword
 
 ## License
 
-MIT License - See LICENSE file for details
+GNU General Public License v2.0 - See LICENSE file for details

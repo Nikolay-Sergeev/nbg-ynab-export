@@ -79,7 +79,10 @@ class FinishPage(QWizardPage):
                     ".</span>"
                 )
                 if selected is not None:
-                    details = f"{uploaded_text}<br><span style='color:#555;'>Selected to import: {selected}</span><br><br>You may now close the wizard."
+                    details = (
+                        f"{uploaded_text}<br><span style='color:#555;'>Selected to import: "
+                        f"{selected}</span><br><br>You may now close the wizard."
+                    )
                 else:
                     details = f"{uploaded_text}<br><br>You may now close the wizard."
                 text += details
@@ -90,7 +93,8 @@ class FinishPage(QWizardPage):
 
         # Update parent window next button if possible
         if hasattr(parent, "next_button"):
-            parent.next_button.setText("Finish & Quit" if sys.platform.startswith('darwin') else "Finish & Exit")
+            finish_label = "Finish & Quit" if sys.platform.startswith('darwin') else "Finish & Exit"
+            parent.next_button.setText(finish_label)
 
         # Hide back button on last page if possible
         if hasattr(parent, "back_button"):

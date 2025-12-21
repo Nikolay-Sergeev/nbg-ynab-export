@@ -1,0 +1,10 @@
+{
+  "name": "nbg-ynab-export",
+  "version": "0.1.0",
+  "description": "Node bridge for Actual Budget API used by the Python app",
+  "license": "GPL-2.0-only",
+  "private": true,
+  "dependencies": {
+    "@actual-app/api": "latest"
+  }
+}

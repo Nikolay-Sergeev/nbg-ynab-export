@@ -8,6 +8,7 @@
 - `resources/`: UI assets (e.g., `icons/`, `style.qss`).
 - `tests/`: Pytest suite (`test_*.py`).
 - `scripts/`: Node bridge and diagnostics for Actual Budget (`actual_bridge.js`, `actual_diag.py`).
+- `package.json`: Node dependencies for the Actual Budget bridge.
 
 ## Build, Test, and Development
 Initialize environment and install deps:
@@ -15,7 +16,7 @@ Initialize environment and install deps:
 python3 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
 ```
-Actual API mode also requires Node dependencies:
+Actual API mode also requires Node dependencies (from `package.json`):
 ```bash
 npm install
 ```

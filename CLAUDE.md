@@ -31,13 +31,13 @@ The major runtime dependencies are:
 - **pandas** – data processing and CSV/XLSX handling
 - **openpyxl** – Excel file support for `pandas`
 - **PyQt5** (>=5.15) – GUI wizard implementation
-- **requests** – used by the YNAB API client, though not pinned in `requirements.txt`
+- **requests** – used by the YNAB API client
 - **cryptography** – secure storage of the YNAB token
 
 For development and testing the following tools are used:
 
 - **flake8** – code style checking
-- **pytest** – optional testing framework (in addition to the included `unittest` suite)
+- **pytest** – test runner (some tests use pytest fixtures; `unittest` is also used)
 
 Python 3.6 or newer is required. Install all packages with:
 
@@ -45,13 +45,19 @@ Python 3.6 or newer is required. Install all packages with:
 pip install -r requirements.txt
 ```
 
+Actual API mode uses a Node bridge (`scripts/actual_bridge.js`) and requires:
+
+```bash
+npm install
+```
+
 ### Running the Application
 ```bash
 # CLI Mode - Convert file to YNAB format
-python3 main.py path/to/statement.[xlsx|csv]
+python3 cli.py path/to/statement.[xlsx|csv]
 
 # CLI Mode - Convert excluding previously imported transactions
-python3 main.py path/to/statement.[xlsx|csv] path/to/previous_ynab.csv
+python3 cli.py path/to/statement.[xlsx|csv] --previous path/to/previous_ynab.csv
 
 # GUI Wizard Mode
 python3 ui/wizard.py
@@ -66,7 +72,7 @@ python3 -m unittest discover -s tests -v
 python3 -m pytest
 
 # Check code style
-python3 -m flake8 main.py tests
+python3 -m flake8 .
 ```
 
 ### Testing Guidelines
@@ -115,9 +121,11 @@ The application is structured with the following components:
 5. Optional: Data is uploaded to YNAB via API (GUI mode only)
 
 ### Configuration and Settings
-- User settings stored in `~/.nbg-ynab-export/nbg_ynab_settings.txt`
-- YNAB token securely stored using cryptography
-- API logs in `~/.nbg-ynab-export/ynab_api.log`
+- User settings stored under `~/.nbg-ynab-export/`:
+  - `settings.txt`: encrypted YNAB token and last-used folder
+  - `settings.key`: Fernet key used for encryption
+  - `actual_settings.txt`: encrypted Actual server URL/password
+  - `ynab_api.log`: YNAB API debug log
 
 ### UI Architecture
 
