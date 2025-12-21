@@ -164,7 +164,8 @@ def convert_nbg_to_ynab(
         # Generate output filename with file type info
         csv_file = generate_output_filename(xlsx_file, is_revolut)
 
-        ynab_df.to_csv(csv_file, index=False, quoting=csv.QUOTE_MINIMAL)
+        safe_df = _utils.sanitize_csv_formulas(ynab_df, columns=['Payee', 'Memo'])
+        safe_df.to_csv(csv_file, index=False, quoting=csv.QUOTE_MINIMAL)
         logging.info(
             f"Conversion complete. The CSV file is saved as: {csv_file}")
         return ynab_df

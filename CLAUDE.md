@@ -125,7 +125,7 @@ The application is structured with the following components:
   - `settings.txt`: encrypted YNAB token and last-used folder
   - `settings.key`: Fernet key used for encryption
   - `actual_settings.txt`: encrypted Actual server URL/password
-  - `ynab_api.log`: YNAB API debug log
+  - `ynab_api.log`: YNAB API log (warnings by default; set `YNAB_API_DEBUG=1` for verbose payload logging)
 
 ### UI Architecture
 

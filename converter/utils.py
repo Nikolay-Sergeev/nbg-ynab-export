@@ -11,6 +11,30 @@ from config import get_logger
 
 logger = get_logger(__name__)
 
+FORMULA_PREFIXES = ('=', '+', '-', '@')
+
+
+def escape_csv_formula(value: object) -> object:
+    """Prevent spreadsheet formula injection by prefixing risky strings."""
+    if isinstance(value, str):
+        stripped = value.lstrip()
+        if stripped.startswith(FORMULA_PREFIXES):
+            return "'" + value
+    return value
+
+
+def sanitize_csv_formulas(df: pd.DataFrame, columns: Optional[list] = None) -> pd.DataFrame:
+    """Return a copy of df with formula-like strings escaped for CSV output."""
+    safe_df = df.copy()
+    target_columns = columns or [
+        col for col in safe_df.columns
+        if safe_df[col].dtype == object
+    ]
+    for col in target_columns:
+        if col in safe_df.columns:
+            safe_df[col] = safe_df[col].apply(escape_csv_formula)
+    return safe_df
+
 
 def read_input(path: Path) -> pd.DataFrame:
     if path.suffix.lower() == '.csv':
@@ -27,7 +51,9 @@ def write_output(
     stem = in_path.stem
     out_name = f"{stem}_{date_str}_ynab.csv"
     out_path = in_path.with_name(out_name)
-    df.to_csv(out_path, index=False, quoting=csv.QUOTE_MINIMAL)
+    safe_columns = [col for col in ('Payee', 'Memo', 'payee', 'memo', 'notes') if col in df.columns]
+    safe_df = sanitize_csv_formulas(df, columns=safe_columns or None)
+    safe_df.to_csv(out_path, index=False, quoting=csv.QUOTE_MINIMAL)
     return out_path
 
 

@@ -3,6 +3,7 @@ from PyQt5.QtWidgets import (
     QFrame, QSizePolicy
 )
 from PyQt5.QtCore import Qt
+from urllib.parse import urlparse
 import os
 from config import SETTINGS_FILE, ACTUAL_SETTINGS_FILE, get_logger, ensure_app_dir
 from services import token_manager as _token_manager
@@ -87,6 +88,21 @@ class ActualAuthPage(QWizardPage):
             if not url or not pwd:
                 self.error_label.setText("Please enter both server URL and password.")
                 self.logger.info("[ActualAuthPage] Missing URL or password")
+                return False
+            parsed = urlparse(url)
+            if not parsed.scheme:
+                self.error_label.setText("Server URL must include http:// or https://")
+                self.logger.info("[ActualAuthPage] Missing URL scheme")
+                return False
+            scheme = parsed.scheme.lower()
+            host = (parsed.hostname or "").lower()
+            if scheme not in ("http", "https"):
+                self.error_label.setText("Server URL must start with http:// or https://")
+                self.logger.info("[ActualAuthPage] Unsupported URL scheme: %s", scheme)
+                return False
+            if scheme == "http" and host not in ("localhost", "127.0.0.1", "::1"):
+                self.error_label.setText("Insecure URL. Use https:// for remote servers.")
+                self.logger.info("[ActualAuthPage] Rejected insecure URL: %s", url)
                 return False
 
             if self.save_checkbox.isChecked():

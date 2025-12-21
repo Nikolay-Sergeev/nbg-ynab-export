@@ -3,10 +3,13 @@ import logging
 import os
 from config import SETTINGS_DIR, ensure_app_dir
 
-# Setup YNAB API debug logging
+# Setup YNAB API logging
 # Prefer a writable path inside the project to avoid sandbox issues.
 api_logger = logging.getLogger('ynab_api')
-api_logger.setLevel(logging.DEBUG)
+_log_verbose = os.getenv('YNAB_API_DEBUG', '').lower() in ('1', 'true', 'yes') \
+    or os.getenv('YNAB_LOG_VERBOSE', '').lower() in ('1', 'true', 'yes')
+_log_level = logging.DEBUG if _log_verbose else logging.WARNING
+api_logger.setLevel(_log_level)
 
 try:
     # Allow overriding via env var
@@ -23,10 +26,15 @@ try:
     ynab_log_file = os.path.join(base_dir, 'ynab_api.log')
 
     api_file_handler = logging.FileHandler(ynab_log_file, mode='a')
+    api_file_handler.setLevel(_log_level)
     api_file_handler.setFormatter(
         logging.Formatter('%(asctime)s %(levelname)s %(message)s')
     )
     api_logger.addHandler(api_file_handler)
+    try:
+        os.chmod(ynab_log_file, 0o600)
+    except OSError:
+        pass
 except Exception:
     # Fall back to a null handler if we cannot write logs
     api_logger.addHandler(logging.NullHandler())
@@ -125,9 +133,13 @@ class YnabClient:
                 'url': url,
                 'status_code': resp.status_code,
                 'params': params,
-                'json': json,
-                'response': resp.text[:10000]  # Avoid logging huge responses
             }
-            api_logger.debug('[YNAB API] %s', log_entry)
+            if _log_verbose:
+                log_entry['json'] = json
+                log_entry['response'] = resp.text[:10000]  # Avoid logging huge responses
+            if resp.status_code >= 400:
+                api_logger.warning('[YNAB API] %s', log_entry)
+            else:
+                api_logger.debug('[YNAB API] %s', log_entry)
         except Exception as e:
             logging.error('Failed to log YNAB API call: %s', e)

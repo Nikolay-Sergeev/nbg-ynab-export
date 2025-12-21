@@ -16,7 +16,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt
 from PyQt5.QtSvg import QSvgWidget
 import os
-from services.conversion_service import generate_output_filename
+from services.conversion_service import generate_output_filename, sanitize_csv_formulas
 import logging
 
 
@@ -449,7 +449,8 @@ class ReviewAndUploadPage(QWizardPage):
                     output_dir=input_dir,
                 )
                 os.makedirs(os.path.dirname(out_path), exist_ok=True)
-                df.to_csv(out_path, index=False)
+                safe_df = sanitize_csv_formulas(df, columns=['Payee', 'Memo'])
+                safe_df.to_csv(out_path, index=False)
                 parent.file_export_path = out_path
                 if hasattr(parent, 'actual_export_path'):
                     parent.actual_export_path = None

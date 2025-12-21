@@ -1,4 +1,5 @@
 from typing import Optional
+from urllib.parse import urlparse
 from pathlib import Path
 from config import get_logger
 from services.actual_bridge_runner import ActualBridgeRunner
@@ -26,6 +27,13 @@ class ActualClient:
         # Bridge-based client using @actual-app/api via Node
         self.base_url = base_url.rstrip('/')
         self.password = password
+        parsed = urlparse(self.base_url)
+        if parsed.scheme.lower() == "http":
+            host = (parsed.hostname or "").lower()
+            if host not in ("localhost", "127.0.0.1", "::1"):
+                logger.warning("[ActualClient] Insecure HTTP URL for remote server: %s", self.base_url)
+        elif parsed.scheme and parsed.scheme.lower() != "https":
+            logger.warning("[ActualClient] Unrecognized URL scheme for Actual server: %s", self.base_url)
         # Bridge can be injected for testing
         self.bridge = bridge or ActualBridgeRunner(
             project_root=Path(__file__).resolve().parent.parent

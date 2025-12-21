@@ -44,6 +44,18 @@ class TestUtils(unittest.TestCase):
             written = pd.read_csv(out_path)
         self.assertTrue(written.equals(df))
 
+    def test_sanitize_csv_formulas(self):
+        df = pd.DataFrame({
+            'Payee': ['=HYPERLINK("http://x")', ' Normal'],
+            'Memo': ['+SUM(1,1)', None],
+            'Amount': [1, 2],
+        })
+        sanitized = utils.sanitize_csv_formulas(df)
+        self.assertEqual(sanitized.loc[0, 'Payee'], "'=HYPERLINK(\"http://x\")")
+        self.assertEqual(sanitized.loc[0, 'Memo'], "'+SUM(1,1)")
+        self.assertEqual(sanitized.loc[1, 'Payee'], ' Normal')
+        self.assertTrue(pd.isna(sanitized.loc[1, 'Memo']))
+
     def test_exclude_existing(self):
         new_df = pd.DataFrame({
             'Date': ['2025-02-25', '2025-02-26'],

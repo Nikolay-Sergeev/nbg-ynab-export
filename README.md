@@ -156,11 +156,12 @@ All local config is stored under `~/.nbg-ynab-export/` with file mode `0600`:
 - `settings.txt`: encrypted YNAB token (`TOKEN:` line) and last-used folder (`FOLDER:` line).
 - `settings.key`: Fernet key used to encrypt/decrypt tokens.
 - `actual_settings.txt`: encrypted Actual server URL/password (`ACTUAL_URL:` / `ACTUAL_PWD:`).
-- `ynab_api.log`: YNAB API debug log (request/response summaries).
+- `ynab_api.log`: YNAB API log (warnings by default; enable verbose payload logging with `YNAB_API_DEBUG=1`).
 
 Environment variables:
 - `YNAB_TOKEN`: overrides the saved YNAB token.
 - `YNAB_LOG_DIR`: overrides where `ynab_api.log` is written.
+- `YNAB_API_DEBUG`: when set to `1`, logs request/response payloads for YNAB API calls.
 
 Duplicate checking in GUI uses configurable range in `config.py` (`DUP_CHECK_DAYS`, `DUP_CHECK_COUNT`).
 

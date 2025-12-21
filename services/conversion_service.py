@@ -19,6 +19,7 @@ from converter.utils import (
     validate_dataframe,
     convert_amount,
     strip_accents,
+    sanitize_csv_formulas,
 )
 
 __all__ = [
@@ -26,6 +27,7 @@ __all__ = [
     'validate_dataframe',
     'convert_amount',
     'strip_accents',
+    'sanitize_csv_formulas',
     'process_account_operations',
     'process_card_operations',
     'process_revolut_operations',
@@ -142,7 +144,8 @@ class ConversionService:
                 output_dir=output_dir,
             )
             write_df = ynab_df.drop(columns=['ImportId'], errors='ignore')
-            write_df.to_csv(csv_file, index=False, quoting=csv.QUOTE_MINIMAL)
+            safe_df = sanitize_csv_formulas(write_df, columns=['Payee', 'Memo'])
+            safe_df.to_csv(csv_file, index=False, quoting=csv.QUOTE_MINIMAL)
             logging.info("Conversion complete. The CSV file is saved as: %s", csv_file)
         return ynab_df
 
@@ -206,9 +209,10 @@ class ConversionService:
 
         # Write CSV for Actual with fallback if home dir is not writable
         csv_file = generate_actual_output_filename(input_file, is_revolut)
+        safe_df = sanitize_csv_formulas(actual_df, columns=['payee', 'notes'])
         try:
             os.makedirs(os.path.dirname(csv_file), exist_ok=True)
-            actual_df.to_csv(csv_file, index=False, quoting=csv.QUOTE_MINIMAL)
+            safe_df.to_csv(csv_file, index=False, quoting=csv.QUOTE_MINIMAL)
         except Exception:
             try:
                 # Fallback to project-local directory
@@ -217,12 +221,12 @@ class ConversionService:
                 os.makedirs(fallback_dir, exist_ok=True)
                 base = os.path.basename(csv_file)
                 csv_file = os.path.join(fallback_dir, base)
-                actual_df.to_csv(csv_file, index=False, quoting=csv.QUOTE_MINIMAL)
+                safe_df.to_csv(csv_file, index=False, quoting=csv.QUOTE_MINIMAL)
             except Exception:
                 # Final fallback: write next to the input file
                 in_dir = os.path.dirname(os.path.abspath(input_file))
                 base = os.path.basename(csv_file)
                 csv_file = os.path.join(in_dir, base)
-                actual_df.to_csv(csv_file, index=False, quoting=csv.QUOTE_MINIMAL)
+                safe_df.to_csv(csv_file, index=False, quoting=csv.QUOTE_MINIMAL)
         logging.info(f"Actual export complete. The CSV file is saved as: {csv_file}")
         return csv_file

@@ -10,6 +10,7 @@ import json
 import logging
 import os
 import sys
+from urllib.parse import urlparse
 
 # Ensure project root on path
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -17,6 +18,7 @@ if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
 from services.actual_client import ActualClient  # noqa: E402
+from config import SETTINGS_DIR, ensure_app_dir  # noqa: E402
 
 
 def main():
@@ -33,8 +35,16 @@ def main():
     if args.no_verify:
         os.environ['ACTUAL_VERIFY_SSL'] = 'false'
 
+    parsed = urlparse(args.url)
+    if parsed.scheme.lower() == "http":
+        host = (parsed.hostname or "").lower()
+        if host not in ("localhost", "127.0.0.1", "::1"):
+            print("WARNING: Using insecure http:// for a remote server.", file=sys.stderr)
+
     print('== Creating client ==')
-    client = ActualClient(args.url, args.password)
+    ensure_app_dir()
+    data_dir = SETTINGS_DIR / "actual-data"
+    client = ActualClient(args.url, args.password, data_dir=str(data_dir))
 
     print('== Fetching budgets ==')
     try:
