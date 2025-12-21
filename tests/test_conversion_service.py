@@ -320,6 +320,24 @@ class TestCardOperations(unittest.TestCase):
         self.assertEqual(result.iloc[2]['Memo'], 'AMAZON (REF: 12345)')
         self.assertAlmostEqual(result.iloc[2]['Amount'], -45.99)
 
+    def test_process_card_operations_secure_authorization_cleanup(self):
+        """Test cleanup of secure ecommerce authorization prefix."""
+        auth_data = pd.DataFrame({
+            'Ημερομηνία/Ώρα Συναλλαγής': ['19/12/2025 9:15 μμ'],
+            'Περιγραφή Κίνησης': [
+                '3D SECURE E-COMMERCE ΑΓΟΡΑ (ΕΞΟΥΣΙΟΔΟΤΗΣΗ) - YPERASTIKO KTEL IOAN'
+            ],
+            'Χ/Π': ['Χ'],
+            'Ποσό': ['8,50']
+        })
+
+        result = process_card_operations(auth_data)
+
+        self.assertEqual(result.iloc[0]['Date'], '2025-12-19')
+        self.assertEqual(result.iloc[0]['Payee'], 'YPERASTIKO KTEL IOAN')
+        self.assertEqual(result.iloc[0]['Memo'], 'YPERASTIKO KTEL IOAN')
+        self.assertAlmostEqual(result.iloc[0]['Amount'], -8.50)
+
     def test_process_card_operations_invalid_date(self):
         """Test processing card operations with invalid date format."""
         invalid_date_data = self.card_data.copy()
