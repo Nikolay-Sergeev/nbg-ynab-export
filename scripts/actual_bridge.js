@@ -5,8 +5,10 @@
  * Supported commands:
  *   { "cmd": "init", "serverURL": "https://host:port", "password": "...", "dataDir": "..." }
  *   { "cmd": "listBudgets" }
- *   { "cmd": "listAccounts", "budgetId": "..." }
- *   { "cmd": "uploadTransactions", "budgetId": "...", "accountId": "...", "transactions": [ { date, payee_name, amount, memo } ] }
+ *   { "cmd": "listAccounts", "budgetId": "...", "budgetPassword": "..." }
+ *   { "cmd": "listTransactions", "budgetId": "...", "accountId": "...", "count": 50, "budgetPassword": "..." }
+ *   { "cmd": "uploadTransactions", "budgetId": "...", "accountId": "...",
+ *     "transactions": [ { date, payee_name, amount, memo } ], "budgetPassword": "..." }
  *
  * Notes:
  * - amount is expected in milliunits from the Python side; we convert to decimal for Actual.
@@ -52,7 +54,8 @@ async function handleCommand(cmd) {
       case 'listAccounts': {
         if (!cmd.budgetId) throw new Error('budgetId is required');
         console.error('[Bridge] listAccounts', cmd.budgetId);
-        await actual.downloadBudget(cmd.budgetId);
+        const downloadOpts = cmd.budgetPassword ? { password: cmd.budgetPassword } : undefined;
+        await actual.downloadBudget(cmd.budgetId, downloadOpts);
         const accounts = await actual.getAccounts();
         const mapped = accounts.map(a => ({
           id: a.id || a.accountId || a.uuid,
@@ -64,7 +67,8 @@ async function handleCommand(cmd) {
         const { budgetId, accountId, count } = cmd;
         if (!budgetId || !accountId) throw new Error('budgetId and accountId are required');
         console.error('[Bridge] listTransactions', budgetId, accountId, count || '');
-        await actual.downloadBudget(budgetId);
+        const downloadOpts = cmd.budgetPassword ? { password: cmd.budgetPassword } : undefined;
+        await actual.downloadBudget(budgetId, downloadOpts);
         let payeeMap = {};
         let accountMap = {};
         try {
@@ -108,7 +112,8 @@ async function handleCommand(cmd) {
         const { budgetId, accountId, transactions } = cmd;
         if (!budgetId || !accountId) throw new Error('budgetId and accountId are required');
         console.error('[Bridge] uploadTransactions', budgetId, accountId, (transactions || []).length);
-        await actual.downloadBudget(budgetId);
+        const downloadOpts = cmd.budgetPassword ? { password: cmd.budgetPassword } : undefined;
+        await actual.downloadBudget(budgetId, downloadOpts);
         const accounts = await actual.getAccounts();
         const target = (accounts || []).find(a => (a.id || a.accountId || a.uuid) === accountId);
         if (!target) {

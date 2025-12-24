@@ -21,12 +21,15 @@ class ActualClient:
         self,
         base_url: str,
         password: str,
+        encryption_password: Optional[str] = None,
         data_dir: Optional[str] = None,
         bridge: Optional[ActualBridgeRunner] = None,
     ):
         # Bridge-based client using @actual-app/api via Node
         self.base_url = base_url.rstrip('/')
         self.password = password
+        # Use explicit encryption password when provided; otherwise fall back to server password.
+        self.download_password = encryption_password or password
         parsed = urlparse(self.base_url)
         if parsed.scheme.lower() == "http":
             host = (parsed.hostname or "").lower()
@@ -75,7 +78,7 @@ class ActualClient:
     def get_accounts(self, budget_id: str) -> list:
         """Return list of accounts for a budget with keys id and name."""
         logger.info("[ActualClient] Fetching accounts for budget=%s via bridge", budget_id)
-        resp = self.bridge.list_accounts(budget_id)
+        resp = self.bridge.list_accounts(budget_id, self.download_password)
         if not resp.get("ok"):
             raise RuntimeError(resp.get("error") or "Failed to list accounts")
         return resp.get("accounts") or []
@@ -94,7 +97,12 @@ class ActualClient:
             budget_id,
             account_id,
         )
-        resp = self.bridge.list_transactions(budget_id, account_id, count=count)
+        resp = self.bridge.list_transactions(
+            budget_id,
+            account_id,
+            count=count,
+            budget_password=self.download_password,
+        )
         if not resp.get("ok"):
             raise RuntimeError(resp.get("error") or "Failed to list transactions")
         txs = resp.get("transactions") or []
@@ -108,7 +116,12 @@ class ActualClient:
 
         Returns a dict with 'data' containing 'transactions' or 'transaction_ids' length for UI count.
         """
-        resp = self.bridge.upload_transactions(budget_id, account_id, transactions)
+        resp = self.bridge.upload_transactions(
+            budget_id,
+            account_id,
+            transactions,
+            budget_password=self.download_password,
+        )
         if not resp.get("ok"):
             raise RuntimeError(resp.get("error") or "Failed to upload transactions")
         uploaded = resp.get("uploaded", 0)

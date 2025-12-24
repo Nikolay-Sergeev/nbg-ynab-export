@@ -63,22 +63,42 @@ class ActualBridgeRunner:
     def list_budgets(self) -> Dict[str, Any]:
         return self._send({"cmd": "listBudgets"})
 
-    def list_accounts(self, budget_id: str) -> Dict[str, Any]:
-        return self._send({"cmd": "listAccounts", "budgetId": budget_id})
+    def list_accounts(self, budget_id: str, budget_password: Optional[str] = None) -> Dict[str, Any]:
+        payload: Dict[str, Any] = {"cmd": "listAccounts", "budgetId": budget_id}
+        if budget_password:
+            payload["budgetPassword"] = budget_password
+        return self._send(payload)
 
-    def list_transactions(self, budget_id: str, account_id: str, count: Optional[int] = None) -> Dict[str, Any]:
+    def list_transactions(
+        self,
+        budget_id: str,
+        account_id: str,
+        count: Optional[int] = None,
+        budget_password: Optional[str] = None,
+    ) -> Dict[str, Any]:
         payload: Dict[str, Any] = {"cmd": "listTransactions", "budgetId": budget_id, "accountId": account_id}
         if count is not None:
             payload["count"] = count
+        if budget_password:
+            payload["budgetPassword"] = budget_password
         return self._send(payload)
 
-    def upload_transactions(self, budget_id: str, account_id: str, transactions: list) -> Dict[str, Any]:
-        return self._send({
+    def upload_transactions(
+        self,
+        budget_id: str,
+        account_id: str,
+        transactions: list,
+        budget_password: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        payload: Dict[str, Any] = {
             "cmd": "uploadTransactions",
             "budgetId": budget_id,
             "accountId": account_id,
             "transactions": transactions,
-        })
+        }
+        if budget_password:
+            payload["budgetPassword"] = budget_password
+        return self._send(payload)
 
     def close(self):
         try:

@@ -38,7 +38,8 @@ def test_get_budgets_normalizes_cloud_file_id_and_filters_missing_ids():
 
 def test_get_transactions_uses_bridge_and_filters_since_date():
     class BridgeWithTx(FakeBridge):
-        def list_transactions(self, budget_id, account_id, count=None):
+        def list_transactions(self, budget_id, account_id, count=None, budget_password=None):
+            self.last_args = (budget_id, account_id, count, budget_password)
             return {
                 "ok": True,
                 "transactions": [
@@ -52,3 +53,23 @@ def test_get_transactions_uses_bridge_and_filters_since_date():
 
     txs = client.get_transactions("b1", "a1", since_date="2024-02-01")
     assert txs == [{"date": "2024-02-01", "amount": 20}]
+    assert bridge.last_args == ("b1", "a1", None, "pw")
+
+
+def test_get_accounts_uses_encryption_password_when_provided():
+    class BridgeWithAccounts(FakeBridge):
+        def __init__(self):
+            super().__init__()
+            self.last_args = None
+
+        def list_accounts(self, budget_id, budget_password=None):
+            self.last_args = (budget_id, budget_password)
+            return {"ok": True, "accounts": []}
+
+    bridge = BridgeWithAccounts()
+    client = ActualClient("https://example.com", "server-pw", encryption_password="e2e-pw", bridge=bridge)
+
+    accounts = client.get_accounts("budget-1")
+
+    assert accounts == []
+    assert bridge.last_args == ("budget-1", "e2e-pw")

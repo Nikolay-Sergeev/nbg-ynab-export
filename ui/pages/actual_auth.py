@@ -49,13 +49,23 @@ class ActualAuthPage(QWizardPage):
         pwd_row.addWidget(self.pwd_input)
         layout.addLayout(pwd_row)
 
+        # Encryption password (optional)
+        enc_row = QHBoxLayout()
+        enc_label = QLabel("Encryption Password (optional):")
+        self.enc_pwd_input = QLineEdit()
+        self.enc_pwd_input.setEchoMode(QLineEdit.Password)
+        self.enc_pwd_input.setPlaceholderText("Budget encryption password (if different)")
+        enc_row.addWidget(enc_label)
+        enc_row.addWidget(self.enc_pwd_input)
+        layout.addLayout(enc_row)
+
         # Save checkbox
         self.save_checkbox = QCheckBox("Save credentials securely on this device")
         self.save_checkbox.setChecked(True)
         layout.addWidget(self.save_checkbox, alignment=Qt.AlignLeft)
 
         # Helper and error
-        self.helper_label = QLabel("Your credentials are stored locally.")
+        self.helper_label = QLabel("Credentials are stored locally. Leave encryption password blank to reuse the server password.")
         self.helper_label.setObjectName("helper-label")
         self.error_label = QLabel("")
         self.error_label.setObjectName("error-label")
@@ -72,6 +82,7 @@ class ActualAuthPage(QWizardPage):
 
         self.url_input.textChanged.connect(self._on_change)
         self.pwd_input.textChanged.connect(self._on_change)
+        self.enc_pwd_input.textChanged.connect(self._on_change)
         self.load_saved()
 
     def _on_change(self):
@@ -85,6 +96,7 @@ class ActualAuthPage(QWizardPage):
         try:
             url = self.url_input.text().strip()
             pwd = self.pwd_input.text().strip()
+            budget_pwd = self.enc_pwd_input.text().strip()
             if not url or not pwd:
                 self.error_label.setText("Please enter both server URL and password.")
                 self.logger.info("[ActualAuthPage] Missing URL or password")
@@ -108,10 +120,15 @@ class ActualAuthPage(QWizardPage):
             if self.save_checkbox.isChecked():
                 try:
                     ensure_app_dir()
-                    enc_pwd = _token_manager.encrypt_token(pwd).decode()
+                    enc_server_pwd = _token_manager.encrypt_token(pwd).decode()
+                    enc_budget_pwd = (
+                        _token_manager.encrypt_token(budget_pwd).decode() if budget_pwd else ""
+                    )
                     with open(ACTUAL_SETTINGS_FILE, 'w') as f:
                         f.write(f"ACTUAL_URL:{url}\n")
-                        f.write(f"ACTUAL_PWD:{enc_pwd}\n")
+                        f.write(f"ACTUAL_PWD:{enc_server_pwd}\n")
+                        if enc_budget_pwd:
+                            f.write(f"ACTUAL_E2E_PWD:{enc_budget_pwd}\n")
                     try:
                         os.chmod(ACTUAL_SETTINGS_FILE, 0o600)
                     except OSError:
@@ -122,7 +139,7 @@ class ActualAuthPage(QWizardPage):
                             with open(SETTINGS_FILE, 'r') as f:
                                 lines = [
                                     ln for ln in f
-                                    if not (ln.startswith("ACTUAL_URL:") or ln.startswith("ACTUAL_PWD:"))
+                                    if not ln.startswith(("ACTUAL_URL:", "ACTUAL_PWD:", "ACTUAL_E2E_PWD:"))
                                 ]
                             with open(SETTINGS_FILE, 'w') as f:
                                 f.writelines(lines)
@@ -137,7 +154,7 @@ class ActualAuthPage(QWizardPage):
                     self.logger.error("[ActualAuthPage] Error saving credentials: %s", e)
                     return False
 
-            ok = self.controller.authorize_actual(url, pwd)
+            ok = self.controller.authorize_actual(url, pwd, budget_pwd or None)
             if not ok:
                 msg = getattr(self.controller, "last_error_message", None)
                 short_msg = (msg or "Failed to connect to Actual server with given credentials.").strip()
@@ -177,6 +194,12 @@ class ActualAuthPage(QWizardPage):
                                 self.pwd_input.setText(_token_manager.decrypt_token(enc.encode()))
                             except Exception:
                                 pass
+                        elif line.startswith('ACTUAL_E2E_PWD:'):
+                            enc = line.split('ACTUAL_E2E_PWD:', 1)[1].strip()
+                            try:
+                                self.enc_pwd_input.setText(_token_manager.decrypt_token(enc.encode()))
+                            except Exception:
+                                pass
                 return
             except Exception:
                 pass
@@ -185,6 +208,7 @@ class ActualAuthPage(QWizardPage):
         if os.path.exists(SETTINGS_FILE):
             legacy_url = None
             legacy_pwd = None
+            legacy_e2e = None
             try:
                 with open(SETTINGS_FILE, 'r') as f:
                     for line in f:
@@ -192,6 +216,8 @@ class ActualAuthPage(QWizardPage):
                             legacy_url = line.split('ACTUAL_URL:', 1)[1].strip()
                         elif line.startswith('ACTUAL_PWD:'):
                             legacy_pwd = line.split('ACTUAL_PWD:', 1)[1].strip()
+                        elif line.startswith('ACTUAL_E2E_PWD:'):
+                            legacy_e2e = line.split('ACTUAL_E2E_PWD:', 1)[1].strip()
                 if legacy_url:
                     self.url_input.setText(legacy_url)
                 if legacy_pwd:
@@ -199,11 +225,18 @@ class ActualAuthPage(QWizardPage):
                         self.pwd_input.setText(_token_manager.decrypt_token(legacy_pwd.encode()))
                     except Exception:
                         pass
+                if legacy_e2e:
+                    try:
+                        self.enc_pwd_input.setText(_token_manager.decrypt_token(legacy_e2e.encode()))
+                    except Exception:
+                        pass
                 if legacy_url and legacy_pwd:
                     try:
                         with open(ACTUAL_SETTINGS_FILE, 'w') as f:
                             f.write(f"ACTUAL_URL:{legacy_url}\n")
                             f.write(f"ACTUAL_PWD:{legacy_pwd}\n")
+                            if legacy_e2e:
+                                f.write(f"ACTUAL_E2E_PWD:{legacy_e2e}\n")
                         try:
                             os.chmod(ACTUAL_SETTINGS_FILE, 0o600)
                         except OSError:

@@ -147,7 +147,8 @@ python ui/wizard.py
 
 On the first page you can choose an export mode:
 - **YNAB**: verify token, select budget/account, review & upload to YNAB.
-- **Actual API**: verify Actual server URL/password, select budget/account, review & upload to Actual Budget.
+- **Actual API**: verify Actual server URL/password (and encryption password if using E2E), select budget/account,
+  review & upload to Actual Budget.
 - **File Converter**: review & choose rows to export; generates a YNAB CSV without uploading anywhere.
 
 ### Settings and Logs
@@ -155,7 +156,8 @@ On the first page you can choose an export mode:
 All local config is stored under `~/.nbg-ynab-export/` with file mode `0600`:
 - `settings.txt`: encrypted YNAB token (`TOKEN:` line) and last-used folder (`FOLDER:` line).
 - `settings.key`: Fernet key used to encrypt/decrypt tokens.
-- `actual_settings.txt`: encrypted Actual server URL/password (`ACTUAL_URL:` / `ACTUAL_PWD:`).
+- `actual_settings.txt`: encrypted Actual server URL/password (`ACTUAL_URL:` / `ACTUAL_PWD:`) and optional
+  encryption password (`ACTUAL_E2E_PWD:`).
 - `ynab_api.log`: YNAB API log (warnings by default; enable verbose payload logging with `YNAB_API_DEBUG=1`).
 
 Environment variables:
@@ -168,6 +170,7 @@ Duplicate checking in GUI uses configurable range in `config.py` (`DUP_CHECK_DAY
 ### Actual Budget Notes
 
 Actual API mode uses a small Node bridge (`scripts/actual_bridge.js`) backed by `@actual-app/api`.
+If your budget uses end-to-end encryption, provide the encryption password in the Actual auth step.
 If `node_modules/` is missing, run `npm install` in the repo root.
 For connectivity troubleshooting, run:
 ```bash

@@ -1,4 +1,5 @@
 # ui/controller.py
+from typing import Optional
 from PyQt5.QtCore import QObject, pyqtSignal, QThread
 from services.ynab_client import YnabClient
 from services.actual_client import ActualClient
@@ -257,8 +258,8 @@ class WizardController(QObject):
             self.errorOccurred.emit(f"Failed to initialize YNAB client: {str(e)}")
             return False
 
-    def authorize_actual(self, base_url: str, password: str) -> bool:
-        """Initialize Actual client using provided server URL and password."""
+    def authorize_actual(self, base_url: str, password: str, encryption_password: Optional[str] = None) -> bool:
+        """Initialize Actual client using provided server URL, password, and optional encryption password."""
         try:
             self.last_error_message = None
             # Clear any previous client to avoid leaving stale instances on failure
@@ -270,7 +271,7 @@ class WizardController(QObject):
                 return False
             ensure_app_dir()
             data_dir = SETTINGS_DIR / "actual-data"
-            client = ActualClient(base_url, password, data_dir=str(data_dir))
+            client = ActualClient(base_url, password, encryption_password=encryption_password, data_dir=str(data_dir))
             logger.info("[WizardController] Actual client initialized for %s (%s)", base_url, type(client).__name__)
             # Quick connectivity check to fail fast if server returns HTML/invalid API
             try:
