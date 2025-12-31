@@ -73,3 +73,22 @@ def test_get_accounts_uses_encryption_password_when_provided():
 
     assert accounts == []
     assert bridge.last_args == ("budget-1", "e2e-pw")
+
+
+def test_get_budgets_prefers_remote_for_duplicate_names():
+    class BridgeWithDup(FakeBridge):
+        def list_budgets(self):
+            return {
+                "ok": True,
+                "budgets": [
+                    {"id": "local-id", "groupId": "old-sync", "name": "Budget A"},
+                    {"groupId": "new-sync", "name": "Budget A", "state": "remote", "cloudFileId": "file-1"},
+                ],
+            }
+
+    bridge = BridgeWithDup()
+    client = ActualClient("https://example.com", "pw", bridge=bridge)
+
+    budgets = client.get_budgets()
+
+    assert budgets == [{"id": "new-sync", "name": "Budget A"}]

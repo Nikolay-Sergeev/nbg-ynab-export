@@ -45,16 +45,30 @@ class ActualClient:
         if not init_resp.get("ok"):
             raise RuntimeError(init_resp.get("error") or "Failed to init Actual bridge")
 
+    def _log_bridge_error(self, resp: dict, context: str) -> None:
+        detail = resp.get("details")
+        if detail:
+            logger.error("[ActualClient] Bridge error detail during %s: %s", context, detail)
+            return
+        recent = None
+        if self.bridge and hasattr(self.bridge, "recent_stderr"):
+            try:
+                recent = self.bridge.recent_stderr()
+            except Exception:
+                recent = None
+        if recent:
+            logger.error("[ActualClient] Bridge stderr during %s: %s", context, recent)
+
     def get_budgets(self) -> list:
         """Return list of budgets with keys id and name."""
         logger.info("[ActualClient] Fetching budgets via bridge")
         resp = self.bridge.list_budgets()
         if not resp.get("ok"):
+            self._log_bridge_error(resp, "list budgets")
             raise RuntimeError(resp.get("error") or "Failed to list budgets")
         budgets = resp.get("budgets") or []
-        normalized = []
         seen_ids = set()
-        seen_names = set()
+        by_name = {}
         for b in budgets:
             # Prefer groupId because Actual's downloadBudget expects the sync id (groupId)
             bid = (
@@ -68,18 +82,32 @@ class ActualClient:
             name = b.get("name") or b.get("budgetName")
             if not bid or not name:
                 continue
-            if bid in seen_ids or name in seen_names:
+            if bid in seen_ids:
                 continue
-            normalized.append({"id": bid, "name": name})
+
+            entry = {
+                "id": bid,
+                "name": name,
+                "_state": (b.get("state") or "").lower(),
+            }
+            if name in by_name:
+                existing = by_name[name]
+                existing_remote = existing.get("_state") == "remote"
+                candidate_remote = entry["_state"] == "remote"
+                if candidate_remote and not existing_remote:
+                    by_name[name] = entry
+            else:
+                by_name[name] = entry
+
             seen_ids.add(bid)
-            seen_names.add(name)
-        return normalized
+        return [{"id": b["id"], "name": b["name"]} for b in by_name.values()]
 
     def get_accounts(self, budget_id: str) -> list:
         """Return list of accounts for a budget with keys id and name."""
         logger.info("[ActualClient] Fetching accounts for budget=%s via bridge", budget_id)
         resp = self.bridge.list_accounts(budget_id, self.download_password)
         if not resp.get("ok"):
+            self._log_bridge_error(resp, "list accounts")
             raise RuntimeError(resp.get("error") or "Failed to list accounts")
         return resp.get("accounts") or []
 
@@ -104,6 +132,7 @@ class ActualClient:
             budget_password=self.download_password,
         )
         if not resp.get("ok"):
+            self._log_bridge_error(resp, "list transactions")
             raise RuntimeError(resp.get("error") or "Failed to list transactions")
         txs = resp.get("transactions") or []
         # Optional since_date filter (inclusive)
@@ -123,6 +152,7 @@ class ActualClient:
             budget_password=self.download_password,
         )
         if not resp.get("ok"):
+            self._log_bridge_error(resp, "upload transactions")
             raise RuntimeError(resp.get("error") or "Failed to upload transactions")
         uploaded = resp.get("uploaded", 0)
         return {

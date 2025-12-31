@@ -22,6 +22,24 @@ function writeResponse(obj) {
   process.stdout.write(JSON.stringify(obj) + '\n');
 }
 
+function getErrorInfo(err) {
+  if (!err) {
+    return { message: 'Unknown error' };
+  }
+  if (typeof err === 'string') {
+    return { message: err };
+  }
+  const message = err.message || '';
+  const stack = err.stack || '';
+  if (message) {
+    return { message, stack };
+  }
+  if (stack) {
+    return { message: stack.split('\n')[0], stack };
+  }
+  return { message: String(err) };
+}
+
 async function safeInit(opts) {
   const dataDir = opts.dataDir || path.join(process.cwd(), 'actual-data');
   fs.mkdirSync(dataDir, { recursive: true });
@@ -48,6 +66,7 @@ async function handleCommand(cmd) {
           name: b.name,
           groupId: b.groupId,
           cloudFileId: b.cloudFileId || b.fileId,
+          state: b.state,
         })).filter(b => b.name);
         return { ok: true, budgets: mapped };
       }
@@ -137,7 +156,13 @@ async function handleCommand(cmd) {
         throw new Error(`Unknown cmd: ${cmd.cmd}`);
     }
   } catch (err) {
-    return { ok: false, error: err && err.message ? err.message : String(err) };
+    const info = getErrorInfo(err);
+    if (info.stack) {
+      console.error('[Bridge] error', info.stack);
+    } else {
+      console.error('[Bridge] error', info.message);
+    }
+    return { ok: false, error: info.message, details: info.stack || undefined };
   }
 }
 

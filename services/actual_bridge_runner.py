@@ -1,6 +1,7 @@
 import json
 import subprocess
 import threading
+from collections import deque
 from pathlib import Path
 from typing import Any, Dict, Optional
 from config import get_logger
@@ -27,6 +28,20 @@ class ActualBridgeRunner:
             text=True,
         )
         self._lock = threading.Lock()
+        self._stderr_buffer = deque(maxlen=50)
+        self._stderr_thread = threading.Thread(target=self._drain_stderr, daemon=True)
+        self._stderr_thread.start()
+
+    def _drain_stderr(self) -> None:
+        """Log stderr from the bridge to aid debugging."""
+        if not self.process or self.process.stderr is None:
+            return
+        for line in self.process.stderr:
+            line = line.rstrip()
+            if not line:
+                continue
+            self._stderr_buffer.append(line)
+            logger.debug("[ActualBridge] %s", line)
 
     def _read_json_line(self) -> Dict[str, Any]:
         """
@@ -56,6 +71,12 @@ class ActualBridgeRunner:
             self.process.stdin.flush()
             resp_obj = self._read_json_line()
         return resp_obj
+
+    def recent_stderr(self, limit: int = 10) -> str:
+        if limit <= 0 or not self._stderr_buffer:
+            return ""
+        lines = list(self._stderr_buffer)[-limit:]
+        return "\n".join(lines)
 
     def init(self, server_url: str, password: str, data_dir: Optional[str] = None) -> Dict[str, Any]:
         return self._send({"cmd": "init", "serverURL": server_url, "password": password, "dataDir": data_dir})
