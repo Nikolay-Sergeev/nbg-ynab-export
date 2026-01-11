@@ -107,6 +107,17 @@ class DuplicateCheckWorker(QObject):
             )
             records = df.to_dict('records')
 
+            def normalize_import_id(value):
+                if value is None:
+                    return None
+                if isinstance(value, str):
+                    text = value.strip()
+                else:
+                    text = str(value).strip()
+                if not text or text.lower() in ("nan", "none"):
+                    return None
+                return text
+
             # Normalize and clean payee/memo text for matching
             def normalize(s):
                 return (s or "").strip().lower()
@@ -120,6 +131,17 @@ class DuplicateCheckWorker(QObject):
                 if t.endswith(" virtual"):
                     t = t[:-len(" virtual")].strip()
                 return t
+
+            is_actual = isinstance(self.ynab_client, ActualClient)
+            prev_import_ids = set()
+            if is_actual:
+                for d in prev:
+                    import_id = normalize_import_id(
+                        d.get("import_id") or d.get("imported_id")
+                    )
+                    if import_id:
+                        prev_import_ids.add(import_id)
+            use_import_id = is_actual and bool(prev_import_ids)
             # Build set of keys from API transactions
             keys_prev = set()
             for d in prev:
@@ -131,6 +153,14 @@ class DuplicateCheckWorker(QObject):
             # Identify duplicates in imported records
             dup_idx = set()
             for i, r in enumerate(records):
+                if use_import_id:
+                    import_id = normalize_import_id(
+                        r.get("ImportId") or r.get("import_id")
+                    )
+                    if import_id:
+                        if import_id in prev_import_ids:
+                            dup_idx.add(i)
+                            continue
                 date_csv = r.get("Date")
                 payee_csv = clean_text(r.get("Payee"))
                 memo_csv = clean_text(r.get("Memo"))

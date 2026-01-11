@@ -6,6 +6,7 @@ import pandas as pd
 import os
 import tempfile
 
+from services.actual_client import ActualClient
 from ui.controller import (
     BudgetFetchWorker,
     AccountFetchWorker,
@@ -322,6 +323,112 @@ class TestDuplicateCheckWorker(unittest.TestCase):
         self.assertEqual(len(self.finished_signal_records), 2)
         self.assertEqual(len(self.finished_signal_duplicates), 1)  # One duplicate
         self.assertTrue(0 in self.finished_signal_duplicates)  # First record is duplicate
+        self.assertIsNone(self.error_signal_message)
+
+    def test_run_success_with_actual_import_id_duplicates(self):
+        """Test duplicate check using import_id for Actual Budget."""
+        class DummyActualClient(ActualClient):
+            def __init__(self, transactions):
+                self.get_transactions = MagicMock(return_value=transactions)
+
+        mock_df = pd.DataFrame({
+            'Date': ['2025-07-03', '2025-07-02'],
+            'Payee': ['Coffee Shop', 'Grocery Store'],
+            'Memo': ['Coffee', 'Food'],
+            'Amount': [-4.50, -65.30],
+            'ImportId': ['ABC123', None]
+        })
+        self.mock_converter.convert_to_ynab.return_value = mock_df
+
+        mock_actual_transactions = [
+            {
+                "date": "2025-07-15",
+                "payee_name": "Other Payee",
+                "memo": "Other Memo",
+                "amount": -9999,
+                "import_id": "ABC123",
+            },
+            {
+                "date": "2025-07-02",
+                "payee_name": "Grocery Store",
+                "memo": "Food",
+                "amount": -65300,
+                "import_id": None,
+            },
+        ]
+        actual_client = DummyActualClient(mock_actual_transactions)
+        worker = DuplicateCheckWorker(
+            self.mock_converter,
+            self.file_path,
+            self.budget_id,
+            self.account_id,
+            actual_client,
+        )
+
+        self.finished_signal_records = None
+        self.finished_signal_duplicates = None
+        self.error_signal_message = None
+        worker.finished.connect(self.handle_finished)
+        worker.error.connect(self.handle_error)
+
+        expected_since_date = (
+            datetime.now() - timedelta(days=DUP_CHECK_DAYS)
+        ).strftime("%Y-%m-%d")
+        worker.run()
+
+        actual_client.get_transactions.assert_called_once_with(
+            self.budget_id,
+            self.account_id,
+            count=DUP_CHECK_COUNT,
+            since_date=expected_since_date,
+        )
+        self.assertEqual(len(self.finished_signal_records), 2)
+        self.assertEqual(self.finished_signal_duplicates, {0, 1})
+        self.assertIsNone(self.error_signal_message)
+
+    def test_run_success_with_actual_import_id_mismatch_fallback(self):
+        """Test fallback matching when Actual import_id does not match."""
+        class DummyActualClient(ActualClient):
+            def __init__(self, transactions):
+                self.get_transactions = MagicMock(return_value=transactions)
+
+        mock_df = pd.DataFrame({
+            'Date': ['2025-12-17'],
+            'Payee': ['MIX MAPKT'],
+            'Memo': ['MIX MAPKT'],
+            'Amount': [-18.26],
+            'ImportId': ['P34902D6D31J']
+        })
+        self.mock_converter.convert_to_ynab.return_value = mock_df
+
+        mock_actual_transactions = [
+            {
+                "date": "2025-12-17",
+                "payee_name": "MIX MAPKT",
+                "memo": "MIX MAPKT",
+                "amount": -18260,
+                "import_id": "OTHERID",
+            }
+        ]
+        actual_client = DummyActualClient(mock_actual_transactions)
+        worker = DuplicateCheckWorker(
+            self.mock_converter,
+            self.file_path,
+            self.budget_id,
+            self.account_id,
+            actual_client,
+        )
+
+        self.finished_signal_records = None
+        self.finished_signal_duplicates = None
+        self.error_signal_message = None
+        worker.finished.connect(self.handle_finished)
+        worker.error.connect(self.handle_error)
+
+        worker.run()
+
+        self.assertEqual(len(self.finished_signal_records), 1)
+        self.assertEqual(self.finished_signal_duplicates, {0})
         self.assertIsNone(self.error_signal_message)
 
     def test_run_failure(self):
