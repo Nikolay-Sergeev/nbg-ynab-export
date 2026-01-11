@@ -6,7 +6,12 @@ import csv
 import re
 from typing import Optional, Union
 import unicodedata
-from constants import DATE_FMT_YNAB
+from constants import (
+    DATE_FMT_YNAB,
+    ECOMMERCE_CLEANUP_PATTERN,
+    PURCHASE_CLEANUP_PATTERN,
+    SECURE_ECOMMERCE_CLEANUP_PATTERN,
+)
 from config import get_logger
 
 logger = get_logger(__name__)
@@ -166,6 +171,18 @@ def strip_accents(value: Union[str, pd.Series]) -> Union[str, pd.Series]:
     if isinstance(value, pd.Series):
         return value.astype(str).map(_strip)
     return _strip(value)
+
+
+def strip_transaction_prefixes(values: pd.Series) -> pd.Series:
+    """Remove standard NBG prefixes from transaction text fields."""
+    cleaned = values.fillna('').astype(str)
+    for pattern in (
+        SECURE_ECOMMERCE_CLEANUP_PATTERN,
+        ECOMMERCE_CLEANUP_PATTERN,
+        PURCHASE_CLEANUP_PATTERN,
+    ):
+        cleaned = cleaned.str.replace(pattern, '', regex=True)
+    return cleaned
 
 
 def normalize_column_name(column: str) -> str:

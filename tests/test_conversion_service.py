@@ -218,8 +218,8 @@ class TestAccountOperations(unittest.TestCase):
         ecommerce_data = self.account_data.copy()
         ecommerce_data.loc[2] = [
             '13/07/2025',
-            'E-COMMERCE ΑΓΟΡΑ - ONLINE SHOP',
-            'ONLINE PURCHASE',
+            'E-COMMERCE ΑΓΟΡΑ (ΕΞΟΥΣΙΟΔΟΤΗΣΗ) - ONLINE SHOP',
+            'ΑΓΟΡΑ - ONLINE SHOP',
             '25,99',
             'Χρέωση'
         ]
@@ -229,7 +229,7 @@ class TestAccountOperations(unittest.TestCase):
         # Check the E-COMMERCE row
         self.assertEqual(result.iloc[2]['Date'], '2025-07-13')
         self.assertEqual(result.iloc[2]['Payee'], 'ONLINE SHOP')
-        self.assertEqual(result.iloc[2]['Memo'], 'ONLINE PURCHASE')
+        self.assertEqual(result.iloc[2]['Memo'], 'ONLINE SHOP')
         self.assertAlmostEqual(result.iloc[2]['Amount'], -25.99)
 
     def test_process_account_operations_with_empty_payee(self):
@@ -340,6 +340,28 @@ class TestCardOperations(unittest.TestCase):
         self.assertEqual(result.iloc[0]['Payee'], 'YPERASTIKO KTEL IOAN')
         self.assertEqual(result.iloc[0]['Memo'], 'YPERASTIKO KTEL IOAN')
         self.assertAlmostEqual(result.iloc[0]['Amount'], -8.50)
+
+    def test_process_card_operations_authorization_and_purchase_cleanup(self):
+        """Test cleanup of ecommerce authorization and purchase prefixes."""
+        auth_data = pd.DataFrame({
+            'Ημερομηνία/Ώρα Συναλλαγής': ['11/01/2026 6:00 μμ', '06/01/2026 9:15 μμ'],
+            'Περιγραφή Κίνησης': [
+                'E-COMMERCE ΑΓΟΡΑ (ΕΞΟΥΣΙΟΔΟΤΗΣΗ) - FREENOW* D7C5AA-2',
+                'ΑΓΟΡΑ - SKROUTZ',
+            ],
+            'Χ/Π': ['Χ', 'Χ'],
+            'Ποσό': ['11,64', '25,00'],
+        })
+
+        result = process_card_operations(auth_data)
+
+        self.assertEqual(result.iloc[0]['Date'], '2026-01-11')
+        self.assertEqual(result.iloc[0]['Payee'], 'FREENOW* D7C5AA-2')
+        self.assertEqual(result.iloc[0]['Memo'], 'FREENOW* D7C5AA-2')
+        self.assertAlmostEqual(result.iloc[0]['Amount'], -11.64)
+        self.assertEqual(result.iloc[1]['Payee'], 'SKROUTZ')
+        self.assertEqual(result.iloc[1]['Memo'], 'SKROUTZ')
+        self.assertAlmostEqual(result.iloc[1]['Amount'], -25.00)
 
     def test_process_card_operations_invalid_date(self):
         """Test processing card operations with invalid date format."""

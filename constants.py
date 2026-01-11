@@ -54,7 +54,10 @@ REVOLUT_REQUIRED_COLUMNS = [
 
 # Cleanup patterns
 MEMO_CLEANUP_PATTERN = r"\s*\([^)]*\)"
-ECOMMERCE_CLEANUP_PATTERN = r"E-COMMERCE ΑΓΟΡΑ - "
-SECURE_ECOMMERCE_CLEANUP_PATTERN = (
-    r"3D SECURE E-COMMERCE ΑΓΟΡΑ(?:\s*\(ΕΞΟΥΣΙΟΔΟΤΗΣΗ\))?(?:\s*-\s*)?"
+ECOMMERCE_CLEANUP_PATTERN = (
+    r"^\s*E-COMMERCE ΑΓΟΡΑ(?:\s*\(ΕΞΟΥΣΙΟΔΟΤΗΣΗ\))?(?:\s*-\s*)?"
 )
+SECURE_ECOMMERCE_CLEANUP_PATTERN = (
+    r"^\s*3D SECURE E-COMMERCE ΑΓΟΡΑ(?:\s*\(ΕΞΟΥΣΙΟΔΟΤΗΣΗ\))?(?:\s*-\s*)?"
+)
+PURCHASE_CLEANUP_PATTERN = r"^\s*ΑΓΟΡΑ\s*-\s*"

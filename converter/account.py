@@ -4,11 +4,14 @@ from constants import (
     DATE_FMT_ACCOUNT,
     DATE_FMT_YNAB,
     ACCOUNT_REQUIRED_COLUMNS,
-    ECOMMERCE_CLEANUP_PATTERN,
-    SECURE_ECOMMERCE_CLEANUP_PATTERN,
 )
 from config import get_logger
-from .utils import validate_dataframe, convert_amount, strip_accents
+from .utils import (
+    validate_dataframe,
+    convert_amount,
+    strip_accents,
+    strip_transaction_prefixes,
+)
 
 logger = get_logger(__name__)
 
@@ -28,12 +31,10 @@ def process_account(df: pd.DataFrame) -> pd.DataFrame:
     )
     if df_copy['Date'].isna().any():
         raise ValueError("Invalid date format in account export")
-    payee = df_copy['Ονοματεπώνυμο αντισυμβαλλόμενου'].fillna('')
-    payee = payee.astype(str)
-    payee = payee.str.replace(SECURE_ECOMMERCE_CLEANUP_PATTERN, '', regex=True)
-    payee = payee.str.replace(ECOMMERCE_CLEANUP_PATTERN, '', regex=True)
+    payee = strip_transaction_prefixes(df_copy['Ονοματεπώνυμο αντισυμβαλλόμενου'])
     df_copy['Payee'] = payee.str.strip()
-    df_copy['Memo'] = df_copy['Περιγραφή']
+    memo = strip_transaction_prefixes(df_copy['Περιγραφή'])
+    df_copy['Memo'] = memo.str.strip()
     # Fallback: use memo text when payee is missing/blank
     df_copy['Payee'] = df_copy['Payee'].mask(
         df_copy['Payee'].isnull() | (df_copy['Payee'].astype(str).str.strip() == ''),

@@ -4,11 +4,15 @@ from constants import (
     DATE_FMT_CARD,
     DATE_FMT_YNAB,
     CARD_REQUIRED_COLUMNS,
-    ECOMMERCE_CLEANUP_PATTERN,
-    SECURE_ECOMMERCE_CLEANUP_PATTERN,
+    MEMO_CLEANUP_PATTERN,
 )
 from config import get_logger
-from .utils import validate_dataframe, convert_amount, strip_accents
+from .utils import (
+    validate_dataframe,
+    convert_amount,
+    strip_accents,
+    strip_transaction_prefixes,
+)
 
 logger = get_logger(__name__)
 
@@ -35,16 +39,12 @@ def process_card(df: pd.DataFrame) -> pd.DataFrame:
     # Clean up payee
     raw_payee = df_copy['Περιγραφή Κίνησης'].fillna('')
     # Remove any parentheses and their contents
-    payee = raw_payee.str.replace(r'\s*\([^)]*\)', '', regex=True)
-    # Remove secure ecommerce prefix first
-    payee = payee.str.replace(SECURE_ECOMMERCE_CLEANUP_PATTERN, '', regex=True)
-    # Remove standard ecommerce prefix
-    payee = payee.str.replace(ECOMMERCE_CLEANUP_PATTERN, '', regex=True)
+    payee = raw_payee.str.replace(MEMO_CLEANUP_PATTERN, '', regex=True)
+    payee = strip_transaction_prefixes(payee)
     df_copy['Payee'] = payee.str.strip()
     # Memo keeps any parenthetical info but drops ecommerce prefixes
     memo = df_copy['Περιγραφή Κίνησης'].fillna('')
-    memo = memo.str.replace(SECURE_ECOMMERCE_CLEANUP_PATTERN, '', regex=True)
-    memo = memo.str.replace(ECOMMERCE_CLEANUP_PATTERN, '', regex=True)
+    memo = strip_transaction_prefixes(memo)
     df_copy['Memo'] = memo.str.strip()
     # Convert and sign amount robustly using debit/credit indicator when present
     df_copy['Amount'] = df_copy['Ποσό'].apply(convert_amount)
