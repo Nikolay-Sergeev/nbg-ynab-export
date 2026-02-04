@@ -1,7 +1,6 @@
 from typing import Optional
 from urllib.parse import urlparse
 from pathlib import Path
-import json
 import subprocess
 import threading
 from config import get_logger
@@ -37,7 +36,6 @@ class ActualClient:
         self.data_dir = data_dir
         self._npm_install_attempts = set()
         self._npm_install_lock = threading.Lock()
-        self._dist_tags = None
         parsed = urlparse(self.base_url)
         if parsed.scheme.lower() == "http":
             host = (parsed.hostname or "").lower()
@@ -70,8 +68,8 @@ class ActualClient:
             logger.error("[ActualClient] Failed to restart Actual bridge: %s", exc)
             return False
 
-    def _attempt_npm_install(self, package_spec: Optional[str] = None) -> bool:
-        spec_key = package_spec or "default"
+    def _attempt_npm_install(self) -> bool:
+        spec_key = "latest_actual_api"
         with self._npm_install_lock:
             if spec_key in self._npm_install_attempts:
                 return False
@@ -81,14 +79,10 @@ class ActualClient:
             logger.error("[ActualClient] package.json not found; cannot run npm install")
             return False
         try:
-            if package_spec:
-                logger.warning(
-                    "[ActualClient] Running npm install %s to update Actual API client", package_spec
-                )
-                cmd = ["npm", "install", package_spec]
-            else:
-                logger.warning("[ActualClient] Running npm install to update Actual API client")
-                cmd = ["npm", "install"]
+            logger.warning(
+                "[ActualClient] Running npm install --save @actual-app/api to update Actual API client"
+            )
+            cmd = ["npm", "install", "--save", "@actual-app/api"]
             result = subprocess.run(
                 cmd,
                 cwd=str(self._project_root),
@@ -111,52 +105,6 @@ class ActualClient:
         logger.info("[ActualClient] npm install completed; bridge restarted")
         return True
 
-    def _npm_view_dist_tags(self) -> dict:
-        if isinstance(self._dist_tags, dict):
-            return self._dist_tags
-        try:
-            result = subprocess.run(
-                ["npm", "view", "@actual-app/api", "dist-tags", "--json"],
-                cwd=str(self._project_root),
-                capture_output=True,
-                text=True,
-                timeout=20,
-            )
-        except Exception as exc:
-            logger.error("[ActualClient] npm view dist-tags failed: %s", exc)
-            self._dist_tags = {}
-            return self._dist_tags
-        if result.returncode != 0:
-            stderr = (result.stderr or "").strip()
-            if stderr:
-                logger.error("[ActualClient] npm view dist-tags stderr: %s", stderr)
-            self._dist_tags = {}
-            return self._dist_tags
-        try:
-            payload = json.loads((result.stdout or "").strip() or "{}")
-        except json.JSONDecodeError:
-            logger.error("[ActualClient] npm view dist-tags returned invalid JSON")
-            self._dist_tags = {}
-            return self._dist_tags
-        self._dist_tags = payload if isinstance(payload, dict) else {}
-        return self._dist_tags
-
-    def _attempt_npm_install_from_tags(self) -> bool:
-        tags = self._npm_view_dist_tags()
-        if not tags:
-            logger.error("[ActualClient] No dist-tags available for @actual-app/api")
-            return False
-        preferred = ("next", "beta", "canary", "preview", "rc", "nightly", "dev")
-        for tag in preferred:
-            if tag in tags:
-                return self._attempt_npm_install(f"@actual-app/api@{tag}")
-        for tag in sorted(tags.keys()):
-            if tag == "latest":
-                continue
-            return self._attempt_npm_install(f"@actual-app/api@{tag}")
-        logger.error("[ActualClient] No non-latest dist-tag available for @actual-app/api")
-        return False
-
     def _log_bridge_error(self, resp: dict, context: str) -> bool:
         out_of_sync = False
         detail = resp.get("details")
@@ -166,7 +114,7 @@ class ActualClient:
                 out_of_sync = True
                 logger.error(
                     "[ActualClient] Actual server appears newer than the API client. "
-                    "Update @actual-app/api (npm install) and retry."
+                    "Update @actual-app/api (npm install --save @actual-app/api) and retry."
                 )
             return out_of_sync
         recent = None
@@ -181,7 +129,7 @@ class ActualClient:
                 out_of_sync = True
                 logger.error(
                     "[ActualClient] Actual server appears newer than the API client. "
-                    "Update @actual-app/api (npm install) and retry."
+                    "Update @actual-app/api (npm install --save @actual-app/api) and retry."
                 )
         if "out-of-sync-migrations" in (resp.get("error") or ""):
             out_of_sync = True
@@ -199,13 +147,10 @@ class ActualClient:
             if out_of_sync and retry_stage < 1 and self._attempt_npm_install():
                 logger.info("[ActualClient] Retrying list budgets after npm install")
                 return self._get_budgets(retry_stage=1)
-            if out_of_sync and retry_stage < 2 and self._attempt_npm_install_from_tags():
-                logger.info("[ActualClient] Retrying list budgets after npm install from dist-tags")
-                return self._get_budgets(retry_stage=2)
             if out_of_sync:
                 raise RuntimeError(
                     "Actual server appears newer than the API client. "
-                    "Automatic npm updates failed; update the server or install a matching @actual-app/api build."
+                    "Automatic npm update failed; update the server or install a matching @actual-app/api build."
                 )
             raise RuntimeError(resp.get("error") or "Failed to list budgets")
         budgets = resp.get("budgets") or []
@@ -256,13 +201,10 @@ class ActualClient:
             if out_of_sync and retry_stage < 1 and self._attempt_npm_install():
                 logger.info("[ActualClient] Retrying list accounts after npm install")
                 return self._get_accounts(budget_id, retry_stage=1)
-            if out_of_sync and retry_stage < 2 and self._attempt_npm_install_from_tags():
-                logger.info("[ActualClient] Retrying list accounts after npm install from dist-tags")
-                return self._get_accounts(budget_id, retry_stage=2)
             if out_of_sync:
                 raise RuntimeError(
                     "Actual server appears newer than the API client. "
-                    "Automatic npm updates failed; update the server or install a matching @actual-app/api build."
+                    "Automatic npm update failed; update the server or install a matching @actual-app/api build."
                 )
             raise RuntimeError(resp.get("error") or "Failed to list accounts")
         return resp.get("accounts") or []
@@ -308,19 +250,10 @@ class ActualClient:
                     since_date=since_date,
                     retry_stage=1,
                 )
-            if out_of_sync and retry_stage < 2 and self._attempt_npm_install_from_tags():
-                logger.info("[ActualClient] Retrying list transactions after npm install from dist-tags")
-                return self._get_transactions(
-                    budget_id,
-                    account_id,
-                    count=count,
-                    since_date=since_date,
-                    retry_stage=2,
-                )
             if out_of_sync:
                 raise RuntimeError(
                     "Actual server appears newer than the API client. "
-                    "Automatic npm updates failed; update the server or install a matching @actual-app/api build."
+                    "Automatic npm update failed; update the server or install a matching @actual-app/api build."
                 )
             raise RuntimeError(resp.get("error") or "Failed to list transactions")
         txs = resp.get("transactions") or []
@@ -366,18 +299,10 @@ class ActualClient:
                     transactions,
                     retry_stage=1,
                 )
-            if out_of_sync and retry_stage < 2 and self._attempt_npm_install_from_tags():
-                logger.info("[ActualClient] Retrying upload after npm install from dist-tags")
-                return self._upload_transactions(
-                    budget_id,
-                    account_id,
-                    transactions,
-                    retry_stage=2,
-                )
             if out_of_sync:
                 raise RuntimeError(
                     "Actual server appears newer than the API client. "
-                    "Automatic npm updates failed; update the server or install a matching @actual-app/api build."
+                    "Automatic npm update failed; update the server or install a matching @actual-app/api build."
                 )
             raise RuntimeError(resp.get("error") or "Failed to upload transactions")
         return resp
