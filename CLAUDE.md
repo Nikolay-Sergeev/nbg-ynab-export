@@ -48,7 +48,7 @@ pip install -r requirements.txt
 Actual API mode uses a Node bridge (`scripts/actual_bridge.js`) and requires:
 
 ```bash
-npm install
+npm install --save @actual-app/api
 ```
 
 ### Running the Application

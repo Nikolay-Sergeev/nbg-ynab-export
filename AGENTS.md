@@ -18,7 +18,7 @@ pip install -r requirements.txt
 ```
 Actual API mode also requires Node dependencies (from `package.json`):
 ```bash
-npm install
+npm install --save @actual-app/api
 ```
 Run locally:
 ```bash
