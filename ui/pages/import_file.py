@@ -106,6 +106,8 @@ class DropZone(QFrame):
 
 
 class ImportFilePage(QWizardPage):
+    MODE_SETTING_PREFIX = "MODE:"
+
     def __init__(self, controller):
         super().__init__()
         self.controller = controller
@@ -214,13 +216,16 @@ class ImportFilePage(QWizardPage):
         self.file_type = None
         self.error_text = ""
         self.last_folder = self.load_last_folder()
+        self.last_export_target = self.load_last_export_target()
         # Initialize controller target from radio selection
         try:
-            self.controller.set_export_target('YNAB')
+            initial_target = self.last_export_target or 'YNAB'
+            self._set_mode_radio(initial_target)
+            self.controller.set_export_target(initial_target)
             # Let parent update the sidebar text mapping
             parent = self.window()
             if hasattr(parent, 'set_steps_for_target'):
-                parent.set_steps_for_target('YNAB')
+                parent.set_steps_for_target(initial_target)
         except Exception:
             pass
 
@@ -313,31 +318,58 @@ class ImportFilePage(QWizardPage):
         self.wizard().back()
 
     def load_last_folder(self):
-        if os.path.exists(SETTINGS_FILE):
-            try:
-                with open(SETTINGS_FILE, "r") as f:
-                    lines = f.readlines()
-                for line in lines:
-                    if line.startswith("FOLDER:"):
-                        return line.strip().split("FOLDER:", 1)[1]
-            except Exception:
-                pass
+        value = self._read_setting_value("FOLDER:")
+        if value:
+            return value
         return ""
 
     def save_last_folder(self, folder):
-        lines = []
-        if os.path.exists(SETTINGS_FILE):
-            with open(SETTINGS_FILE, "r") as f:
-                for line in f:
-                    if line.startswith("TOKEN:"):
-                        lines.append(line)
-        lines.append(f"FOLDER:{folder}\n")
-        with open(SETTINGS_FILE, "w") as f:
+        self._write_setting_value("FOLDER:", folder)
+
+    def load_last_export_target(self):
+        value = (self._read_setting_value(self.MODE_SETTING_PREFIX) or "").upper()
+        if value in ("YNAB", "ACTUAL_API", "FILE"):
+            return value
+        return ""
+
+    def save_last_export_target(self, target: str):
+        target_norm = (target or "").upper()
+        if target_norm in ("YNAB", "ACTUAL_API", "FILE"):
+            self._write_setting_value(self.MODE_SETTING_PREFIX, target_norm)
+
+    def _read_settings_lines(self):
+        if not os.path.exists(SETTINGS_FILE):
+            return []
+        try:
+            with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
+                return f.readlines()
+        except Exception:
+            return []
+
+    def _read_setting_value(self, prefix: str):
+        for line in self._read_settings_lines():
+            if line.startswith(prefix):
+                return line.strip().split(prefix, 1)[1]
+        return ""
+
+    def _write_setting_value(self, prefix: str, value: str):
+        lines = [line for line in self._read_settings_lines() if not line.startswith(prefix)]
+        lines.append(f"{prefix}{value}\n")
+        with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
             f.writelines(lines)
         try:
             os.chmod(SETTINGS_FILE, 0o600)
         except OSError:
             pass
+
+    def _set_mode_radio(self, target: str):
+        target_norm = (target or "").upper()
+        if target_norm == "ACTUAL_API":
+            self.rb_actual.setChecked(True)
+        elif target_norm == "FILE":
+            self.rb_file.setChecked(True)
+        else:
+            self.rb_ynab.setChecked(True)
 
     def handle_file_selected(self, file_path):
         logger.info("[ImportFilePage] handle_file_selected: %s", file_path)
@@ -496,6 +528,7 @@ class ImportFilePage(QWizardPage):
     def on_mode_changed(self, target: str):
         """Handle radio button mode changes and sync wizard sidebar."""
         try:
+            self.save_last_export_target(target)
             self.controller.set_export_target(target)
         except Exception:
             pass
@@ -510,12 +543,7 @@ class ImportFilePage(QWizardPage):
         # Sync radio state with controller target (in case user changed mode from the top bar)
         try:
             target = (self.controller.get_export_target() or 'YNAB').upper()
-            if target == 'ACTUAL_API':
-                self.rb_actual.setChecked(True)
-            elif target == 'FILE':
-                self.rb_file.setChecked(True)
-            else:
-                self.rb_ynab.setChecked(True)
+            self._set_mode_radio(target)
         except Exception:
             pass
         self.update_ui_state()

@@ -250,6 +250,41 @@ class TestImportFilePage(unittest.TestCase):
         expected = f"FOLDER:{os.path.dirname(self.temp_file_path)}\n"
         self.assertIn(expected, contents)
 
+    def test_mode_change_saves_selection(self):
+        """Ensure selected export mode is persisted."""
+        tmp_dir = tempfile.mkdtemp()
+        settings_path = os.path.join(tmp_dir, "settings.txt")
+        with open(settings_path, "w", encoding="utf-8") as f:
+            f.write("TOKEN:test-token\n")
+
+        with patch("ui.pages.import_file.SETTINGS_FILE", settings_path):
+            page = ImportFilePage(self.mock_controller)
+            page.on_mode_changed("ACTUAL_API")
+
+        with open(settings_path, "r", encoding="utf-8") as f:
+            contents = f.read()
+
+        self.assertIn("TOKEN:test-token\n", contents)
+        self.assertIn("MODE:ACTUAL_API\n", contents)
+
+    def test_initial_mode_is_loaded_from_settings(self):
+        """Ensure the previously selected mode is preselected on next run."""
+        tmp_dir = tempfile.mkdtemp()
+        settings_path = os.path.join(tmp_dir, "settings.txt")
+        with open(settings_path, "w", encoding="utf-8") as f:
+            f.write("MODE:FILE\n")
+
+        with patch("ui.pages.import_file.SETTINGS_FILE", settings_path):
+            page = ImportFilePage(self.mock_controller)
+
+        self.assertTrue(page.rb_file.isChecked())
+        self.assertTrue(
+            any(
+                call.args and call.args[0] == "FILE"
+                for call in self.mock_controller.set_export_target.call_args_list
+            )
+        )
+
 
 class TestYNABAuthPage(unittest.TestCase):
     """Test the YNABAuthPage wizard page."""
