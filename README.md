@@ -100,7 +100,7 @@ pip install -r requirements.txt
 
 4. (Actual API mode only) Install Node dependencies:
 ```bash
-npm install
+npm install --save @actual-app/api
 ```
 
 ## Usage
@@ -171,7 +171,7 @@ Duplicate checking in GUI uses configurable range in `config.py` (`DUP_CHECK_DAY
 
 Actual API mode uses a small Node bridge (`scripts/actual_bridge.js`) backed by `@actual-app/api`.
 If your budget uses end-to-end encryption, provide the encryption password in the Actual auth step.
-If `node_modules/` is missing, run `npm install` in the repo root.
+If `node_modules/` is missing, run `npm install --save @actual-app/api` in the repo root.
 For connectivity troubleshooting, run:
 ```bash
 python scripts/actual_diag.py https://your-actual-host/api yourPassword
