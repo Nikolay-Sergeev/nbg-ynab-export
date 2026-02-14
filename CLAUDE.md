@@ -1,149 +1,135 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This document gives contributor and coding-agent guidance for this repository.
 
-## Commands
+## Quick Start
 
-### Git Workflow
-- Commit and push after every change
-- Use clear and concise commit messages
-- Don't include generation mention in commit messages (no "Generated with Claude" or "Co-Authored-By: Claude")
-- Don't batch multiple changes - commit each significant change separately
-- ALWAYS run tests and the linter before committing and ensure ALL tests pass
-- NEVER introduce failing tests or code that breaks existing tests
-
-### Environment Setup
 ```bash
-# Create and activate virtual environment
 python3 -m venv venv
-source venv/bin/activate  # macOS/Linux
-.\venv\Scripts\activate   # Windows
-
-# Install dependencies
-python3 -m pip install -r requirements.txt
-```
-
-## Project Dependencies
-
-This project relies on several Python packages listed in `requirements.txt`.
-The major runtime dependencies are:
-
-- **pandas** – data processing and CSV/XLSX handling
-- **openpyxl** – Excel file support for `pandas`
-- **PyQt5** (>=5.15) – GUI wizard implementation
-- **requests** – used by the YNAB API client
-- **cryptography** – secure storage of the YNAB token
-
-For development and testing the following tools are used:
-
-- **flake8** – code style checking
-- **pytest** – test runner (some tests use pytest fixtures; `unittest` is also used)
-
-Python 3.6 or newer is required. Install all packages with:
-
-```bash
+source venv/bin/activate  # Windows: .\\venv\\Scripts\\activate
 pip install -r requirements.txt
-```
-
-Actual API mode uses a Node bridge (`scripts/actual_bridge.js`) and requires:
-
-```bash
 npm install --save @actual-app/api
 ```
 
-### Running the Application
+Runtime dependencies:
+- `pandas`, `openpyxl`
+- `PyQt5`
+- `requests`
+- `cryptography`
+
+## Run Commands
+
+CLI conversion:
+
 ```bash
-# CLI Mode - Convert file to YNAB format
-python3 cli.py path/to/statement.[xlsx|csv]
-
-# CLI Mode - Convert excluding previously imported transactions
-python3 cli.py path/to/statement.[xlsx|csv] --previous path/to/previous_ynab.csv
-
-# GUI Wizard Mode
-python3 ui/wizard.py
+python cli.py path/to/statement.[xlsx|xls|csv]
+python cli.py path/to/statement.[xlsx|xls|csv] --previous path/to/previous_ynab.csv
 ```
 
-### Development Commands
+GUI wizard:
+
 ```bash
-# Run all tests - ALL tests must pass
-python3 -m unittest discover -s tests -v
-
-# Run tests using pytest - ALL tests must pass
-python3 -m pytest
-
-# Check code style
-python3 -m flake8 .
+python ui/wizard.py
 ```
 
-### Testing Guidelines
-- Tests are a critical part of this codebase - ALL tests must pass at all times
-- If you're making changes, you MUST ensure all tests continue to pass
-- Never delete or comment out tests to make them pass
-- Always fix the implementation to match the test expectations
-- Add new tests for any new functionality
+Diagnostics (Actual API):
 
-## Code Architecture
+```bash
+python scripts/actual_diag.py --url https://your-actual-host/api --password YOUR_PASSWORD
+```
 
-The application is structured with the following components:
+Quality checks:
 
-### Core Components
-1. **Main Module** (`main.py`): Entry point for CLI mode, containing high-level functions for converting bank statements.
+```bash
+pytest -q
+flake8 .
+```
 
-2. **Converter Modules**: Specialized modules for each bank format
-   - `converter/account.py`: Handles NBG account statements
-   - `converter/card.py`: Handles NBG card statements
-   - `converter/revolut.py`: Handles Revolut CSV exports
-   - `converter/utils.py`: Common utilities for all converters
+## Architecture (Current)
 
-3. **GUI Wizard** (`ui/wizard.py`): PyQt5-based wizard interface with step-by-step guidance
-   - Multiple pages for file selection, authentication, account selection, etc.
-   - Uses QThread workers for non-blocking operations
-   - Custom RobustWizard class extends QWizard with thread cleanup capabilities
-   - SidebarWizardWindow provides a modern UI with navigation sidebar
-   - Pages are organized in a logical flow with styled components
+- `converter/`
+  - `account.py`: NBG account conversion
+  - `card.py`: NBG card conversion
+  - `revolut.py`: Revolut conversion (EUR-only, completed transactions only)
+  - `dispatcher.py`: source detection by required-column subsets
+  - `utils.py`: IO helpers, amount parsing, dedupe, CSV formula sanitization
 
-4. **Controller** (`ui/controller.py`): Manages interaction between UI and backend services
-   - Contains worker classes for background processing in separate QThreads
-   - Handles signals between UI components and backend services
-   - Uses PyQt signals/slots pattern for asynchronous communication
-   - Worker classes: BudgetFetchWorker, AccountFetchWorker, TransactionFetchWorker, DuplicateCheckWorker, UploadWorker
-   - WizardController class orchestrates the wizard workflow
+- `services/`
+  - `conversion_service.py`: canonical conversion entry points (`convert_to_ynab`, `convert_to_actual`)
+  - `ynab_client.py`: YNAB HTTP client + API logging
+  - `actual_client.py`: Actual API wrapper using Node bridge
+  - `actual_bridge_runner.py`: process wrapper for `scripts/actual_bridge.js`
+  - `token_manager.py`: Fernet key/token persistence
 
-5. **Services**:
-   - `services/ynab_client.py`: API client for YNAB integration with request caching
-   - `services/conversion_service.py`: Business logic for converting between formats
+- `ui/`
+  - `wizard.py`: stacked-page app shell and navigation logic
+  - `controller.py`: threaded workers and async flow
+  - `pages/`: import/auth/account/transactions/review/finish pages
 
-### Data Flow
-1. Bank statements (XLSX/CSV) are loaded as pandas DataFrames
-2. Format is detected automatically (NBG Account, NBG Card, or Revolut)
-3. Specialized converter processes the data based on format
-4. Output is generated as a YNAB-compatible CSV file
-5. Optional: Data is uploaded to YNAB via API (GUI mode only)
+## Critical Behavior Rules
 
-### Configuration and Settings
-- User settings stored under `~/.nbg-ynab-export/`:
-  - `settings.txt`: encrypted YNAB token and last-used folder
-  - `settings.key`: Fernet key used for encryption
-  - `actual_settings.txt`: encrypted Actual server URL/password
-  - `ynab_api.log`: YNAB API log (warnings by default; set `YNAB_API_DEBUG=1` for verbose payload logging)
+1. De-duplication source of truth
+- Use `converter.utils.exclude_existing` (re-exported via `services.conversion_service.exclude_existing_transactions`)
+- Default behavior: remove exact duplicates only (`Date|Payee|Amount|Memo`)
+- Legacy date-cutoff behavior exists behind `drop_older_than_latest_prev=True` and is not default CLI behavior
 
-### UI Architecture
+2. Detection + required columns
+- Format detection happens in `converter/dispatcher.py` using required-column subsets from `constants.py`
+- If required columns change, update:
+  - `constants.py`
+  - `converter/dispatcher.py`
+  - converter logic/tests relying on those headers
 
-#### Wizard Structure
-- **Main Window Class** (`SidebarWizardWindow`): Houses the wizard with a modern sidebar navigation
-- **Custom Wizard Class** (`RobustWizard`): Extends QWizard with thread safety features
-- **Page Flow**: Import File → Authorization → Account Selection → Transactions → Review & Upload → Finish
+3. Secret handling
+- Do not reimplement encryption in UI pages
+- Use `services/token_manager.py`
+- Preserve `0600` permission behavior on settings/key/log files
 
-#### UI Pages
-1. **ImportFilePage**: File selection with drag-and-drop support and validation
-2. **YNABAuthPage**: YNAB API token entry with secure storage
-3. **AccountSelectionPage**: Budget and account selection using YNAB API data
-4. **TransactionsPage**: Displays and manages transaction data with duplicate detection
-5. **ReviewAndUploadPage**: Final review and upload transactions to YNAB
-6. **FinishPage**: Confirmation and success information
+4. CSV safety
+- Preserve formula escaping via `sanitize_csv_formulas` before writing CSV outputs
 
-#### Controller Logic
-- **WizardController**: Central coordinator connecting UI and services
-- **Worker Pattern**: Background tasks run in QThreads to prevent UI freezing
-- **Signal/Slot Communication**: Asynchronous data flow between components
-- **Error Handling**: Comprehensive error reporting throughout the UI
+5. Actual bridge behavior
+- Bridge contract is JSON-lines over stdio (`scripts/actual_bridge.js`)
+- Keep field mapping stable (`amount` milliunits in Python side; bridge converts for Actual)
+- Preserve retry path for out-of-sync migrations in `ActualClient`
+
+## UI Flow Notes
+
+Export targets:
+- `YNAB`
+- `ACTUAL_API`
+- `FILE`
+
+Flow differences:
+- `ACTUAL_API` routes authorize step to `ActualAuthPage`
+- `FILE` mode skips auth/account/transactions and jumps Import -> Review -> Finish
+
+Duplicate review behavior:
+- Duplicates are pre-marked as skipped
+- User can explicitly unskip and upload anyway
+
+## Testing Expectations
+
+- Keep all existing tests passing (`pytest -q` currently covers 200 tests)
+- Add tests for any behavior change in converters/services/UI workers
+- Do not delete tests to satisfy changes
+
+Focus test files by area:
+- converter/service logic: `tests/test_conversion_service.py`, `tests/test_utils.py`, `tests/test_dispatcher.py`
+- API clients/bridge: `tests/test_ynab_client.py`, `tests/test_actual_client.py`, `tests/test_actual_bridge_runner.py`
+- UI behavior: `tests/test_ui_pages.py`, `tests/test_ui_controller.py`, `tests/test_wizard_workflow.py`
+
+## Style and Conventions
+
+- Python, 4-space indent, max line length 120 (`.flake8`)
+- Keep entry points (`cli.py`, `ui/wizard.py`) thin; put logic into `services/` and `converter/`
+- Use small functions and explicit errors when data is invalid
+
+## Git / PR Guidance
+
+- Commit messages: short, imperative (`fix:`, `refactor:`, `UI:`, `test:` optional)
+- PRs should include:
+  - behavior summary
+  - rationale
+  - test evidence (`pytest`, `flake8`)
+  - UI screenshots for visual changes

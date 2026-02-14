@@ -1,65 +1,78 @@
 # Repository Guidelines
 
 ## Project Structure & Modules
-- `cli.py` / `main.py`: CLI entry points for conversions.
-- `converter/`: Parsers for NBG account, NBG card, and Revolut (`account.py`, `card.py`, `revolut.py`, `utils.py`).
-- `services/`: Core logic and API clients (`conversion_service.py`, `ynab_client.py`, `actual_client.py`, `token_manager.py`).
-- `ui/`: PyQt5 wizard (`wizard.py`), controller, and pages.
-- `resources/`: UI assets (e.g., `icons/`, `style.qss`).
-- `tests/`: Pytest suite (`test_*.py`).
-- `scripts/`: Node bridge and diagnostics for Actual Budget (`actual_bridge.js`, `actual_diag.py`).
-- `package.json`: Node dependencies for the Actual Budget bridge.
+- `cli.py` / `main.py`: CLI entry points; `cli.py` is the recommended user-facing entry.
+- `converter/`: format-specific parsers and shared helpers.
+- `services/`: conversion orchestration, YNAB client, Actual client/bridge runner, token storage.
+- `ui/`: PyQt5 wizard shell (`wizard.py`), controller/workers, and page components.
+- `scripts/`: Node bridge (`actual_bridge.js`) and diagnostics (`actual_diag.py`).
+- `tests/`: unit/integration/UI/performance suites.
 
 ## Build, Test, and Development
-Initialize environment and install deps:
+
 ```bash
 python3 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
-```
-Actual API mode also requires Node dependencies (from `package.json`):
-```bash
 npm install --save @actual-app/api
+
+pytest -q
+flake8 .
 ```
-Run locally:
+
+Run app:
+
 ```bash
-python cli.py path/to/statement.[xlsx|csv]
-python ui/wizard.py  # GUI wizard
-```
-Quality checks:
-```bash
-pytest -q           # run tests
-flake8 .            # style check (max line length 120)
+python cli.py path/to/statement.[xlsx|xls|csv]
+python ui/wizard.py
 ```
 
 ## Coding Style & Naming
-- Python 3.6+; 4-space indentation; keep lines ≤120 chars (see `.flake8`).
-- Prefer type hints and small, focused functions.
-- Naming: modules/functions `snake_case`, classes `CapWords`, constants `UPPER_SNAKE`.
-- Keep CLI/GUI entry points thin; place logic in `services/` and `converter/`.
+- Python, 4-space indentation, line length <= 120.
+- Prefer small, focused functions with explicit validation and errors.
+- Naming: `snake_case` for functions/modules, `CapWords` for classes, `UPPER_SNAKE` for constants.
+- Keep UI/CLI pages thin and move business logic into `services/` and `converter/`.
 
-## Testing Guidelines
-- Framework: `pytest`; tests live in `tests/` and are named `test_*.py`.
-- Add tests for new behavior and edge cases (date parsing, sign handling, duplicate detection).
-- Use fixtures/utilities from existing tests; avoid networked tests in unit scope.
-- Run `pytest` before pushing; do not reduce coverage or delete tests to pass.
-
-## Commit & Pull Requests
-- Commits: short, imperative mood. Optional scope prefixes seen in history: `UI:`, `Actual API:`, `test:`, `refactor:`, `fix:`.
-- PRs must include: clear description, rationale, before/after notes; link issues; screenshots/GIFs for UI.
-- Checklist: `pytest` green, `flake8` clean, docs updated (README/CLAUDE.md/this file) when behavior changes.
+## Testing Rules
+- Framework: `pytest`.
+- Do not remove tests to pass changes.
+- Add coverage for changed behavior (converter logic, dedupe behavior, worker flow, API mapping).
+- Prefer deterministic tests; avoid live network calls in unit scope.
 
 ## Security & Configuration
-- Do not commit secrets. The wizard stores tokens securely; user config lives under `~/.nbg-ynab-export/`.
-- Settings files:
-  - `settings.txt`: encrypted YNAB token and last-used folder.
-  - `settings.key`: Fernet key for encryption.
-  - `actual_settings.txt`: encrypted Actual server URL/password.
-  - `ynab_api.log`: YNAB API debug log (override with `YNAB_LOG_DIR`).
-- Environment override: `YNAB_TOKEN` takes precedence over saved token.
-- Log files may be created there as well; prefer local paths in development when debugging.
-- When handling files, never overwrite inputs; outputs follow `original_name_YYYY-MM-DD_ynab.csv`.
+- Never commit secrets.
+- Use `services/token_manager.py` for encrypted token/password handling.
+- Keep secure file permissions (`0600`) on settings/key/log files where possible.
+- Local settings directory: `~/.nbg-ynab-export/`.
 
-## Consistency Rules
-- **De-duplication**: always use `converter/utils.py:exclude_existing` (re-exported via `ConversionService`) so CLI/GUI behavior stays identical.
-- **Secret storage**: never re-implement Fernet/key logic in UI; use `services/token_manager.py` and keep file permissions at `0600`.
-- **Format detection**: if you change required columns or detection logic, update `converter/dispatcher.py`, converters, and related tests together.
+Settings files:
+- `settings.txt` (`TOKEN:`, `FOLDER:`, `MODE:`)
+- `settings.key` (Fernet key)
+- `actual_settings.txt` (`ACTUAL_URL:`, `ACTUAL_PWD:`, optional `ACTUAL_E2E_PWD:`)
+- `ynab_api.log` (path override with `YNAB_LOG_DIR`)
+
+Env behavior:
+- `YNAB_TOKEN` overrides saved token.
+- `YNAB_API_DEBUG=1` enables verbose YNAB API payload logging.
+
+## Consistency Rules (Important)
+
+1. De-duplication consistency
+- Always use `converter/utils.py:exclude_existing` (or its re-export from `services/conversion_service.py`).
+- Default behavior is exact duplicate removal; do not silently reintroduce date-cutoff filtering.
+
+2. Format detection consistency
+- Required columns are defined in `constants.py` and checked by `converter/dispatcher.py`.
+- If changing required headers, update converters and related tests together.
+
+3. CSV output safety
+- Keep formula sanitization (`sanitize_csv_formulas`) before writing CSV files.
+
+4. Actual bridge contract
+- Preserve JSON-line command contract between Python runner and `scripts/actual_bridge.js`.
+- Keep amount unit conversions stable (milliunits in Python payloads).
+
+## PR Expectations
+- Clear summary of behavior change and rationale.
+- Mention impacted modules and user-visible effects.
+- Include `pytest -q` and `flake8 .` results.
+- Include screenshots/GIFs for UI changes.

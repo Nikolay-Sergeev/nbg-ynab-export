@@ -1,192 +1,157 @@
 # NBG/Revolut to YNAB / Actual Budget Converter
 
-This project converts transaction exports from National Bank of Greece (NBG) and Revolut into:
-- **YNAB-compatible CSV** (CLI and GUI)
-- **Actual Budget-compatible CSV / direct upload** (GUI, via Node bridge)
+Convert bank exports from National Bank of Greece (NBG) and Revolut into:
+- YNAB-compatible CSV
+- Actual Budget imports (via API from the GUI, or CSV via service API)
 
-Supported inputs:
-- NBG account statements (`.xlsx` / `.xls`)
-- NBG card statements (`.xlsx` / `.xls`)
-- Revolut exports (`.csv`, EUR only)
+The project ships with:
+- CLI (`cli.py`) for fast file conversion
+- PyQt5 wizard (`ui/wizard.py`) for guided import/upload workflows
 
-## Features
+## Supported Inputs
 
-- **Multiple Statement Types:** 
-  - NBG Account Operations
-  - NBG Card Operations
-  - Revolut CSV exports
-- **Multiple Export Targets (GUI):**
-  - YNAB upload
-  - Actual Budget API upload
-  - File converter (no upload, just a YNAB CSV)
-- **Date Handling:** 
-  - NBG Account statements: Uses 'Valeur' (value date)
-  - NBG Card statements: Extracts date from datetime field
-  - Revolut: Uses 'Started Date'
-- **Amount Processing:**
-  - Handles European number format (NBG)
-  - Processes fees in Revolut transactions (automatically deducts from amount)
-  - Correctly signs amounts based on transaction type
-  - Rounds all amounts to 2 decimal places
-- **Description Cleanup:**
-  - NBG: Removes e-commerce prefixes:
-    - `E-COMMERCE ΑΓΟΡΑ - `
-    - `3D SECURE E-COMMERCE ΑΓΟΡΑ - `
-  - Revolut: Uses Description as payee and Type as memo
-- **Error Handling:**
-  - Validates required columns
-  - Checks file format and existence
-  - Provides detailed error messages
-- **Transaction Filtering:**
-  - NBG: Processes all transactions
-  - Revolut: Only includes COMPLETED transactions
-  - Optional: Exclude previously imported transactions (see `--previous`)
-- **Smart File Naming:**
-  - Uses date from input filename (NBG)
-  - Uses current date for Revolut exports
-  - Format: `{original_name}_{YYYY-MM-DD}_ynab.csv`
+The converter auto-detects source format from required columns.
 
-## Implemented Improvements
+- NBG Account statement (`.xlsx` / `.xls`)
+- NBG Card statement (`.xlsx` / `.xls`)
+- Revolut export (`.csv`, EUR only)
 
-### API Rate Limit Optimization
-- Session-level cache for fetched YNAB transactions
-- Only fetch transactions once per account per session
-- Navigating back/forth or re-reviewing does not trigger extra API requests
-- Cache is invalidated if budget/account selection changes
-- All uploads use batch API endpoint
+Format detection is strict: required column names must match the expected headers.
 
-### UI/UX Improvements
-- SVG icons for error, success, upload, info
-- No unnecessary left margins in drag/drop or error areas
-- Only filename shown in file input
-- Error messages wrap and are never cut off
-- Tooltips for all icons
+## What The Converter Does
 
-## Requirements
-
-- Python 3.6+
-- pandas
-- openpyxl
-- PyQt5>=5.15
-- requests
-- cryptography
-- flake8 (development)
-- pytest (development)
-- Node.js + npm (required for Actual API mode)
+- Normalizes dates to `YYYY-MM-DD`
+- Normalizes amounts (supports `1.234,56` and `1,234.56` style numbers)
+- Applies debit/credit sign rules for NBG account/card files
+- Filters Revolut rows to `State == COMPLETED`
+- Subtracts Revolut `Fee` from `Amount`
+- Cleans common NBG prefixes like `E-COMMERCE ΑΓΟΡΑ - ...`
+- Adds optional `ImportId` in-memory when `Αριθμός αναφοράς` exists (used by UI duplicate/upload logic)
+- Escapes formula-like strings in exported CSV text fields for spreadsheet safety
 
 ## Installation
 
-1. Clone the repository:
-```bash
-git clone https://github.com/Nikolay-Sergeev/nbg-ynab-export.git
-cd nbg-ynab-export
-```
+Requirements:
+- Python 3.8+
+- Node.js + npm (required for Actual API mode)
 
-2. Create and activate a virtual environment:
+Setup:
+
 ```bash
-# macOS/Linux
 python3 -m venv venv
-source venv/bin/activate
-
-# Windows
-python -m venv venv
-.\venv\Scripts\activate
-```
-
-3. Install dependencies:
-```bash
+source venv/bin/activate  # Windows: .\\venv\\Scripts\\activate
 pip install -r requirements.txt
-```
-
-4. (Actual API mode only) Install Node dependencies:
-```bash
 npm install --save @actual-app/api
 ```
 
-## Usage
+## CLI Usage
 
-Convert a statement to YNAB format (recommended CLI entry point):
+Basic conversion:
+
 ```bash
-python cli.py path/to/statement.[xlsx|csv]
+python cli.py path/to/statement.[xlsx|xls|csv]
 ```
 
-Exclude previously imported transactions:
+With de-duplication against a previous YNAB export:
+
 ```bash
-python cli.py path/to/statement.[xlsx|csv] --previous path/to/previous_ynab.csv
+python cli.py path/to/statement.[xlsx|xls|csv] --previous path/to/previous_ynab.csv
 ```
 
-De-duplication semantics:
-- Transactions older than the latest date in the previous export are dropped.
-- Remaining rows are deduplicated by `(Date, Payee, Amount, Memo)` (case-insensitive for Payee/Memo).
+Behavior of `--previous`:
+- Removes exact duplicates using `(Date, Payee, Amount, Memo)`
+- `Payee`/`Memo` matching is case-insensitive and whitespace-trimmed
+- Does **not** drop older transactions by date in default CLI flow
 
-### Supported File Types
+Output naming:
+- `original_name_YYYY-MM-DD_ynab.csv`
+- NBG files reuse date found in filename when possible
+- Revolut CLI conversion uses today's date
 
-- NBG Account Statements: `.xlsx`, `.xls`
-- NBG Card Statements: `.xlsx`, `.xls`
-- Revolut Exports: `.csv`
+## GUI Wizard Usage
 
-### Output
+Start GUI:
 
-The script generates a YNAB-compatible CSV file in the same directory as the input file:
-- NBG files: Uses date from filename or current date
-- Revolut files: Always uses current date
-- Format: `original_name_YYYY-MM-DD_ynab.csv`
-
-## Development
-
-See [CLAUDE.md](CLAUDE.md) for contributor guidelines, environment setup, and
-additional architectural details. Run the test suite with `pytest` and check
-style using `flake8` before submitting changes.
-
-## GUI Wizard
-
-For an interactive GUI, launch:
 ```bash
 python ui/wizard.py
 ```
 
-On the first page you can choose an export mode:
-- **YNAB**: verify token, select budget/account, review & upload to YNAB.
-- **Actual API**: verify Actual server URL/password (and encryption password if using E2E), select budget/account,
-  review & upload to Actual Budget.
-- **File Converter**: review & choose rows to export; generates a YNAB CSV without uploading anywhere.
+### Mode: YNAB
+Flow:
+1. Attach file
+2. Verify YNAB token
+3. Select budget/account
+4. Preview latest account transactions
+5. Review rows (duplicates preselected as skipped)
+6. Upload
 
-### Settings and Logs
+### Mode: Actual Budget (API)
+Flow:
+1. Attach file
+2. Verify Actual server URL/password
+3. Select budget/account
+4. Preview latest account transactions
+5. Review rows
+6. Upload via Node bridge (`scripts/actual_bridge.js`)
 
-All local config is stored under `~/.nbg-ynab-export/` with file mode `0600`:
-- `settings.txt`: encrypted YNAB token (`TOKEN:` line) and last-used folder (`FOLDER:` line).
-- `settings.key`: Fernet key used to encrypt/decrypt tokens.
-- `actual_settings.txt`: encrypted Actual server URL/password (`ACTUAL_URL:` / `ACTUAL_PWD:`) and optional
-  encryption password (`ACTUAL_E2E_PWD:`).
-- `ynab_api.log`: YNAB API log (warnings by default; enable verbose payload logging with `YNAB_API_DEBUG=1`).
+Notes:
+- Remote servers must use `https://` (UI rejects insecure `http://` except localhost)
+- Optional encryption password is supported for encrypted Actual budgets
+- If bridge/API version mismatch is detected (`out-of-sync-migrations`), client attempts one automatic `npm install --save @actual-app/api` and retries
 
-Environment variables:
-- `YNAB_TOKEN`: overrides the saved YNAB token.
-- `YNAB_LOG_DIR`: overrides where `ynab_api.log` is written.
-- `YNAB_API_DEBUG`: when set to `1`, logs request/response payloads for YNAB API calls.
+### Mode: File Converter
+Flow:
+1. Attach file
+2. Review/select rows
+3. Export CSV locally (no API calls)
 
-Security note:
-- Treat `~/.nbg-ynab-export/` and `ynab_api.log` as sensitive local data.
-- Do not share or commit those files, especially when `YNAB_API_DEBUG=1`.
+## Actual Budget CSV Export (Service API)
 
-Duplicate checking in GUI uses configurable range in `config.py` (`DUP_CHECK_DAYS`, `DUP_CHECK_COUNT`).
+For programmatic usage, `ConversionService.convert_to_actual(...)` writes CSV columns:
+- `date`, `payee`, `amount`, `notes`
 
-### Actual Budget Notes
+Write location fallback order:
+1. `~/.nbg-ynab-export/`
+2. project-local `.nbg-ynab-export/`
+3. input file directory
 
-Actual API mode uses a small Node bridge (`scripts/actual_bridge.js`) backed by `@actual-app/api`.
-If your budget uses end-to-end encryption, provide the encryption password in the Actual auth step.
-If `node_modules/` is missing, run `npm install --save @actual-app/api` in the repo root.
-For connectivity troubleshooting, run:
+## Settings, Secrets, and Logs
+
+Local app directory:
+- `~/.nbg-ynab-export/`
+
+Files:
+- `settings.txt`: encrypted YNAB token (`TOKEN:`), last folder (`FOLDER:`), last mode (`MODE:`)
+- `settings.key`: Fernet key
+- `actual_settings.txt`: encrypted Actual URL/password (+ optional encryption password)
+- `ynab_api.log`: YNAB API log
+
+Security behavior:
+- Secret files are written with `0600` permissions when possible
+- `YNAB_TOKEN` environment variable overrides saved YNAB token
+- `YNAB_LOG_DIR` overrides YNAB log location
+- `YNAB_API_DEBUG=1` enables verbose YNAB payload logging
+
+## Development
+
+Run quality checks:
+
 ```bash
-python scripts/actual_diag.py https://your-actual-host/api yourPassword
+pytest -q
+flake8 .
 ```
 
-### Known Limitations
+Current test suite status at last scan: `200 passed`.
 
-- Format detection requires exact column names; if your export headers differ slightly (extra spaces/case),
-  rename the columns in the input file to match the expected bank format.
-- Revolut exports must be EUR-only; mixed-currency files are rejected.
+## Project Structure
+
+- `cli.py`, `main.py`: CLI entry points (`main.py` keeps legacy API-style exports)
+- `converter/`: source-specific converters and utilities
+- `services/`: conversion service, YNAB client, Actual client/bridge runner, token manager
+- `ui/`: wizard, pages, async workers/controller
+- `scripts/`: Node bridge and Actual diagnostics
+- `tests/`: unit/integration/UI/performance tests
 
 ## License
 
-GNU General Public License v2.0 - See LICENSE file for details
+GNU GPL v2.0 (`LICENSE`).
