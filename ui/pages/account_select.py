@@ -20,6 +20,8 @@ class AccountSelectionPage(QWidget):
         self.selected_account_id = None
         self.fetched = False
         self.transactions = []
+        self._budget_manual_connected = False
+        self._account_manual_connected = False
 
         # --- Outer layout ---
         outer_layout = QVBoxLayout(self)
@@ -101,14 +103,12 @@ class AccountSelectionPage(QWidget):
             self.account_combo.currentIndexChanged.disconnect()
             self.controller.budgetsFetched.disconnect(self.on_budgets_fetched)
             self.controller.accountsFetched.disconnect(self.on_accounts_fetched)
-        except Exception:
+        except (TypeError, RuntimeError):
             pass  # Ignore if not connected
 
         # Connect signals
         self.budget_combo.currentIndexChanged.connect(self.on_budget_changed)
-        self.budget_combo.activated.connect(lambda idx: print(f"Budget combo activated: {idx}"))
         self.account_combo.currentIndexChanged.connect(self.on_account_changed)
-        self.account_combo.activated.connect(lambda idx: print(f"Account combo activated: {idx}"))
         self.controller.budgetsFetched.connect(self.on_budgets_fetched)
         self.controller.accountsFetched.connect(self.on_accounts_fetched)
         self.controller.errorOccurred.connect(self.on_error)
@@ -176,9 +176,13 @@ class AccountSelectionPage(QWidget):
                     self.budget_combo.setEditable(True)
                     self.budget_combo.setPlaceholderText("Enter budget ID")
                     # When user types, update selected id and try fetching accounts
-                    self.budget_combo.editTextChanged.connect(self.on_budget_manual_text)
+                    if not self._budget_manual_connected:
+                        self.budget_combo.editTextChanged.connect(self.on_budget_manual_text)
+                        self._budget_manual_connected = True
             except Exception as e:
-                print(f"[AccountSelectionPage] Error enabling manual budget entry: {e}")
+                self.logger.error("[AccountSelectionPage] Error enabling manual budget entry: %s", e)
+        if self.budgets:
+            self.budget_combo.setEditable(False)
 
         # Force update the combo box
         self.budget_combo.setCurrentIndex(0)
@@ -204,10 +208,16 @@ class AccountSelectionPage(QWidget):
         self.selected_budget_id = text or None
         if self.selected_budget_id and self.controller and getattr(self.controller, 'ynab', None):
             try:
-                print(f"[AccountSelectionPage] Manual budget id entered, fetching accounts: {self.selected_budget_id}")
+                self.logger.info(
+                    "[AccountSelectionPage] Manual budget id entered: %s",
+                    self.selected_budget_id,
+                )
                 self.controller.fetch_accounts(self.selected_budget_id)
             except Exception as e:
-                print(f"[AccountSelectionPage] Error fetching accounts for manual budget: {e}")
+                self.logger.error(
+                    "[AccountSelectionPage] Error fetching accounts for manual budget: %s",
+                    e,
+                )
         self.update_helper()
         self.validate_fields()
 
@@ -237,9 +247,13 @@ class AccountSelectionPage(QWidget):
                 if getattr(self.controller, 'export_target', 'YNAB') == 'ACTUAL_API':
                     self.account_combo.setEditable(True)
                     self.account_combo.setPlaceholderText("Enter account ID")
-                    self.account_combo.editTextChanged.connect(self.on_account_manual_text)
+                    if not self._account_manual_connected:
+                        self.account_combo.editTextChanged.connect(self.on_account_manual_text)
+                        self._account_manual_connected = True
             except Exception as e:
-                print(f"[AccountSelectionPage] Error enabling manual account entry: {e}")
+                self.logger.error("[AccountSelectionPage] Error enabling manual account entry: %s", e)
+        if self.accounts:
+            self.account_combo.setEditable(False)
 
         # Force update the combo box
         self.account_combo.setCurrentIndex(0)
@@ -250,8 +264,6 @@ class AccountSelectionPage(QWidget):
         self.validate_fields()
 
     def mousePressEvent(self, event):
-        # Log mouse click events for debugging
-        print(f"[AccountSelectionPage] Mouse click at {event.x()}, {event.y()}")
         super().mousePressEvent(event)
 
     def on_budget_changed(self, idx):
@@ -293,7 +305,7 @@ class AccountSelectionPage(QWidget):
         short_msg = (msg or "").strip().splitlines()[0]
         if len(short_msg) > 300:
             short_msg = short_msg[:300] + "…"
-        if "invalid JSON" in short_msg.lower() or "html" in msg.lower():
+        if "invalid json" in short_msg.lower() or "html" in (msg or "").lower():
             short_msg += " — check that your Actual server URL points to the API (e.g., https://host/api)."
         self.helper_label.setText(short_msg)
         self.helper_label.setStyleSheet("font-size:12px;color:#c62828;margin-bottom:0;")
@@ -341,19 +353,22 @@ class AccountSelectionPage(QWidget):
             wizard.next()
 
     def validate_and_proceed(self):
-        print("[AccountSelectionPage] validate_and_proceed called")
+        self.logger.info("[AccountSelectionPage] validate_and_proceed called")
         if not self.isComplete():
-            print("[AccountSelectionPage] Not complete, can't proceed")
+            self.logger.info("[AccountSelectionPage] Not complete, cannot proceed")
             return False
 
         # Get the selected budget and account IDs
         budget_id, account_id = self.get_selected_ids()
-        print(f"[AccountSelectionPage] Selected budget: {budget_id}, account: {account_id}")
+        self.logger.info(
+            "[AccountSelectionPage] Selected budget=%s account=%s",
+            budget_id,
+            account_id,
+        )
 
         # If we're in stacked widget with parent window
         parent = self.window()
         if hasattr(parent, "go_to_page") and hasattr(parent, "pages_stack"):
-            print("[AccountSelectionPage] Using stacked widget navigation")
             current_index = parent.pages_stack.indexOf(self)
             if current_index >= 0:
                 parent.go_to_page(current_index + 1)
@@ -362,11 +377,10 @@ class AccountSelectionPage(QWidget):
         # If not, try wizard navigation
         wizard = self.wizard()
         if wizard:
-            print("[AccountSelectionPage] Using wizard navigation")
             wizard.next()
             return True
 
-        print("[AccountSelectionPage] No navigation method found")
+        self.logger.error("[AccountSelectionPage] No navigation method found")
         return False
 
     def go_back(self):

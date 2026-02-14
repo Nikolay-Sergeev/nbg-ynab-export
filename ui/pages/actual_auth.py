@@ -65,7 +65,10 @@ class ActualAuthPage(QWizardPage):
         layout.addWidget(self.save_checkbox, alignment=Qt.AlignLeft)
 
         # Helper and error
-        self.helper_label = QLabel("Credentials are stored locally. Leave encryption password blank to reuse the server password.")
+        self.helper_label = QLabel(
+            "Credentials are stored locally. "
+            "Leave encryption password blank to reuse the server password."
+        )
         self.helper_label.setObjectName("helper-label")
         self.error_label = QLabel("")
         self.error_label.setObjectName("error-label")
@@ -117,43 +120,6 @@ class ActualAuthPage(QWizardPage):
                 self.logger.info("[ActualAuthPage] Rejected insecure URL: %s", url)
                 return False
 
-            if self.save_checkbox.isChecked():
-                try:
-                    ensure_app_dir()
-                    enc_server_pwd = _token_manager.encrypt_token(pwd).decode()
-                    enc_budget_pwd = (
-                        _token_manager.encrypt_token(budget_pwd).decode() if budget_pwd else ""
-                    )
-                    with open(ACTUAL_SETTINGS_FILE, 'w') as f:
-                        f.write(f"ACTUAL_URL:{url}\n")
-                        f.write(f"ACTUAL_PWD:{enc_server_pwd}\n")
-                        if enc_budget_pwd:
-                            f.write(f"ACTUAL_E2E_PWD:{enc_budget_pwd}\n")
-                    try:
-                        os.chmod(ACTUAL_SETTINGS_FILE, 0o600)
-                    except OSError:
-                        pass
-                    # Remove legacy Actual credentials from shared settings file if present.
-                    if os.path.exists(SETTINGS_FILE):
-                        try:
-                            with open(SETTINGS_FILE, 'r') as f:
-                                lines = [
-                                    ln for ln in f
-                                    if not ln.startswith(("ACTUAL_URL:", "ACTUAL_PWD:", "ACTUAL_E2E_PWD:"))
-                                ]
-                            with open(SETTINGS_FILE, 'w') as f:
-                                f.writelines(lines)
-                            try:
-                                os.chmod(SETTINGS_FILE, 0o600)
-                            except OSError:
-                                pass
-                        except Exception:
-                            pass
-                except Exception as e:
-                    self.error_label.setText(f"Error saving credentials: {e}")
-                    self.logger.error("[ActualAuthPage] Error saving credentials: %s", e)
-                    return False
-
             ok = self.controller.authorize_actual(url, pwd, budget_pwd or None)
             if not ok:
                 msg = getattr(self.controller, "last_error_message", None)
@@ -165,6 +131,14 @@ class ActualAuthPage(QWizardPage):
                 self.error_label.setText(short_msg)
                 self.logger.error("[ActualAuthPage] authorize_actual failed for url=%s; msg=%s", url, msg)
                 return False
+
+            if self.save_checkbox.isChecked():
+                try:
+                    self._save_credentials(url, pwd, budget_pwd)
+                except Exception as e:
+                    self.error_label.setText(f"Error saving credentials: {e}")
+                    self.logger.error("[ActualAuthPage] Error saving credentials: %s", e)
+                    return False
         except Exception as e:  # Defensive: avoid crashing Qt if anything unexpected happens
             self.error_label.setText(f"Unexpected error: {e}")
             self.logger.exception("[ActualAuthPage] Unexpected error during validation")
@@ -178,6 +152,39 @@ class ActualAuthPage(QWizardPage):
                 parent.go_to_page(2)  # logical step for account selection
                 return True
         return False
+
+    def _save_credentials(self, url: str, pwd: str, budget_pwd: str) -> None:
+        ensure_app_dir()
+        enc_server_pwd = _token_manager.encrypt_token(pwd).decode()
+        enc_budget_pwd = _token_manager.encrypt_token(budget_pwd).decode() if budget_pwd else ""
+        with open(ACTUAL_SETTINGS_FILE, 'w') as f:
+            f.write(f"ACTUAL_URL:{url}\n")
+            f.write(f"ACTUAL_PWD:{enc_server_pwd}\n")
+            if enc_budget_pwd:
+                f.write(f"ACTUAL_E2E_PWD:{enc_budget_pwd}\n")
+        try:
+            os.chmod(ACTUAL_SETTINGS_FILE, 0o600)
+        except OSError:
+            pass
+        self._remove_legacy_actual_lines()
+
+    def _remove_legacy_actual_lines(self) -> None:
+        if not os.path.exists(SETTINGS_FILE):
+            return
+        try:
+            with open(SETTINGS_FILE, 'r') as f:
+                lines = [
+                    ln for ln in f
+                    if not ln.startswith(("ACTUAL_URL:", "ACTUAL_PWD:", "ACTUAL_E2E_PWD:"))
+                ]
+            with open(SETTINGS_FILE, 'w') as f:
+                f.writelines(lines)
+            try:
+                os.chmod(SETTINGS_FILE, 0o600)
+            except OSError:
+                pass
+        except OSError as exc:
+            self.logger.warning("[ActualAuthPage] Failed to cleanup legacy settings lines: %s", exc)
 
     def load_saved(self):
         ensure_app_dir()

@@ -123,35 +123,44 @@ class MacOSProxyStyle(QProxyStyle):
 
 class RobustWizard(QWizard):
     def closeEvent(self, event):
-        print("[Wizard] closeEvent triggered. "
-              "Attempting to stop all worker threads...")
+        logging.info(
+            "[Wizard] closeEvent triggered. Attempting to stop all worker threads..."
+        )
         try:
             for page_id in self.pageIds():
                 page = self.page(page_id)
                 if page is None:
                     continue
-                print(f"[Wizard] Checking page id {page_id}: "
-                      f"{type(page).__name__}")
+                logging.debug("[Wizard] Checking page id %s: %s", page_id, type(page).__name__)
                 for attr in ("worker", "review_upload_worker"):
                     worker = getattr(page, attr, None)
                     if worker is not None:
-                        print(f"[Wizard] Found worker attribute '{attr}' "
-                              f"on page id {page_id}.")
+                        logging.debug(
+                            "[Wizard] Found worker attribute '%s' on page id %s.",
+                            attr,
+                            page_id,
+                        )
                         if hasattr(worker, 'isRunning'):
-                            print(f"[Wizard] Worker is running: {worker.isRunning()}")
+                            logging.debug("[Wizard] Worker is running: %s", worker.isRunning())
                             if worker.isRunning():
-                                print(f"[Thread] Stopping {attr} thread on "
-                                      f"page id {page_id}...")
+                                logging.info(
+                                    "[Thread] Stopping %s thread on page id %s...",
+                                    attr,
+                                    page_id,
+                                )
                                 worker.quit()
                                 worker.wait(2000)
         except Exception as e:
-            print(f"[Thread] Exception while stopping threads: {e}")
+            logging.exception("[Thread] Exception while stopping threads: %s", e)
             traceback.print_exc()
         super().closeEvent(event)
 
     def initializePage(self, id):
-        print(f"[Wizard] initializePage called for page id {id} "
-              f"({type(self.page(id)).__name__})")
+        logging.debug(
+            "[Wizard] initializePage called for page id %s (%s)",
+            id,
+            type(self.page(id)).__name__,
+        )
         super().initializePage(id)
 
     def nextId(self):
@@ -302,9 +311,16 @@ class SidebarWizardWindow(QMainWindow):
             page = self.pages_stack.widget(i)
             try:
                 page.completeChanged.connect(self.update_nav_buttons)
-                print(f"[SidebarWizardWindow] Connected completeChanged for {type(page).__name__}")
+                self.logger.debug(
+                    "[SidebarWizardWindow] Connected completeChanged for %s",
+                    type(page).__name__,
+                )
             except (AttributeError, TypeError) as e:
-                print(f"[SidebarWizardWindow] Could not connect completeChanged for {type(page).__name__}: {e}")
+                self.logger.debug(
+                    "[SidebarWizardWindow] Could not connect completeChanged for %s: %s",
+                    type(page).__name__,
+                    e,
+                )
 
         # Add extra safety to connect specific pages we know should have the signal
         for page in [self.import_page, self.auth_page, self.account_page,
@@ -460,20 +476,30 @@ class SidebarWizardWindow(QMainWindow):
 
             # Check if page is complete before proceeding
             if hasattr(page, 'isComplete') and not page.isComplete():
-                print(f"[SidebarWizardWindow] Page {current} is not complete, cannot proceed")
+                self.logger.info(
+                    "[SidebarWizardWindow] Page %s is not complete, cannot proceed",
+                    current,
+                )
                 return
 
             # Check if page has a validate_and_proceed method
             if hasattr(page, 'validate_and_proceed'):
-                print(f"[SidebarWizardWindow] Using validate_and_proceed for page {current}")
+                self.logger.debug(
+                    "[SidebarWizardWindow] Using validate_and_proceed for page %s",
+                    current,
+                )
                 result = page.validate_and_proceed()
                 if not result:
-                    print(f"[SidebarWizardWindow] validate_and_proceed returned "
-                          f"False for page {current}")
+                    self.logger.info(
+                        "[SidebarWizardWindow] validate_and_proceed returned False for page %s",
+                        current,
+                    )
             else:
                 # If no validation needed, proceed to next page, with special handling for Actual export
-                print(f"[SidebarWizardWindow] No validate_and_proceed method "
-                      f"for page {current}, proceeding")
+                self.logger.debug(
+                    "[SidebarWizardWindow] No validate_and_proceed method for page %s, proceeding",
+                    current,
+                )
                 # If leaving Import page and target is Actual API, go to Actual auth page and keep sidebar on step 1
                 if current == 0 and getattr(self.controller, 'export_target', 'YNAB') == 'ACTUAL_API':
                     if hasattr(self, 'actual_auth_page') and self.actual_auth_page is not None:
@@ -495,10 +521,10 @@ class SidebarWizardWindow(QMainWindow):
             # On the last page, check if we should close the app
             page = self.pages_stack.currentWidget()
             if hasattr(page, 'validate_and_proceed'):
-                print("[SidebarWizardWindow] Calling validate_and_proceed on final page")
+                self.logger.debug("[SidebarWizardWindow] Calling validate_and_proceed on final page")
                 page.validate_and_proceed()
             else:
-                print("[SidebarWizardWindow] Closing application from final page")
+                self.logger.info("[SidebarWizardWindow] Closing application from final page")
                 self.close()
 
     def update_nav_buttons(self):
@@ -512,7 +538,10 @@ class SidebarWizardWindow(QMainWindow):
             try:
                 self.back_button.clicked.disconnect()
             except Exception as e:
-                print(f"[SidebarWizardWindow] Error disconnecting back button: {e}")
+                self.logger.debug(
+                    "[SidebarWizardWindow] Error disconnecting back button: %s",
+                    e,
+                )
                 pass
             self.back_button.clicked.connect(self.close)
         else:
@@ -521,7 +550,10 @@ class SidebarWizardWindow(QMainWindow):
             try:
                 self.back_button.clicked.disconnect()
             except Exception as e:
-                print(f"[SidebarWizardWindow] Error disconnecting back button: {e}")
+                self.logger.debug(
+                    "[SidebarWizardWindow] Error disconnecting back button: %s",
+                    e,
+                )
                 pass
             self.back_button.clicked.connect(self.go_back)
 
@@ -545,15 +577,22 @@ class SidebarWizardWindow(QMainWindow):
             try:
                 is_complete = page.isComplete()
                 self.next_button.setEnabled(is_complete)
-                print(f"[SidebarWizardWindow] Page {current} isComplete: "
-                      f"{is_complete}")
+                self.logger.debug(
+                    "[SidebarWizardWindow] Page %s isComplete: %s",
+                    current,
+                    is_complete,
+                )
             except Exception as e:
-                print(f"[SidebarWizardWindow] Error checking isComplete: "
-                      f"{e}")
+                self.logger.debug(
+                    "[SidebarWizardWindow] Error checking isComplete: %s",
+                    e,
+                )
                 self.next_button.setEnabled(False)
         else:
-            print(f"[SidebarWizardWindow] Page {current} has no isComplete "
-                  f"method")
+            self.logger.debug(
+                "[SidebarWizardWindow] Page %s has no isComplete method",
+                current,
+            )
             self.next_button.setEnabled(True)
 
 
@@ -564,11 +603,11 @@ def load_style(app: QApplication):
         try:
             with open(STYLE_PATH, "r") as f:
                 app.setStyleSheet(f.read())
-            print(f"[QSS] Loaded style from {STYLE_PATH}")
+            logging.info("[QSS] Loaded style from %s", STYLE_PATH)
         except Exception as e:
-            print(f"[QSS] Failed to load style.qss: {e}")
+            logging.warning("[QSS] Failed to load style.qss: %s", e)
     else:
-        print(f"[QSS] style.qss not found at {STYLE_PATH}. UI will use default style.")
+        logging.warning("[QSS] style.qss not found at %s. UI will use default style.", STYLE_PATH)
 
     # Load and set app icon
     if os.path.exists(ICON_PATH):
@@ -580,11 +619,11 @@ def load_style(app: QApplication):
             renderer.render(painter)
             painter.end()
             app.setWindowIcon(QIcon(pixmap))
-            print(f"[Icon] Loaded app icon from {ICON_PATH}")
+            logging.info("[Icon] Loaded app icon from %s", ICON_PATH)
         except Exception as e:
-            print(f"[Icon] Failed to load app_icon.svg: {e}")
+            logging.warning("[Icon] Failed to load app_icon.svg: %s", e)
     else:
-        print(f"[Icon] app_icon.svg not found at {ICON_PATH}. Using default icon.")
+        logging.warning("[Icon] app_icon.svg not found at %s. Using default icon.", ICON_PATH)
 
     # Setup platform-specific style
     # Use system font on macOS
@@ -645,9 +684,9 @@ def main():
                 for path in candidates:
                     if os.path.isdir(path):
                         shutil.rmtree(path, ignore_errors=True)
-                print('[Wizard] Debug mode: caches cleared')
+                logging.info('[Wizard] Debug mode: caches cleared')
             except Exception as e:
-                print(f"[Wizard] Debug mode cache cleanup error: {e}")
+                logging.warning("[Wizard] Debug mode cache cleanup error: %s", e)
 
         # On Linux headless, use offscreen; skip on macOS
 
@@ -673,10 +712,10 @@ def main():
         load_style(app)
         window = SidebarWizardWindow()
         window.show()
-        print("[Wizard] Wizard UI started. Entering event loop.")
+        logging.info("[Wizard] Wizard UI started. Entering event loop.")
         sys.exit(app.exec_())
     except Exception as e:
-        print(f"[Main] Exception in main(): {e}")
+        logging.exception("[Main] Exception in main(): %s", e)
         traceback.print_exc()
 
 

@@ -142,14 +142,26 @@ class DuplicateCheckWorker(QObject):
                     if import_id:
                         prev_import_ids.add(import_id)
             use_import_id = is_actual and bool(prev_import_ids)
-            # Build set of keys from API transactions
-            keys_prev = set()
+            # Build indexed keys from API transactions to keep matching O(n + m).
+            exact_normal = {}
+            transfer_memo = {}
+            all_memo = {}
+
+            def memo_prefix(value: str) -> str:
+                return re.sub(r"\W", "", (value or "").lower())[:15]
+
             for d in prev:
                 date_prev = d.get("date")
                 payee_prev = clean_text(d.get("import_payee_name") or d.get("payee_name"))
                 memo_prev = clean_text(d.get("memo"))
                 amt_prev = d.get("amount")  # milliunits
-                keys_prev.add((date_prev, payee_prev, amt_prev, memo_prev))
+                key = (date_prev, amt_prev)
+                prefix = memo_prefix(memo_prev)
+                all_memo.setdefault(key, set()).add(prefix)
+                if payee_prev.startswith("transfer :"):
+                    transfer_memo.setdefault(key, set()).add(prefix)
+                else:
+                    exact_normal.setdefault(key, set()).add((payee_prev, memo_prev))
             # Identify duplicates in imported records
             dup_idx = set()
             for i, r in enumerate(records):
@@ -169,20 +181,19 @@ class DuplicateCheckWorker(QObject):
                 except Exception:
                     amt_csv = None
                 is_transfer_csv = payee_csv.startswith("transfer :")
-                for (date_prev, payee_prev, amt_prev, memo_prev) in keys_prev:
-                    is_transfer_prev = payee_prev.startswith("transfer :")
-                    if date_csv == date_prev and amt_csv == amt_prev:
-                        if is_transfer_csv or is_transfer_prev:
-                            # Fuzzy memo match: ignore non-word chars, lowercase, compare first 15 chars
-                            norm_memo_csv = re.sub(r"\W", "", memo_csv.lower())
-                            norm_memo_prev = re.sub(r"\W", "", memo_prev.lower())
-                            if norm_memo_csv[:15] == norm_memo_prev[:15]:
-                                dup_idx.add(i)
-                                break
-                        else:
-                            if payee_csv == payee_prev and memo_csv == memo_prev:
-                                dup_idx.add(i)
-                                break
+                key = (date_csv, amt_csv)
+                if key not in all_memo:
+                    continue
+                memo_csv_prefix = memo_prefix(memo_csv)
+                if is_transfer_csv:
+                    if memo_csv_prefix in all_memo.get(key, set()):
+                        dup_idx.add(i)
+                    continue
+                if (payee_csv, memo_csv) in exact_normal.get(key, set()):
+                    dup_idx.add(i)
+                    continue
+                if memo_csv_prefix in transfer_memo.get(key, set()):
+                    dup_idx.add(i)
             self.finished.emit(records, dup_idx)
         except Exception as e:
             err_msg = f"Failed to check duplicates: {e}"
@@ -193,24 +204,29 @@ class UploadWorker(QObject):
     finished = pyqtSignal(int)
     error = pyqtSignal(str)
 
-    def __init__(self, ynab_client, budget_id, account_id, transactions):
+    def __init__(
+        self,
+        ynab_client,
+        budget_id,
+        account_id,
+        transactions,
+        *,
+        account_scoped_upload: bool = False,
+    ):
         super().__init__()
         self.ynab_client = ynab_client
         self.budget_id = budget_id
         self.account_id = account_id
         self.transactions = transactions
+        self.account_scoped_upload = account_scoped_upload
 
     def run(self):
         try:
-            # Use correct upload signature per client:
-            # - ActualClient: upload_transactions(budget_id, account_id, transactions)
-            # - YnabClient: upload_transactions(budget_id, transactions)
-            response = None
-            try:
+            if self.account_scoped_upload:
                 response = self.ynab_client.upload_transactions(
                     self.budget_id, self.account_id, self.transactions
                 )
-            except TypeError:
+            else:
                 response = self.ynab_client.upload_transactions(
                     self.budget_id, self.transactions
                 )
@@ -415,7 +431,13 @@ class WizardController(QObject):
             return
         self._cleanup_thread()
         self.worker_thread = QThread()
-        self.worker = UploadWorker(self.ynab, budget_id, account_id, transactions)
+        self.worker = UploadWorker(
+            self.ynab,
+            budget_id,
+            account_id,
+            transactions,
+            account_scoped_upload=isinstance(self.ynab, ActualClient),
+        )
         self.worker.moveToThread(self.worker_thread)
 
         self.worker_thread.started.connect(self.worker.run)

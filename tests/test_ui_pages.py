@@ -235,6 +235,15 @@ class TestImportFilePage(unittest.TestCase):
         # Now the page should be valid
         self.assertTrue(self.page.isComplete())
 
+    def test_clear_file_resets_completion(self):
+        self.page.file_path = self.temp_file_path
+        self.page.update_ui_state()
+        self.assertTrue(self.page.isComplete())
+
+        self.page.clear_file()
+
+        self.assertFalse(self.page.isComplete())
+
     def test_handle_file_selected_saves_folder(self):
         """Ensure selected folder path is persisted."""
         tmp_dir = tempfile.mkdtemp()
@@ -528,6 +537,19 @@ class TestReviewAndUploadPage(unittest.TestCase):
         self.page.controller.upload_transactions.assert_called_once()
         uploaded = self.page.controller.upload_transactions.call_args[0][2]
         self.assertEqual(len(uploaded), 2)
+
+    @patch('ui.pages.review_upload.QMessageBox.information')
+    def test_file_mode_requires_selected_rows(self, mock_info):
+        self.page.controller.export_target = 'FILE'
+        self.page.records = [
+            {"Date": "2025-12-12", "Payee": "CUBE 1", "Memo": "CUBE 1", "Amount": -2.6},
+        ]
+        self.page.skipped_rows = {0}
+
+        result = self.page.validate_and_proceed()
+
+        self.assertFalse(result)
+        mock_info.assert_called_once()
 
 
 if __name__ == '__main__':

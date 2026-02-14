@@ -262,23 +262,21 @@ class ImportFilePage(QWizardPage):
 
     def handle_drop_file(self, file_path):
         if file_path:
-            self.on_file_selected(file_path)
+            self.handle_file_selected(file_path)
         else:
             self.show_error("Please select a valid CSV or XLSX file.")
 
     def on_file_selected(self, file_path):
-        if not file_path.lower().endswith((".csv", ".xlsx", ".xls")):
-            self.show_error("Please select a valid CSV or XLSX file.")
-            return
-        self.selected_file_path = file_path
-        self.error_text = ""
-        self.update_file_display()
-        self.validate_file()
+        self.handle_file_selected(file_path)
 
     def clear_file(self):
-        self.selected_file_path = None
-        self.update_file_display()
+        self.file_path = None
+        self.file_type = None
+        self.showing_full_path = False
+        self.error_text = ""
+        self.update_ui_state()
         self.validate_file()
+        self.completeChanged.emit()
 
     def show_error(self, msg):
         self.error_text = msg
@@ -286,8 +284,8 @@ class ImportFilePage(QWizardPage):
         self._set_continue_enabled(False)
 
     def update_file_display(self):
-        if self.selected_file_path:
-            self.file_name_label.setText(os.path.basename(self.selected_file_path))
+        if self.file_path:
+            self.file_name_label.setText(os.path.basename(self.file_path))
             self.file_display_widget.show()
             self.drop_zone.setText("File selected:", color="#333")
         else:
@@ -296,10 +294,10 @@ class ImportFilePage(QWizardPage):
             self.drop_zone.setText("Drag & drop your file here,\nor click 'Browse files…'", color="#333")
 
     def validate_file(self):
-        if not self.selected_file_path:
+        if not self.file_path:
             self.error_label.setText("")
             self._set_continue_enabled(False)
-        elif not self.selected_file_path.lower().endswith((".csv", ".xlsx", ".xls")):
+        elif not self.file_path.lower().endswith((".csv", ".xlsx", ".xls")):
             self.show_error("Please select a valid CSV or XLSX file.")
         else:
             self.error_label.setText("")

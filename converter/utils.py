@@ -64,15 +64,18 @@ def write_output(
 
 def exclude_existing(
     new_df: pd.DataFrame,
-    prev_df: pd.DataFrame
+    prev_df: pd.DataFrame,
+    *,
+    drop_older_than_latest_prev: bool = False,
 ) -> pd.DataFrame:
     """Remove duplicate and older transactions.
 
-    Behavior matches legacy main.py exclusion:
-    - If a previous export is provided, drop any new transactions older than
-      the latest date in the previous export.
-    - Then drop exact duplicates based on Date, Payee, Amount, and Memo
-      (case-insensitive for Payee/Memo).
+    Default behavior removes only exact duplicates based on Date, Payee, Amount,
+    and Memo (case-insensitive for Payee/Memo).
+
+    Optionally, legacy behavior can be enabled via
+    ``drop_older_than_latest_prev=True`` to also drop any new transactions older
+    than the latest date in the previous export.
     """
     logger.info("Excluding existing transactions")
 
@@ -85,16 +88,22 @@ def exclude_existing(
     new_copy['Date'] = pd.to_datetime(new_copy['Date'], errors='coerce')
     prev_copy['Date'] = pd.to_datetime(prev_copy['Date'], errors='coerce')
 
-    latest_prev_date = prev_copy['Date'].max()
-    if pd.isna(latest_prev_date):
-        mask_newer = pd.Series([True] * len(new_copy), index=new_copy.index)
+    if drop_older_than_latest_prev:
+        latest_prev_date = prev_copy['Date'].max()
+        if pd.isna(latest_prev_date):
+            mask_newer = pd.Series([True] * len(new_copy), index=new_copy.index)
+        else:
+            mask_newer = new_copy['Date'] >= latest_prev_date
     else:
-        mask_newer = new_copy['Date'] >= latest_prev_date
+        mask_newer = pd.Series([True] * len(new_copy), index=new_copy.index)
 
     def make_key(df: pd.DataFrame) -> pd.Series:
         date_part = df['Date'].dt.strftime(DATE_FMT_YNAB).fillna('')
         payee_part = df['Payee'].astype(str).str.lower().str.strip()
-        amount_part = df['Amount'].astype(str)
+        amount_numeric = pd.to_numeric(df['Amount'], errors='coerce')
+        amount_part = amount_numeric.map(
+            lambda value: '' if pd.isna(value) else f"{value:.3f}"
+        )
         if 'Memo' in df.columns:
             memo_part = df['Memo'].astype(str).str.lower().str.strip()
         else:

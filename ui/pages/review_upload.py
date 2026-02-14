@@ -19,6 +19,8 @@ import os
 from services.conversion_service import generate_output_filename, sanitize_csv_formulas
 import logging
 
+logger = logging.getLogger(__name__)
+
 
 class ReviewAndUploadPage(QWizardPage):
     def __init__(self, controller):
@@ -178,11 +180,11 @@ class ReviewAndUploadPage(QWizardPage):
         self._reset_status_ui()
         parent = self.window()
         if not hasattr(parent, "pages_stack"):
-            print("[ReviewUploadPage] Cannot access pages stack")
+            logger.error("[ReviewUploadPage] Cannot access pages stack")
             return
         import_page = parent.pages_stack.widget(0)
         if not hasattr(import_page, "file_path"):
-            print("[ReviewUploadPage] Cannot access file path from import page")
+            logger.error("[ReviewUploadPage] Cannot access file path from import page")
             return
         file_path = import_page.file_path
         self.skipped_rows = set()
@@ -214,7 +216,7 @@ class ReviewAndUploadPage(QWizardPage):
         # Get selected IDs from account selection page (YNAB/Actual API)
         account_page = parent.pages_stack.widget(2)
         if not hasattr(account_page, "get_selected_ids"):
-            print("[ReviewUploadPage] Cannot access account selection method")
+            logger.error("[ReviewUploadPage] Cannot access account selection method")
             return
         budget_id, account_id = account_page.get_selected_ids()
         if file_path and budget_id and account_id:
@@ -311,24 +313,24 @@ class ReviewAndUploadPage(QWizardPage):
                 self.table.setRowHidden(row, hide)
 
     def upload_transactions(self):
-        print("[DEBUG] upload_transactions called")
+        logger.info("[ReviewUploadPage] upload_transactions called")
         # Get selected IDs from account selection page
         parent = self.window()
         if not hasattr(parent, "pages_stack") or parent.pages_stack.count() <= 2:
-            print("[ReviewUploadPage] Cannot access pages stack or account page")
+            logger.error("[ReviewUploadPage] Cannot access pages stack or account page")
             return
 
         account_page = parent.pages_stack.widget(2)
         if not hasattr(account_page, "get_selected_ids"):
-            print("[ReviewUploadPage] Account page has no get_selected_ids method")
+            logger.error("[ReviewUploadPage] Account page has no get_selected_ids method")
             return
 
         budget_id, account_id = account_page.get_selected_ids()
         # Allow users to explicitly include rows even if they were flagged as duplicates
         to_upload = [r for i, r in enumerate(self.records) if i not in self.skipped_rows]
-        print(f"[DEBUG] to_upload: {len(to_upload)} transactions")
+        logger.info("[ReviewUploadPage] selected for upload: %d", len(to_upload))
         if not self.controller.ynab:
-            print("[DEBUG] YNAB client not initialized")
+            logger.error("[ReviewUploadPage] Client not initialized")
             QMessageBox.critical(self, "Error", "YNAB client not initialized. Please re-enter your token.")
             return
         if budget_id and account_id and to_upload:
@@ -357,9 +359,9 @@ class ReviewAndUploadPage(QWizardPage):
                     })
                     if import_id:
                         formatted[-1]["import_id"] = import_id
-                print(f"[DEBUG] formatted: {len(formatted)} transactions")
+                logger.info("[ReviewUploadPage] formatted transactions: %d", len(formatted))
                 if formatted:
-                    print("[DEBUG] Calling controller.upload_transactions")
+                    logger.info("[ReviewUploadPage] Calling controller.upload_transactions")
                     if not hasattr(parent, 'upload_stats'):
                         parent.upload_stats = {}
                     parent.upload_stats['selected'] = len(formatted)
@@ -367,10 +369,7 @@ class ReviewAndUploadPage(QWizardPage):
                     self.set_busy(True, "Uploading transactions…")
                     self.controller.upload_transactions(budget_id, account_id, formatted)
                 else:
-                    print(
-                        "[DEBUG] No valid transactions after formatting. "
-                        "Advancing to finish page."
-                    )
+                    logger.info("[ReviewUploadPage] No valid transactions after formatting")
                     QMessageBox.information(
                         self,
                         "No Valid Transactions",
@@ -400,10 +399,10 @@ class ReviewAndUploadPage(QWizardPage):
                         if current_index >= 0:
                             parent.go_to_page(current_index + 1)
             except Exception as e:
-                print(f"[DEBUG] Exception in upload_transactions: {e}")
+                logger.exception("[ReviewUploadPage] Error during upload preparation")
                 QMessageBox.critical(self, "Error", f"Error uploading transactions: {str(e)}")
         else:
-            print("[DEBUG] No budget/account selected or nothing to upload. Advancing to finish page.")
+            logger.info("[ReviewUploadPage] Missing budget/account or no rows selected; advancing")
             # Set stats for FinishPage and advance to next page
             parent = self.window()
             if not hasattr(parent, 'upload_stats'):
@@ -430,7 +429,7 @@ class ReviewAndUploadPage(QWizardPage):
                     parent.go_to_page(current_index + 1)
 
     def validate_and_proceed(self):
-        print("[ReviewUploadPage] validate_and_proceed called")
+        logger.info("[ReviewUploadPage] validate_and_proceed called")
         parent = self.window()
         target = getattr(self.controller, 'export_target', 'YNAB')
         if target == 'FILE':
@@ -439,6 +438,7 @@ class ReviewAndUploadPage(QWizardPage):
                 selected = [r for i, r in enumerate(self.records) if i not in self.skipped_rows]
                 if not selected:
                     QMessageBox.information(self, "Nothing to Export", "No rows selected for export.")
+                    return False
                 # Build DataFrame and write
                 import pandas as pd
                 df = pd.DataFrame(selected)
@@ -467,10 +467,11 @@ class ReviewAndUploadPage(QWizardPage):
             # Disable navigation to prevent double submission while uploading
             if hasattr(parent, "next_button"):
                 parent.next_button.setEnabled(False)
-            print(
-                f"[ReviewUploadPage] Records: {len(getattr(self, 'records', []))}, "
-                f"Duplicates: {len(getattr(self, 'dup_idx', []))}, "
-                f"Skipped: {len(getattr(self, 'skipped_rows', []))}"
+            logger.info(
+                "[ReviewUploadPage] records=%d duplicates=%d skipped=%d",
+                len(getattr(self, 'records', [])),
+                len(getattr(self, 'dup_idx', [])),
+                len(getattr(self, 'skipped_rows', [])),
             )
             self.upload_transactions()
             return True
@@ -546,7 +547,6 @@ class ReviewAndUploadPage(QWizardPage):
         self.set_busy(False, "")
 
     def isComplete(self):
-        print("[DEBUG] isComplete called for ReviewAndUploadPage, always returns True")
         return True
 
     def populate_file_records(self, records):

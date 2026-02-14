@@ -3,6 +3,9 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt
 import sys
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class FinishPage(QWizardPage):
@@ -38,7 +41,7 @@ class FinishPage(QWizardPage):
 
     def validate_and_proceed(self):
         """Implementation for consistency with other pages"""
-        print("[FinishPage] validate_and_proceed called")
+        logger.info("[FinishPage] validate_and_proceed called")
         # This is the final page, so just close the application
         self.window().close()
         return True

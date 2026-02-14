@@ -510,9 +510,9 @@ class TestUploadWorker(unittest.TestCase):
         # Run the worker
         self.worker.run()
         
-        # Check if the client method was called with correct parameters
+        # YNAB-style upload uses budget + transactions.
         self.mock_ynab_client.upload_transactions.assert_called_once_with(
-            self.budget_id, self.account_id, self.transactions
+            self.budget_id, self.transactions
         )
         
         # Check if signal emitted correct data (2 transactions uploaded)
@@ -531,6 +531,34 @@ class TestUploadWorker(unittest.TestCase):
         self.assertIsNone(self.finished_signal_count)
         self.assertIn("Failed to upload", self.error_signal_message)
         self.assertIn("API error", self.error_signal_message)
+
+    def test_run_success_account_scoped_upload(self):
+        """Actual-style upload uses budget, account and transactions."""
+        mock_response = {
+            "data": {
+                "transaction_ids": ["txn1"],
+                "transactions": [{"id": "txn1"}],
+            }
+        }
+        self.mock_ynab_client.upload_transactions.return_value = mock_response
+        worker = UploadWorker(
+            self.mock_ynab_client,
+            self.budget_id,
+            self.account_id,
+            self.transactions,
+            account_scoped_upload=True,
+        )
+        worker.finished.connect(self.handle_finished)
+        worker.error.connect(self.handle_error)
+
+        worker.run()
+
+        self.mock_ynab_client.upload_transactions.assert_called_once_with(
+            self.budget_id,
+            self.account_id,
+            self.transactions,
+        )
+        self.assertEqual(self.finished_signal_count, 1)
 
 
 if __name__ == '__main__':

@@ -1,6 +1,8 @@
 import json
+import queue
 import subprocess
 import threading
+import time
 from collections import deque
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -13,6 +15,8 @@ class ActualBridgeRunner:
     """
     Thin wrapper to talk to the Node-based Actual bridge via stdin/stdout.
     """
+
+    RESPONSE_TIMEOUT_SECONDS = 30.0
 
     def __init__(self, project_root: Optional[Path] = None):
         root = project_root or Path(__file__).resolve().parent.parent
@@ -28,9 +32,33 @@ class ActualBridgeRunner:
             text=True,
         )
         self._lock = threading.Lock()
+        self._stdout_queue: "queue.Queue[str]" = queue.Queue(maxsize=200)
+        self._stdout_thread = threading.Thread(target=self._drain_stdout, daemon=True)
+        self._stdout_thread.start()
         self._stderr_buffer = deque(maxlen=50)
         self._stderr_thread = threading.Thread(target=self._drain_stderr, daemon=True)
         self._stderr_thread.start()
+
+    def _drain_stdout(self) -> None:
+        """Collect bridge stdout lines so reads can be time-bounded."""
+        if not self.process or self.process.stdout is None:
+            return
+        for line in self.process.stdout:
+            line = line.rstrip("\n")
+            if not line:
+                continue
+            try:
+                self._stdout_queue.put_nowait(line)
+            except queue.Full:
+                # Keep the newest lines if stdout is noisy.
+                try:
+                    self._stdout_queue.get_nowait()
+                except queue.Empty:
+                    pass
+                try:
+                    self._stdout_queue.put_nowait(line)
+                except queue.Full:
+                    pass
 
     def _drain_stderr(self) -> None:
         """Log stderr from the bridge to aid debugging."""
@@ -43,15 +71,31 @@ class ActualBridgeRunner:
             self._stderr_buffer.append(line)
             logger.debug("[ActualBridge] %s", line)
 
-    def _read_json_line(self) -> Dict[str, Any]:
+    def _read_json_line(self, timeout_seconds: Optional[float] = None) -> Dict[str, Any]:
         """
         Read lines until we get a valid JSON response, skipping noisy stdout logs that the
         Actual API occasionally emits (e.g., "Loading fresh spreadsheet").
         """
-        assert self.process and self.process.stdout is not None
+        timeout = (
+            self.RESPONSE_TIMEOUT_SECONDS
+            if timeout_seconds is None
+            else float(timeout_seconds)
+        )
+        deadline = time.monotonic() + max(timeout, 0.1)
         max_attempts = 100
         for _ in range(max_attempts):
-            resp_line = self.process.stdout.readline()
+            if hasattr(self, "_stdout_queue"):
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise TimeoutError("Timed out waiting for Actual bridge response")
+                try:
+                    resp_line = self._stdout_queue.get(timeout=remaining)
+                except queue.Empty as exc:
+                    raise TimeoutError("Timed out waiting for Actual bridge response") from exc
+            else:
+                # Compatibility fallback for tests that bypass __init__.
+                assert self.process and self.process.stdout is not None
+                resp_line = self.process.stdout.readline()
             if not resp_line:
                 break
             try:
@@ -69,7 +113,11 @@ class ActualBridgeRunner:
             assert self.process.stdin is not None
             self.process.stdin.write(line)
             self.process.stdin.flush()
-            resp_obj = self._read_json_line()
+            try:
+                resp_obj = self._read_json_line(timeout_seconds=self.RESPONSE_TIMEOUT_SECONDS)
+            except TimeoutError as exc:
+                self.close()
+                raise RuntimeError("Timed out waiting for Actual bridge response") from exc
         return resp_obj
 
     def recent_stderr(self, limit: int = 10) -> str:

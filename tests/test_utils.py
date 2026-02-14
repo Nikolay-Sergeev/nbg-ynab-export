@@ -71,6 +71,24 @@ class TestUtils(unittest.TestCase):
         self.assertEqual(len(result), 1)
         self.assertEqual(result.iloc[0]['Payee'], 'B')
 
+    def test_exclude_existing_with_legacy_date_cutoff(self):
+        new_df = pd.DataFrame({
+            'Date': ['2025-02-24', '2025-02-25', '2025-02-26'],
+            'Payee': ['OLD', 'A', 'B'],
+            'Amount': [10, 1, 2],
+        })
+        prev_df = pd.DataFrame({
+            'Date': ['2025-02-25'],
+            'Payee': ['A'],
+            'Amount': [1],
+        })
+        result = utils.exclude_existing(
+            new_df,
+            prev_df,
+            drop_older_than_latest_prev=True,
+        )
+        self.assertEqual(list(result['Payee']), ['B'])
+
     def test_normalize_column_name(self):
         self.assertEqual(
             utils.normalize_column_name('  Foo   Bar  '),

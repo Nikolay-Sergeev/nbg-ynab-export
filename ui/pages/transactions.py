@@ -16,6 +16,9 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtSvg import QSvgWidget
 
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class TransactionsPage(QWizardPage):
@@ -116,10 +119,10 @@ class TransactionsPage(QWizardPage):
             if hasattr(account_page, "get_selected_ids"):
                 budget_id, account_id = account_page.get_selected_ids()
             else:
-                print("[TransactionsPage] Cannot get selected IDs, account page missing method")
+                logger.error("[TransactionsPage] Cannot get selected IDs; account page missing method")
                 return
         else:
-            print("[TransactionsPage] Cannot get selected IDs, pages_stack not found")
+            logger.error("[TransactionsPage] Cannot get selected IDs; pages_stack not found")
             return
         if budget_id and account_id:
             # Use cache if possible
@@ -149,10 +152,10 @@ class TransactionsPage(QWizardPage):
                 if hasattr(account_page, "get_selected_ids"):
                     budget_id, account_id = account_page.get_selected_ids()
                 else:
-                    print("[TransactionsPage] Cannot get selected IDs, account page missing method")
+                    logger.error("[TransactionsPage] Cannot get selected IDs; account page missing method")
                     return
             else:
-                print("[TransactionsPage] Cannot get selected IDs, pages_stack not found")
+                logger.error("[TransactionsPage] Cannot get selected IDs; pages_stack not found")
                 return
             self._cache = txns
             self._cache_ids = (budget_id, account_id)
@@ -219,7 +222,7 @@ class TransactionsPage(QWizardPage):
 
     def validate_and_proceed(self):
         """Validate page and proceed to next step if valid"""
-        print("[TransactionsPage] validate_and_proceed called")
+        logger.info("[TransactionsPage] validate_and_proceed called")
         # Navigation now handled by parent window
         parent = self.window()
         if hasattr(parent, "go_to_page") and hasattr(parent, "pages_stack"):
@@ -228,7 +231,7 @@ class TransactionsPage(QWizardPage):
                 parent.go_to_page(current_index + 1)
                 return True
 
-        print("[TransactionsPage] No navigation method found")
+        logger.error("[TransactionsPage] No navigation method found")
         return False
 
     def isComplete(self):

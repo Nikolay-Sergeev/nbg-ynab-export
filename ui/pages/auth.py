@@ -15,10 +15,12 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt, QUrl
 from PyQt5.QtGui import QIcon, QColor, QCursor, QDesktopServices
 import sys
+import logging
 from cryptography.fernet import Fernet  # noqa: F401 (kept for tests patching)
 from services import token_manager as _token_manager
 
 YNAB_DOCS_URL = "https://api.ynab.com/#personal-access-tokens"
+logger = logging.getLogger(__name__)
 
 
 class YNABAuthPage(QWizardPage):
@@ -133,7 +135,7 @@ class YNABAuthPage(QWizardPage):
 
     def validate_and_proceed(self):
         """Validate token and proceed if valid"""
-        print("[YNABAuthPage] validate_and_proceed called")
+        logger.info("[YNABAuthPage] validate_and_proceed called")
 
         if not self.validate_token_input():
             return False
