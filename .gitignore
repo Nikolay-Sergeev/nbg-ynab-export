@@ -1,6 +1,7 @@
 # Ignore encrypted settings and key
 settings.txt
 settings.key
+actual_settings.txt
 
 # Byte-compiled / optimized files
 __pycache__/
@@ -19,4 +20,4 @@ package-lock.json
 .claude/settings.local.json
 .coverage
 actual-data/
-.nbg-ynab-export/ynab_api.log
+.nbg-ynab-export/

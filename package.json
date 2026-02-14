@@ -5,6 +5,6 @@
   "license": "GPL-2.0-only",
   "private": true,
   "dependencies": {
-    "@actual-app/api": "*"
+    "@actual-app/api": "26.2.0"
   }
 }

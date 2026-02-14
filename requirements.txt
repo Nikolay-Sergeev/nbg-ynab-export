@@ -1,9 +1,9 @@
-pandas
-openpyxl
-PyQt5>=5.15
-requests
-cryptography
+pandas>=1.5,<3
+openpyxl>=3.1,<4
+PyQt5>=5.15,<6
+requests>=2.31,<3
+cryptography>=41,<46
 
 # Development tools
-flake8
-pytest
+flake8>=7,<8
+pytest>=8,<9

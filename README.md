@@ -165,6 +165,10 @@ Environment variables:
 - `YNAB_LOG_DIR`: overrides where `ynab_api.log` is written.
 - `YNAB_API_DEBUG`: when set to `1`, logs request/response payloads for YNAB API calls.
 
+Security note:
+- Treat `~/.nbg-ynab-export/` and `ynab_api.log` as sensitive local data.
+- Do not share or commit those files, especially when `YNAB_API_DEBUG=1`.
+
 Duplicate checking in GUI uses configurable range in `config.py` (`DUP_CHECK_DAYS`, `DUP_CHECK_COUNT`).
 
 ### Actual Budget Notes
