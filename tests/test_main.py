@@ -226,10 +226,24 @@ class TestNBGToYNAB(unittest.TestCase):
         self.assertEqual(result.iloc[1]['Payee'], 'JOHN DOE')
         self.assertEqual(result.iloc[1]['Amount'], 1234.56)
         self.assertEqual(result.iloc[1]['Memo'], 'EXAMPLE COMPANY LTD')
-        self.assertEqual(result.iloc[0]['ImportId'], 'TX123456')
-        self.assertEqual(result.iloc[1]['ImportId'], 'TX789012')
+        self.assertTrue(result['ImportId'].str.startswith('NBG:v1:').all())
+        self.assertEqual(result['ImportId'].nunique(), len(result))
 
         self.assertEqual(list(result.columns), ['Date', 'Payee', 'Memo', 'Amount', 'ImportId'])
+
+    def test_process_account_operations_generates_stable_id_for_blank_reference(self):
+        """NBG IDs stay stable when changing export row numbers."""
+        data = self.account_data.copy()
+        data['Αριθμός αναφοράς'] = [None, '']
+
+        first = process_account_operations(data)
+        changed_export = data.copy()
+        changed_export['Α/Α Συναλλαγής'] = [120, 195]
+        second = process_account_operations(changed_export)
+
+        self.assertTrue(first['ImportId'].str.startswith('NBG:v1:').all())
+        self.assertEqual(first['ImportId'].nunique(), len(first))
+        self.assertEqual(first['ImportId'].tolist(), second['ImportId'].tolist())
 
     def test_validate_dataframe(self):
         """Test DataFrame validation."""

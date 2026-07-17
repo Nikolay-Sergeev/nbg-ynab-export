@@ -1,6 +1,8 @@
 # converter/utils.py
 from pathlib import Path
 from datetime import datetime
+from hashlib import sha256
+from numbers import Number
 import pandas as pd
 import csv
 import re
@@ -17,6 +19,75 @@ from config import get_logger
 logger = get_logger(__name__)
 
 FORMULA_PREFIXES = ('=', '+', '-', '@')
+NBG_GENERATED_IMPORT_ID_PREFIX = 'NBG:v1:'
+
+
+def _canonical_import_id_value(value: object) -> str:
+    """Normalize a raw bank field before hashing it into a stable import ID."""
+    if value is None:
+        return ''
+    try:
+        if pd.isna(value):
+            return ''
+    except (TypeError, ValueError):
+        pass
+    if isinstance(value, (pd.Timestamp, datetime)):
+        return value.isoformat()
+    if isinstance(value, Number) and not isinstance(value, bool):
+        return format(value, '.15g')
+    text = unicodedata.normalize('NFKC', str(value)).strip()
+    return ' '.join(text.split())
+
+
+def build_nbg_import_ids(
+    df: pd.DataFrame,
+    fingerprint_columns: list,
+    *,
+    reference_column: str = 'Αριθμός αναφοράς',
+) -> pd.Series:
+    """Return stable transaction fingerprints for NBG rows.
+
+    NBG leaves references blank for some transactions and reuses one reference for
+    multi-row operations. The reference therefore participates in the fingerprint
+    when present but is not used as the ID by itself. Export row numbers are excluded
+    because they change between overlapping statement downloads.
+    """
+    available_columns = [column for column in fingerprint_columns if column in df.columns]
+    if not available_columns:
+        raise ValueError("No stable columns available for transaction import IDs")
+
+    generated_counts = {}
+    import_ids = []
+    collision_count = 0
+
+    for _, row in df.iterrows():
+        fingerprint_values = [
+            f"{column}={_canonical_import_id_value(row[column])}"
+            for column in available_columns
+        ]
+        if reference_column in df.columns:
+            fingerprint_values.insert(
+                0,
+                f"{reference_column}={_canonical_import_id_value(row[reference_column])}",
+            )
+        payload = '\x1f'.join(fingerprint_values)
+        base_id = NBG_GENERATED_IMPORT_ID_PREFIX + sha256(
+            payload.encode('utf-8')
+        ).hexdigest()[:24]
+        occurrence = generated_counts.get(base_id, 0) + 1
+        generated_counts[base_id] = occurrence
+        if occurrence > 1:
+            collision_count += 1
+            import_ids.append(f"{base_id}:{occurrence}")
+        else:
+            import_ids.append(base_id)
+
+    if collision_count:
+        logger.warning(
+            "Disambiguated %d identical NBG transaction fingerprints",
+            collision_count,
+        )
+    return pd.Series(import_ids, index=df.index, dtype='object')
 
 
 def escape_csv_formula(value: object) -> object:

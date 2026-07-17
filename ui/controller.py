@@ -5,6 +5,7 @@ from services.ynab_client import YnabClient
 from services.actual_client import ActualClient
 from services.conversion_service import ConversionService
 from config import DUP_CHECK_DAYS, DUP_CHECK_COUNT, get_logger, SETTINGS_DIR, ensure_app_dir
+from converter.utils import NBG_GENERATED_IMPORT_ID_PREFIX
 import re
 
 logger = get_logger(__name__)
@@ -141,9 +142,9 @@ class DuplicateCheckWorker(QObject):
                     )
                     if import_id:
                         prev_import_ids.add(import_id)
-            use_import_id = is_actual and bool(prev_import_ids)
             # Build indexed keys from API transactions to keep matching O(n + m).
             exact_normal = {}
+            normal_payee = {}
             transfer_memo = {}
             all_memo = {}
 
@@ -151,6 +152,17 @@ class DuplicateCheckWorker(QObject):
                 return re.sub(r"\W", "", (value or "").lower())[:15]
 
             for d in prev:
+                import_id = normalize_import_id(
+                    d.get("import_id") or d.get("imported_id")
+                )
+                # Fingerprint IDs are authoritative. If one is present, this
+                # transaction must be matched by ID rather than editable text.
+                if (
+                    is_actual
+                    and import_id
+                    and import_id.startswith(NBG_GENERATED_IMPORT_ID_PREFIX)
+                ):
+                    continue
                 date_prev = d.get("date")
                 payee_prev = clean_text(d.get("import_payee_name") or d.get("payee_name"))
                 memo_prev = clean_text(d.get("memo"))
@@ -162,10 +174,11 @@ class DuplicateCheckWorker(QObject):
                     transfer_memo.setdefault(key, set()).add(prefix)
                 else:
                     exact_normal.setdefault(key, set()).add((payee_prev, memo_prev))
+                    normal_payee.setdefault(key, set()).add(payee_prev)
             # Identify duplicates in imported records
             dup_idx = set()
             for i, r in enumerate(records):
-                if use_import_id:
+                if is_actual and prev_import_ids:
                     import_id = normalize_import_id(
                         r.get("ImportId") or r.get("import_id")
                     )
@@ -190,6 +203,11 @@ class DuplicateCheckWorker(QObject):
                         dup_idx.add(i)
                     continue
                 if (payee_csv, memo_csv) in exact_normal.get(key, set()):
+                    dup_idx.add(i)
+                    continue
+                # Actual preserves imported_payee separately from editable Notes.
+                # Use it for legacy rows imported before fingerprint IDs existed.
+                if is_actual and payee_csv in normal_payee.get(key, set()):
                     dup_idx.add(i)
                     continue
                 if memo_csv_prefix in transfer_memo.get(key, set()):

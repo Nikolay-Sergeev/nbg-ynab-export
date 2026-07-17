@@ -26,7 +26,7 @@ Format detection is strict: required column names must match the expected header
 - Filters Revolut rows to `State == COMPLETED`
 - Subtracts Revolut `Fee` from `Amount`
 - Cleans common NBG prefixes like `E-COMMERCE ΑΓΟΡΑ - ...`
-- Adds optional `ImportId` in-memory when `Αριθμός αναφοράς` exists (used by UI duplicate/upload logic)
+- Adds an optional `ImportId` in-memory when `Αριθμός αναφοράς` exists, using a stable fingerprint because NBG references may be blank or shared by multiple rows
 - Escapes formula-like strings in exported CSV text fields for spreadsheet safety
 
 ## Installation

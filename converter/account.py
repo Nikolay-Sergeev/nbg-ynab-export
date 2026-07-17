@@ -7,6 +7,7 @@ from constants import (
 )
 from config import get_logger
 from .utils import (
+    build_nbg_import_ids,
     validate_dataframe,
     convert_amount,
     strip_accents,
@@ -16,6 +17,19 @@ from .utils import (
 logger = get_logger(__name__)
 
 REQUIRED = ACCOUNT_REQUIRED_COLUMNS
+
+IMPORT_ID_COLUMNS = [
+    'Ημερομηνία',
+    'Ώρα',
+    'Valeur',
+    'Ποσό συναλλαγής',
+    'Χρέωση / Πίστωση',
+    'Περιγραφή',
+    'Λογιστικό Υπόλοιπο',
+    'Ονοματεπώνυμο αντισυμβαλλόμενου',
+    'Λογαριασμός αντισυμβαλλόμενου',
+    'Χρεωστική Κάρτα',
+]
 
 
 def process_account(df: pd.DataFrame) -> pd.DataFrame:
@@ -59,7 +73,7 @@ def process_account(df: pd.DataFrame) -> pd.DataFrame:
     df_copy.loc[is_credit, 'Amount'] = df_copy.loc[is_credit, 'Amount'].abs()
     df_copy['Amount'] = df_copy['Amount'].round(2)
     if 'Αριθμός αναφοράς' in df_copy.columns:
-        df_copy['ImportId'] = df_copy['Αριθμός αναφοράς'].fillna('').astype(str).str.strip()
+        df_copy['ImportId'] = build_nbg_import_ids(df_copy, IMPORT_ID_COLUMNS)
     columns = ['Date', 'Payee', 'Memo', 'Amount']
     if 'ImportId' in df_copy.columns:
         columns.append('ImportId')

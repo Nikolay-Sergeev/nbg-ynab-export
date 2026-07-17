@@ -431,6 +431,76 @@ class TestDuplicateCheckWorker(unittest.TestCase):
         self.assertEqual(self.finished_signal_duplicates, {0})
         self.assertIsNone(self.error_signal_message)
 
+    def test_actual_legacy_duplicate_ignores_edited_notes(self):
+        """Legacy Actual rows still match after the user edits Notes."""
+        class DummyActualClient(ActualClient):
+            def __init__(self, transactions):
+                self.get_transactions = MagicMock(return_value=transactions)
+
+        self.mock_converter.convert_to_ynab.return_value = pd.DataFrame({
+            'Date': ['2026-07-03'],
+            'Payee': ['Wolt'],
+            'Memo': ['Wolt'],
+            'Amount': [-15.00],
+            'ImportId': ['NBG:v1:0123456789abcdef01234567'],
+        })
+        actual_client = DummyActualClient([{
+            'date': '2026-07-03',
+            'payee_name': 'Wolt',
+            'memo': 'Bulldogs and the Beast',
+            'amount': -15000,
+            'import_id': None,
+        }])
+        worker = DuplicateCheckWorker(
+            self.mock_converter,
+            self.file_path,
+            self.budget_id,
+            self.account_id,
+            actual_client,
+        )
+        worker.finished.connect(self.handle_finished)
+        worker.error.connect(self.handle_error)
+
+        worker.run()
+
+        self.assertEqual(self.finished_signal_duplicates, {0})
+        self.assertIsNone(self.error_signal_message)
+
+    def test_actual_generated_id_mismatch_does_not_fallback_to_text(self):
+        """Different generated IDs remain distinct even if display fields match."""
+        class DummyActualClient(ActualClient):
+            def __init__(self, transactions):
+                self.get_transactions = MagicMock(return_value=transactions)
+
+        self.mock_converter.convert_to_ynab.return_value = pd.DataFrame({
+            'Date': ['2026-07-03'],
+            'Payee': ['Wolt'],
+            'Memo': ['Wolt'],
+            'Amount': [-15.00],
+            'ImportId': ['NBG:v1:aaaaaaaaaaaaaaaaaaaaaaaa'],
+        })
+        actual_client = DummyActualClient([{
+            'date': '2026-07-03',
+            'payee_name': 'Wolt',
+            'memo': 'Wolt',
+            'amount': -15000,
+            'import_id': 'NBG:v1:bbbbbbbbbbbbbbbbbbbbbbbb',
+        }])
+        worker = DuplicateCheckWorker(
+            self.mock_converter,
+            self.file_path,
+            self.budget_id,
+            self.account_id,
+            actual_client,
+        )
+        worker.finished.connect(self.handle_finished)
+        worker.error.connect(self.handle_error)
+
+        worker.run()
+
+        self.assertEqual(self.finished_signal_duplicates, set())
+        self.assertIsNone(self.error_signal_message)
+
     def test_run_failure(self):
         """Test duplicate check failure."""
         # Simulate an exception
