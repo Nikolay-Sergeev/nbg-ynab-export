@@ -1,8 +1,10 @@
 import pandas as pd
+import os
 import tempfile
+import zipfile
 from pathlib import Path
 from datetime import datetime
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 import unittest
 
 from converter import utils
@@ -27,6 +29,19 @@ class TestUtils(unittest.TestCase):
                 mock_read.assert_called_once_with(xls_path)
         self.assertTrue(result.equals(df))
 
+    def test_validate_xlsx_archive_rejects_excessive_expansion(self):
+        with tempfile.TemporaryDirectory() as td:
+            xlsx_path = Path(td) / 'oversized.xlsx'
+            xlsx_path.write_bytes(b'placeholder')
+            oversized_entry = zipfile.ZipInfo('xl/worksheets/sheet1.xml')
+            oversized_entry.file_size = utils.MAX_XLSX_UNCOMPRESSED_BYTES + 1
+            fake_workbook = MagicMock()
+            fake_workbook.__enter__.return_value.infolist.return_value = [oversized_entry]
+
+            with patch.object(utils.zipfile, 'ZipFile', return_value=fake_workbook):
+                with self.assertRaisesRegex(ValueError, 'safe size limit'):
+                    utils.validate_xlsx_archive(xlsx_path)
+
     def test_write_output(self):
         df = pd.DataFrame({'A': [3]})
         with tempfile.TemporaryDirectory() as td:
@@ -41,8 +56,30 @@ class TestUtils(unittest.TestCase):
                 f"input_{fixed_date.strftime(utils.DATE_FMT_YNAB)}_ynab.csv"
             )
             self.assertEqual(out_path.name, expected_name)
+            if os.name == 'posix':
+                self.assertEqual(out_path.stat().st_mode & 0o777, 0o600)
             written = pd.read_csv(out_path)
         self.assertTrue(written.equals(df))
+
+    @unittest.skipUnless(hasattr(os, "symlink"), "symlinks are unavailable")
+    def test_write_output_refuses_symlink_without_overwriting_target(self):
+        df = pd.DataFrame({'A': [3]})
+        with tempfile.TemporaryDirectory() as td:
+            in_path = Path(td) / 'input.xlsx'
+            in_path.touch()
+            victim_path = Path(td) / 'victim.txt'
+            victim_path.write_text('do-not-overwrite', encoding='utf-8')
+            fixed_date = datetime(2025, 2, 25)
+            out_path = Path(td) / 'input_2025-02-25_ynab.csv'
+            out_path.symlink_to(victim_path)
+
+            with patch.object(utils, 'datetime') as mock_dt:
+                mock_dt.now.return_value = fixed_date
+                mock_dt.strftime = datetime.strftime
+                with self.assertRaises(OSError):
+                    utils.write_output(in_path, df)
+
+            self.assertEqual(victim_path.read_text(encoding='utf-8'), 'do-not-overwrite')
 
     def test_sanitize_csv_formulas(self):
         df = pd.DataFrame({

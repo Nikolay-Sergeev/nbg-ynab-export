@@ -480,6 +480,17 @@ class TestAccountSelectionPage(unittest.TestCase):
         # Check that the controller was called to fetch accounts
         self.mock_controller.fetch_accounts.assert_called_with("budget1")
 
+    def test_account_load_error_can_retry_without_losing_budget(self):
+        self.page.selected_budget_id = "budget1"
+        self.page.budget_combo.addItem("Budget One", "budget1")
+
+        self.page.on_error("Failed to fetch accounts: timed out")
+
+        self.assertEqual(self.page.selected_budget_id, "budget1")
+        self.assertFalse(self.page.retry_button.isHidden())
+        self.page.retry_loading()
+        self.mock_controller.fetch_accounts.assert_called_with("budget1")
+
 
 class TestReviewAndUploadPage(unittest.TestCase):
     """Test the ReviewAndUploadPage widget."""

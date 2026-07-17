@@ -1,8 +1,10 @@
 from PyQt5.QtWidgets import (
-    QVBoxLayout, QLabel, QComboBox, QFrame, QSizePolicy, QWidget, QWizard
+    QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QFrame, QPushButton,
+    QSizePolicy, QWidget, QWizard,
 )
 from PyQt5.QtCore import Qt, pyqtSignal
 from config import get_logger
+from ui.components import add_page_header
 
 
 class AccountSelectionPage(QWidget):
@@ -13,6 +15,7 @@ class AccountSelectionPage(QWidget):
         super().__init__()
         self.controller = controller
         self.logger = get_logger(__name__)
+        self.setObjectName("account-select-page")
 
         self.budgets = []
         self.accounts = []
@@ -31,24 +34,26 @@ class AccountSelectionPage(QWidget):
         card.setObjectName("card-panel")
         card.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         card_layout = QVBoxLayout(card)
-        card_layout.setContentsMargins(20, 20, 20, 20)
-        card_layout.setSpacing(16)
+        card_layout.setContentsMargins(32, 28, 32, 28)
+        card_layout.setSpacing(10)
 
-        self.title_label = QLabel("Select Budget and Account")
-        self.title_label.setProperty('role', 'title')
-        card_layout.addWidget(self.title_label)
+        _, self.title_label, _ = add_page_header(
+            card_layout,
+            "Step 3",
+            "Choose the destination account",
+            "Select a budget first, then choose the account that should receive these transactions.",
+        )
 
         # Budget label
-        self.budget_label = QLabel("Budget:")
-        self.budget_label.setStyleSheet("font-size:14px;font-weight:500;color:#333;margin-top:24px;")
+        self.budget_label = QLabel("Budget")
+        self.budget_label.setProperty("role", "field-label")
         card_layout.addWidget(self.budget_label, alignment=Qt.AlignLeft)
-        card_layout.addSpacing(8)
 
         # Budget dropdown - add directly to layout
         self.budget_combo = QComboBox()
         self.budget_combo.setObjectName("budget-combo")
         self.budget_combo.setMinimumHeight(40)
-        self.budget_combo.setMaximumWidth(400)  # Limit width
+        self.budget_combo.setMaximumWidth(560)
         self.budget_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.budget_combo.setEditable(False)
         self.budget_combo.setInsertPolicy(QComboBox.NoInsert)
@@ -57,34 +62,41 @@ class AccountSelectionPage(QWidget):
 
         # Add directly to layout
         card_layout.addWidget(self.budget_combo)
-        card_layout.addSpacing(16)
+        card_layout.addSpacing(10)
 
         # Account label
-        self.account_label = QLabel("Account:")
-        self.account_label.setStyleSheet("font-size:14px;font-weight:500;color:#333;margin-top:16px;")
+        self.account_label = QLabel("Account")
+        self.account_label.setProperty("role", "field-label")
         card_layout.addWidget(self.account_label, alignment=Qt.AlignLeft)
-        card_layout.addSpacing(8)
 
         # Account dropdown - add directly to layout
         self.account_combo = QComboBox()
         self.account_combo.setObjectName("account-combo")
         self.account_combo.setMinimumHeight(40)
-        self.account_combo.setMaximumWidth(400)  # Limit width
+        self.account_combo.setMaximumWidth(560)
         self.account_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.account_combo.setEditable(False)
         self.account_combo.setInsertPolicy(QComboBox.NoInsert)
         self.account_combo.setPlaceholderText("Choose account")
         self.account_combo.setCursor(Qt.PointingHandCursor)  # Show hand cursor to indicate it's clickable
+        self.account_combo.setEnabled(False)
 
         # Add directly to layout
         card_layout.addWidget(self.account_combo)
-        card_layout.addSpacing(16)
+        card_layout.addSpacing(8)
 
         # Helper/error label
-        self.helper_label = QLabel("Please choose both a budget and an account to continue.")
+        self.helper_label = QLabel("Choose a budget to load its accounts.")
         self.helper_label.setObjectName("helper-label")
-        self.helper_label.setStyleSheet("font-size:12px;color:#666;margin-bottom:0;")
-        card_layout.addWidget(self.helper_label, alignment=Qt.AlignLeft)
+        self.helper_label.setWordWrap(True)
+        status_row = QHBoxLayout()
+        status_row.addWidget(self.helper_label, 1)
+        self.retry_button = QPushButton("Retry")
+        self.retry_button.setObjectName("secondary-btn")
+        self.retry_button.clicked.connect(self.retry_loading)
+        self.retry_button.hide()
+        status_row.addWidget(self.retry_button)
+        card_layout.addLayout(status_row)
         card_layout.addStretch(1)
 
         # Navigation buttons now in main window
@@ -125,15 +137,8 @@ class AccountSelectionPage(QWidget):
         """Called when the page is shown."""
         self.logger.info("[AccountSelectionPage] showEvent called")
         super().showEvent(event)
-
-        # Reset and re-initialize comboboxes to ensure they're interactive
-        self.budget_combo.setEnabled(False)
-        self.budget_combo.setEnabled(True)
-        self.account_combo.setEnabled(False)
-        self.account_combo.setEnabled(True)
-
-        # Give the combo boxes focus to make them more noticeable
-        self.budget_combo.setFocus()
+        if self.budget_combo.isEnabled():
+            self.budget_combo.setFocus()
 
     def initializePage(self):
         self.logger.info("[AccountSelectionPage] initializePage called; target=%s client=%s",
@@ -143,6 +148,9 @@ class AccountSelectionPage(QWidget):
             self.logger.info("[AccountSelectionPage] No API client, skipping fetch")
             return
         try:
+            self.helper_label.setText("Loading budgets…")
+            self.budget_combo.setEnabled(False)
+            self.account_combo.setEnabled(False)
             self.logger.info("[AccountSelectionPage] Fetching budgets from client=%s",
                              type(self.controller.ynab).__name__)
             self.controller.fetch_budgets()
@@ -153,6 +161,8 @@ class AccountSelectionPage(QWidget):
         self.logger.info("[AccountSelectionPage] Budgets fetched: %s",
                          len(budgets) if budgets else 0)
         self.budgets = budgets or []
+        self.budget_combo.setEnabled(True)
+        self.retry_button.hide()
 
         # Update the combo box
         self.budget_combo.blockSignals(True)  # Prevent signals during update
@@ -198,6 +208,7 @@ class AccountSelectionPage(QWidget):
         self.account_combo.addItem("Select an account", None)
         self.account_combo.setCurrentIndex(0)
         self.account_combo.blockSignals(False)  # Re-enable signals
+        self.account_combo.setEnabled(False)
 
         self.selected_account_id = None
         self.update_helper()
@@ -225,6 +236,7 @@ class AccountSelectionPage(QWidget):
         self.logger.info("[AccountSelectionPage] Accounts fetched: %s",
                          len(accounts) if accounts else 0)
         self.accounts = accounts or []
+        self.retry_button.hide()
 
         # Update the account combo box
         self.account_combo.blockSignals(True)  # Prevent signals during update
@@ -254,6 +266,7 @@ class AccountSelectionPage(QWidget):
                 self.logger.error("[AccountSelectionPage] Error enabling manual account entry: %s", e)
         if self.accounts:
             self.account_combo.setEditable(False)
+        self.account_combo.setEnabled(bool(self.accounts) or self.account_combo.isEditable())
 
         # Force update the combo box
         self.account_combo.setCurrentIndex(0)
@@ -274,6 +287,8 @@ class AccountSelectionPage(QWidget):
 
         if self.selected_budget_id:
             try:
+                self.account_combo.setEnabled(False)
+                self.helper_label.setText("Loading accounts…")
                 self.logger.info("[AccountSelectionPage] Fetching accounts for budget: %s", self.selected_budget_id)
                 self.controller.fetch_accounts(self.selected_budget_id)
             except Exception as e:
@@ -302,31 +317,62 @@ class AccountSelectionPage(QWidget):
 
     def on_error(self, msg: str):
         """Display API errors (e.g., unauthorized) on the page."""
+        parent = self.window()
+        pages_stack = getattr(parent, "pages_stack", None)
+        if pages_stack is not None and pages_stack.currentWidget() is not self:
+            # Other pages share the controller's error signal. Do not let a
+            # later transaction/upload error destroy a valid account selection.
+            return
         short_msg = (msg or "").strip().splitlines()[0]
+        lower_msg = short_msg.lower()
+        if "401" in lower_msg or "403" in lower_msg or "rejected these credentials" in lower_msg:
+            short_msg = "Your connection is no longer authorized. Go back and reconnect."
+        elif "timed out" in lower_msg:
+            short_msg = "The budget service did not respond in time. Check your connection and retry."
         if len(short_msg) > 300:
             short_msg = short_msg[:300] + "…"
         if "invalid json" in short_msg.lower() or "html" in (msg or "").lower():
             short_msg += " — check that your Actual server URL points to the API (e.g., https://host/api)."
         self.helper_label.setText(short_msg)
-        self.helper_label.setStyleSheet("font-size:12px;color:#c62828;margin-bottom:0;")
-        self.budget_combo.blockSignals(True)
+        self.helper_label.setStyleSheet("color:#B42318;")
+        self.retry_button.show()
         self.account_combo.blockSignals(True)
-        self.budget_combo.clear()
         self.account_combo.clear()
-        self.budget_combo.addItem("Unable to load budgets", None)
         self.account_combo.addItem("Unable to load accounts", None)
-        self.budget_combo.blockSignals(False)
         self.account_combo.blockSignals(False)
-        self.selected_budget_id = None
         self.selected_account_id = None
+        self.account_combo.setEnabled(False)
+
+        if "account" not in lower_msg:
+            self.budget_combo.blockSignals(True)
+            self.budget_combo.clear()
+            self.budget_combo.addItem("Unable to load budgets", None)
+            self.budget_combo.blockSignals(False)
+            self.budget_combo.setEnabled(False)
+            self.selected_budget_id = None
         self.validate_fields()
 
-    def update_helper(self):
-        if not self.selected_budget_id or not self.selected_account_id:
-            self.helper_label.setText("Please choose both a budget and an account to continue.")
-            self.helper_label.setStyleSheet("font-size:12px;color:#666;margin-bottom:0;")
+    def retry_loading(self):
+        """Retry loading the current level without making the user reconnect."""
+        self.retry_button.hide()
+        self.helper_label.setStyleSheet("")
+        if self.selected_budget_id:
+            self.helper_label.setText("Loading accounts…")
+            self.controller.fetch_accounts(self.selected_budget_id)
         else:
-            self.helper_label.setText("")
+            self.helper_label.setText("Loading budgets…")
+            self.controller.fetch_budgets()
+
+    def update_helper(self):
+        if not self.selected_budget_id:
+            self.helper_label.setText("Choose a budget to load its accounts.")
+            self.helper_label.setStyleSheet("")
+        elif not self.selected_account_id:
+            self.helper_label.setText("Now choose the account that should receive the transactions.")
+            self.helper_label.setStyleSheet("")
+        else:
+            self.helper_label.setText("Destination selected. You’re ready to continue.")
+            self.helper_label.setStyleSheet("color:#067647;")
 
     def validate_fields(self):
         # Check if both budget and account are selected

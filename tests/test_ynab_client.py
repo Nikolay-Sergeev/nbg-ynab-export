@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch, MagicMock
 import requests
-from services.ynab_client import YnabClient
+from services.ynab_client import YnabClient, _payload_shape, _redact_resource_ids
 
 
 class TestYnabClient(unittest.TestCase):
@@ -185,6 +185,29 @@ class TestYnabClient(unittest.TestCase):
         # Call method and check exception
         with self.assertRaises(requests.exceptions.ConnectionError):
             self.client.get_budgets()
+
+    def test_debug_metadata_does_not_include_transaction_contents(self):
+        payload = {
+            "transactions": [{"payee_name": "Private", "amount": -12345}],
+            "metadata": {"source": "bank"},
+        }
+
+        shape = _payload_shape(payload)
+
+        self.assertEqual(shape["transactions"], {"type": "list", "count": 1})
+        self.assertEqual(shape["metadata"], {"type": "object", "keys": ["source"]})
+        self.assertNotIn("Private", str(shape))
+        self.assertNotIn("12345", str(shape))
+
+    def test_log_urls_redact_budget_and_account_ids(self):
+        url = "https://api.ynab.com/v1/budgets/private-budget/accounts/private-account/transactions"
+
+        redacted = _redact_resource_ids(url)
+
+        self.assertNotIn("private-budget", redacted)
+        self.assertNotIn("private-account", redacted)
+        self.assertIn("<budget-id>", redacted)
+        self.assertIn("<account-id>", redacted)
 
 
 if __name__ == '__main__':

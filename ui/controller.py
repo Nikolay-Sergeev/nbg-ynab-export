@@ -6,9 +6,25 @@ from services.actual_client import ActualClient
 from services.conversion_service import ConversionService
 from config import DUP_CHECK_DAYS, DUP_CHECK_COUNT, get_logger, SETTINGS_DIR, ensure_app_dir
 from converter.utils import NBG_GENERATED_IMPORT_ID_PREFIX
+from requests import exceptions as requests_exceptions
 import re
 
 logger = get_logger(__name__)
+
+
+def _connection_error_message(service: str, error: Exception) -> str:
+    """Turn transport/API failures into concise, actionable UI copy."""
+    response = getattr(error, "response", None)
+    status_code = getattr(response, "status_code", None)
+    if status_code in (401, 403):
+        return f"{service} rejected these credentials. Go back and reconnect."
+    if status_code == 429:
+        return f"{service} is temporarily rate-limiting requests. Wait a moment and retry."
+    if isinstance(error, requests_exceptions.Timeout) or "timed out" in str(error).lower():
+        return f"{service} did not respond in time. Check your connection and retry."
+    if isinstance(error, requests_exceptions.ConnectionError):
+        return f"Could not reach {service}. Check the server address and your connection."
+    return f"Could not connect to {service}: {error}"
 
 
 # --- Worker Classes --- #
@@ -22,7 +38,7 @@ class BudgetFetchWorker(QObject):
 
     def run(self):
         try:
-            logger.info("[BudgetFetchWorker] Attempting to fetch budgets from YNAB API")
+            logger.info("[BudgetFetchWorker] Attempting to fetch budgets from connected service")
             budgets = self.ynab_client.get_budgets()
             logger.info("[BudgetFetchWorker] Successfully fetched %d budgets", len(budgets) if budgets else 0)
             self.finished.emit(budgets)
@@ -284,6 +300,7 @@ class WizardController(QObject):
         # Export target: 'YNAB', 'ACTUAL', 'ACTUAL_API', or 'FILE'
         self.export_target = 'YNAB'
         self.last_error_message = None
+        self._prefetched_budgets = None
 
     # --- Export target management --- #
     def set_export_target(self, target: str):
@@ -309,23 +326,35 @@ class WizardController(QObject):
             self.worker_thread = None
 
     def authorize(self, token: str, save: bool):
-        """Store token and optionally persist it via UI settings."""
+        """Validate a YNAB token before allowing the workflow to continue."""
         try:
+            self.last_error_message = None
+            self._prefetched_budgets = None
+            self.ynab = None
             if not token or token.strip() == "":
-                self.errorOccurred.emit("Token cannot be empty")
+                self.last_error_message = "Token cannot be empty"
+                self.errorOccurred.emit(self.last_error_message)
                 return False
 
-            self.ynab = YnabClient(token)
-            logger.info("[WizardController] YNAB client initialized with token")
+            client = YnabClient(token)
+            budgets = client.get_budgets()
+            self._prefetched_budgets = list(budgets or [])
+            self.ynab = client
+            logger.info(
+                "[WizardController] YNAB credentials verified; fetched %d budgets",
+                len(self._prefetched_budgets),
+            )
             return True
         except Exception as e:
-            self.errorOccurred.emit(f"Failed to initialize YNAB client: {str(e)}")
+            self.last_error_message = _connection_error_message("YNAB", e)
+            self.errorOccurred.emit(self.last_error_message)
             return False
 
     def authorize_actual(self, base_url: str, password: str, encryption_password: Optional[str] = None) -> bool:
         """Initialize Actual client using provided server URL, password, and optional encryption password."""
         try:
             self.last_error_message = None
+            self._prefetched_budgets = None
             # Clear any previous client to avoid leaving stale instances on failure
             self.ynab = None
             if not base_url or not password:
@@ -339,12 +368,13 @@ class WizardController(QObject):
             logger.info("[WizardController] Actual client initialized for %s (%s)", base_url, type(client).__name__)
             # Quick connectivity check to fail fast if server returns HTML/invalid API
             try:
-                client.get_budgets()
+                budgets = client.get_budgets()
             except Exception as inner_e:
                 msg = f"Actual API error: {inner_e}"
                 self.last_error_message = msg
                 self.errorOccurred.emit(msg)
                 return False
+            self._prefetched_budgets = list(budgets or [])
             self.ynab = client  # Only set after successful connectivity check
             return True
         except Exception as e:
@@ -354,11 +384,21 @@ class WizardController(QObject):
             return False
 
     def fetch_budgets(self):
-        """Fetch budgets from YNAB API."""
+        """Fetch budgets from the connected YNAB or Actual service."""
         logger.info("[WizardController] Starting fetch_budgets")
         if not self.ynab:
             logger.error("[WizardController] Error: YNAB client not initialized")
             self.errorOccurred.emit("YNAB client not initialized.")
+            return
+
+        if self._prefetched_budgets is not None:
+            budgets = self._prefetched_budgets
+            self._prefetched_budgets = None
+            logger.info(
+                "[WizardController] Using %d budgets verified during connection",
+                len(budgets),
+            )
+            self._on_budgets_fetched(budgets)
             return
 
         self._cleanup_thread()

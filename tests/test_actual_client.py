@@ -1,3 +1,5 @@
+import pytest
+
 from services.actual_client import ActualClient
 
 
@@ -92,3 +94,37 @@ def test_get_budgets_prefers_remote_for_duplicate_names():
     budgets = client.get_budgets()
 
     assert budgets == [{"id": "new-sync", "name": "Budget A"}]
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://actual.example.com",
+        "ftp://actual.example.com",
+        "actual.example.com",
+        "https://user:secret@actual.example.com",
+        "https://actual.example.com?redirect=https://evil.example",
+        "https://actual.example.com/#fragment",
+        " https://actual.example.com",
+    ],
+)
+def test_rejects_unsafe_actual_server_urls(url):
+    bridge = FakeBridge()
+
+    with pytest.raises(ValueError):
+        ActualClient(url, "pw", bridge=bridge)
+
+    assert bridge.inited is False
+
+
+@pytest.mark.parametrize(
+    "url",
+    ["http://localhost:5006", "http://127.0.0.2:5006", "http://[::1]:5006"],
+)
+def test_allows_http_only_for_loopback_servers(url):
+    bridge = FakeBridge()
+
+    client = ActualClient(url, "pw", bridge=bridge)
+
+    assert client.base_url == url
+    assert bridge.inited is True

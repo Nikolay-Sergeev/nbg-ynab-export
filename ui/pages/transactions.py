@@ -17,6 +17,7 @@ from PyQt5.QtSvg import QSvgWidget
 
 import os
 import logging
+from ui.components import add_page_header
 
 logger = logging.getLogger(__name__)
 
@@ -27,18 +28,21 @@ class TransactionsPage(QWizardPage):
         self.controller = controller
         self.setTitle("Latest Transactions")
         self.setFinalPage(False)
+        self.setObjectName("transactions-page")
 
         card = QFrame()
         card.setObjectName("card-panel")
         card.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         card_layout = QVBoxLayout(card)
-        card_layout.setContentsMargins(8, 8, 8, 8)
-        card_layout.setSpacing(16)
+        card_layout.setContentsMargins(32, 28, 32, 28)
+        card_layout.setSpacing(12)
 
-        self.label = QLabel("Latest 5 transactions in this account:")
-        self.label.setProperty('role', 'title')
-        self.label.setAlignment(Qt.AlignCenter)
-        card_layout.addWidget(self.label)
+        _, self.label, _ = add_page_header(
+            card_layout,
+            "Step 4",
+            "Check recent account activity",
+            "Confirm you selected the right account before reviewing the statement import.",
+        )
 
         icon_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../resources/icons/error.svg'))
         # Setup error icon without crashing on SVG
@@ -70,6 +74,7 @@ class TransactionsPage(QWizardPage):
         card_layout.addWidget(self.spinner, alignment=Qt.AlignCenter)
 
         self.cache_label = QLabel("")
+        self.cache_label.setObjectName("cache-label")
         card_layout.addWidget(self.cache_label)
 
         self.table = QTableWidget()
@@ -79,10 +84,12 @@ class TransactionsPage(QWizardPage):
         self.table.setAlternatingRowColors(True)  # Enable alternating colors for QSS
         self.table.verticalHeader().setVisible(False)  # Hide row numbers
         self.table.setShowGrid(False)  # Hide grid lines, use borders in QSS if needed
+        self.table.setMinimumHeight(260)
         card_layout.addWidget(self.table)
 
-        self.refresh_btn = QPushButton("Refresh")
-        card_layout.addWidget(self.refresh_btn)
+        self.refresh_btn = QPushButton("Refresh activity")
+        self.refresh_btn.setObjectName("secondary-btn")
+        card_layout.addWidget(self.refresh_btn, alignment=Qt.AlignRight)
         self.refresh_btn.clicked.connect(self.on_refresh_clicked)
         card_layout.addStretch(1)
 
@@ -207,6 +214,8 @@ class TransactionsPage(QWizardPage):
 
             self.error_icon.hide()
             self.error_label.setText("")
+            if not txns:
+                self.cache_label.setText("No recent transactions were found in this account.")
         except Exception as e:
             self.spinner.hide()
             self.error_icon.show()

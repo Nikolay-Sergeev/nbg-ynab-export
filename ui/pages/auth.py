@@ -13,11 +13,12 @@ from PyQt5.QtWidgets import (
     QGraphicsDropShadowEffect,
 )
 from PyQt5.QtCore import Qt, QUrl
-from PyQt5.QtGui import QIcon, QColor, QCursor, QDesktopServices
+from PyQt5.QtGui import QColor, QCursor, QDesktopServices
 import sys
 import logging
 from cryptography.fernet import Fernet  # noqa: F401 (kept for tests patching)
 from services import token_manager as _token_manager
+from ui.components import add_page_header
 
 YNAB_DOCS_URL = "https://api.ynab.com/#personal-access-tokens"
 logger = logging.getLogger(__name__)
@@ -28,6 +29,7 @@ class YNABAuthPage(QWizardPage):
         super().__init__()
         self.controller = controller
         self.setTitle("")  # Hide default title
+        self.setObjectName("auth-page")
 
         # --- Outer layout for centering ---
         outer_layout = QVBoxLayout(self)
@@ -37,12 +39,15 @@ class YNABAuthPage(QWizardPage):
         card.setObjectName("card-panel")
         card.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         card_layout = QVBoxLayout(card)
-        card_layout.setContentsMargins(20, 20, 20, 20)
-        card_layout.setSpacing(0)
+        card_layout.setContentsMargins(32, 28, 32, 28)
+        card_layout.setSpacing(12)
 
-        title = QLabel("Verify YNAB Token")
-        title.setProperty('role', 'title')
-        card_layout.addWidget(title)
+        add_page_header(
+            card_layout,
+            "Step 2",
+            "Connect to YNAB",
+            "Use a personal access token so the importer can load your budgets and create transactions.",
+        )
 
         # Drop shadow (skip on macOS to avoid Qt crash)
         if not sys.platform.startswith('darwin'):
@@ -54,14 +59,16 @@ class YNABAuthPage(QWizardPage):
 
         # --- Subheading + helper link ---
         subheading_row = QHBoxLayout()
-        subheading = QLabel("Enter your YNAB Personal Access Token")
-        subheading.setStyleSheet("font-size:15px;font-weight:500;color:#333;")
+        subheading = QLabel("Personal access token")
+        subheading.setProperty("role", "field-label")
         subheading_row.addWidget(subheading)
         subheading_row.addSpacing(8)
         self.helper_link = QLabel(
-            '<a href="#" style="color:#1976d2;text-decoration:none;font-size:14px;">How to get a token?</a>')
+            '<a href="#" style="color:#0066cc;text-decoration:none;">'
+            'Where do I find this?</a>'
+        )
         self.helper_link.setCursor(QCursor(Qt.PointingHandCursor))
-        self.helper_link.setStyleSheet("color:#1976d2;font-size:14px;")
+        self.helper_link.setObjectName("helper-link")
         self.helper_link.linkActivated.connect(self.open_docs)
         subheading_row.addWidget(self.helper_link, alignment=Qt.AlignVCenter)
         subheading_row.addStretch(1)
@@ -72,49 +79,36 @@ class YNABAuthPage(QWizardPage):
         input_container = QHBoxLayout()
         input_container.setContentsMargins(0, 0, 0, 0)
 
-        # Add stretches and widget to center it with flexible width
-        input_container.addStretch(1)
-
         input_area = QHBoxLayout()
+        input_area.setSpacing(8)
         self.token_input = QLineEdit()
-        self.token_input.setPlaceholderText("e.g. abc123def456…")
+        self.token_input.setPlaceholderText("Paste your 32–64 character token")
         self.token_input.setEchoMode(QLineEdit.Password)
-        self.token_input.setMinimumWidth(280)
-        self.token_input.setStyleSheet("font-size:16px;")
         input_area.addWidget(self.token_input)
 
-        # Show/hide icon
-        self.show_icon = QPushButton()
+        self.show_icon = QPushButton("Show")
+        self.show_icon.setObjectName("show-token-btn")
         self.show_icon.setCheckable(True)
-        self.show_icon.setFixedSize(28, 28)
-        self.show_icon.setIcon(QIcon.fromTheme("view-password"))
-        self.show_icon.setStyleSheet("border:none;background:transparent;margin-left:-34px;")
-        self.show_icon.setToolTip("Show/Hide token")
+        self.show_icon.setFixedWidth(72)
+        self.show_icon.setToolTip("Show or hide token")
         self.show_icon.toggled.connect(self.toggle_token_visibility)
         input_area.addWidget(self.show_icon)
 
-        # Add the input area to container
         input_container.addLayout(input_area)
-        input_container.addStretch(1)
 
         card_layout.addLayout(input_container)
         card_layout.addSpacing(8)
 
         # --- Helper & error text ---
-        self.helper_label = QLabel("Your token is stored locally and never sent to our servers.")
+        self.helper_label = QLabel("Your token stays on this device and is sent only to YNAB.")
         self.helper_label.setObjectName("helper-label")
-        self.helper_label.setStyleSheet("font-size:12px;color:#666;margin-bottom:0;")
         card_layout.addWidget(self.helper_label, alignment=Qt.AlignLeft)
-        card_layout.addSpacing(8)
         self.error_label = QLabel("")
         self.error_label.setObjectName("error-label")
-        self.error_label.setStyleSheet("font-size:12px;color:#d32f2f;margin-bottom:0;")
         card_layout.addWidget(self.error_label, alignment=Qt.AlignLeft)
-        card_layout.addSpacing(8)
 
         # --- Save token checkbox ---
         self.save_checkbox = QCheckBox("Save token securely on this device")
-        self.save_checkbox.setStyleSheet("font-size:14px;color:#333;margin-top:0;margin-bottom:0;")
         card_layout.addWidget(self.save_checkbox, alignment=Qt.AlignLeft)
         card_layout.addStretch(1)
 
@@ -143,19 +137,22 @@ class YNABAuthPage(QWizardPage):
         token = self.token_input.text().strip()
         save = self.save_checkbox.isChecked()
 
+        # Verify the token before saving it or moving to the budget step.
+        success = self.controller.authorize(token, save)
+
+        if not success:
+            self.error_label.setText(
+                getattr(self.controller, "last_error_message", None)
+                or "YNAB could not verify this token."
+            )
+            return False
+
         if save:
             try:
                 _token_manager.save_token(token)
             except Exception as e:
-                self.error_label.setText(f"Error saving token: {str(e)}")
+                self.error_label.setText(f"The token is valid, but could not be saved: {str(e)}")
                 return False
-
-        # Use controller to authorize and check result
-        success = self.controller.authorize(token, save)
-
-        if not success:
-            self.error_label.setText("Failed to initialize YNAB client with this token")
-            return False
 
         # Navigate to next page if successful
         parent = self.window()
@@ -170,40 +167,49 @@ class YNABAuthPage(QWizardPage):
     def toggle_token_visibility(self, checked):
         if checked:
             self.token_input.setEchoMode(QLineEdit.Normal)
-            self.show_icon.setIcon(QIcon.fromTheme("view-hidden"))
+            self.show_icon.setText("Hide")
         else:
             self.token_input.setEchoMode(QLineEdit.Password)
-            self.show_icon.setIcon(QIcon.fromTheme("view-password"))
+            self.show_icon.setText("Show")
 
     def _validate_and_update(self):
         """Internal method to validate token and update UI without recursion"""
-        self.validate_token_input()
+        self.validate_token_input(show_errors=bool(self.token_input.text().strip()))
         self.completeChanged.emit()
 
-    def validate_token_input(self):
+    def validate_token_input(self, show_errors=True):
         token = self.token_input.text().strip()
         import re
         ynab_pattern = r"^[a-zA-Z0-9_-]{32,64}$"
         if not token:
-            self.error_label.setText("Token cannot be empty.")
+            if show_errors:
+                self.error_label.setText("Enter your personal access token to continue.")
+            else:
+                self.error_label.setText("")
             return False
         if not re.match(ynab_pattern, token):
-            self.error_label.setText("Invalid token format.")
+            if show_errors:
+                self.error_label.setText("This token should contain 32–64 letters, numbers, dashes, or underscores.")
             return False
         self.error_label.setText("")
         return True
 
     def isComplete(self):
-        return self.validate_token_input()
+        return self.validate_token_input(show_errors=False)
 
     def on_continue(self):
         if not self.validate_token_input():
             return
         token = self.token_input.text().strip()
         save = self.save_checkbox.isChecked()
+        if not self.controller.authorize(token, save):
+            self.error_label.setText(
+                getattr(self.controller, "last_error_message", None)
+                or "YNAB could not verify this token."
+            )
+            return
         if save:
             _token_manager.save_token(token)
-        self.controller.authorize(token, save)
         self.go_forward()
 
     def load_saved_token(self):

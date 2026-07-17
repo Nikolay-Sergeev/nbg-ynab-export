@@ -3,6 +3,9 @@ from pathlib import Path
 from datetime import datetime
 from hashlib import sha256
 from numbers import Number
+import os
+import tempfile
+import zipfile
 import pandas as pd
 import csv
 import re
@@ -20,6 +23,8 @@ logger = get_logger(__name__)
 
 FORMULA_PREFIXES = ('=', '+', '-', '@')
 NBG_GENERATED_IMPORT_ID_PREFIX = 'NBG:v1:'
+MAX_XLSX_ENTRIES = 10_000
+MAX_XLSX_UNCOMPRESSED_BYTES = 200 * 1024 * 1024
 
 
 def _canonical_import_id_value(value: object) -> str:
@@ -112,10 +117,56 @@ def sanitize_csv_formulas(df: pd.DataFrame, columns: Optional[list] = None) -> p
     return safe_df
 
 
+def validate_xlsx_archive(path: Path) -> None:
+    """Reject malformed or excessively expanded XLSX archives before XML parsing."""
+    if path.suffix.lower() != '.xlsx' or not path.exists() or path.stat().st_size == 0:
+        return
+    try:
+        with zipfile.ZipFile(path) as workbook:
+            entries = workbook.infolist()
+            if len(entries) > MAX_XLSX_ENTRIES:
+                raise ValueError("Excel workbook contains too many archive entries")
+            expanded_size = sum(entry.file_size for entry in entries)
+            if expanded_size > MAX_XLSX_UNCOMPRESSED_BYTES:
+                raise ValueError("Excel workbook expands beyond the safe size limit")
+    except zipfile.BadZipFile as exc:
+        raise ValueError("Invalid Excel workbook archive") from exc
+
+
 def read_input(path: Path) -> pd.DataFrame:
     if path.suffix.lower() == '.csv':
         return pd.read_csv(path)
+    validate_xlsx_archive(path)
     return pd.read_excel(path)
+
+
+def write_csv_securely(df: pd.DataFrame, out_path: Union[str, Path]) -> Path:
+    """Atomically write a private CSV without following a pre-existing symlink."""
+    path = Path(out_path)
+    if path.is_symlink():
+        raise OSError(f"Refusing to overwrite symlinked output file: {path}")
+    if not path.parent.is_dir():
+        raise FileNotFoundError(f"Output directory does not exist: {path.parent}")
+
+    fd, temp_name = tempfile.mkstemp(prefix=f'.{path.name}.', dir=str(path.parent))
+    try:
+        if os.name == 'posix':
+            os.fchmod(fd, 0o600)
+        with os.fdopen(fd, 'w', encoding='utf-8', newline='') as output_file:
+            fd = -1
+            df.to_csv(output_file, index=False, quoting=csv.QUOTE_MINIMAL)
+            output_file.flush()
+            os.fsync(output_file.fileno())
+        os.replace(temp_name, path)
+    except Exception:
+        if fd >= 0:
+            os.close(fd)
+        try:
+            os.unlink(temp_name)
+        except FileNotFoundError:
+            pass
+        raise
+    return path
 
 
 def write_output(
@@ -129,8 +180,7 @@ def write_output(
     out_path = in_path.with_name(out_name)
     safe_columns = [col for col in ('Payee', 'Memo', 'payee', 'memo', 'notes') if col in df.columns]
     safe_df = sanitize_csv_formulas(df, columns=safe_columns or None)
-    safe_df.to_csv(out_path, index=False, quoting=csv.QUOTE_MINIMAL)
-    return out_path
+    return write_csv_securely(safe_df, out_path)
 
 
 def exclude_existing(

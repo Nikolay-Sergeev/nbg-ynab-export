@@ -18,6 +18,7 @@ from PyQt5.QtSvg import QSvgWidget
 import os
 from services.conversion_service import generate_output_filename, sanitize_csv_formulas
 import logging
+from ui.components import add_page_header
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +29,7 @@ class ReviewAndUploadPage(QWizardPage):
         self.controller = controller
         self.setTitle("Review & Select Transactions")
         self._busy = False
+        self.setObjectName("review-page")
 
         card = QFrame()
         card.setObjectName("card-panel")
@@ -35,13 +37,15 @@ class ReviewAndUploadPage(QWizardPage):
         card.setFrameShadow(QFrame.Raised)
         card.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         card_layout = QVBoxLayout(card)
-        card_layout.setContentsMargins(8, 8, 8, 8)
-        card_layout.setSpacing(16)
+        card_layout.setContentsMargins(32, 28, 32, 28)
+        card_layout.setSpacing(10)
 
-        self.label = QLabel("Review transactions and choose what to import:")
-        self.label.setProperty('role', 'title')
-        self.label.setAlignment(Qt.AlignCenter)
-        card_layout.addWidget(self.label)
+        _, self.label, self.description_label = add_page_header(
+            card_layout,
+            "Step 5",
+            "Review your import",
+            "Rows marked as possible duplicates are skipped by default. You can include them if needed.",
+        )
 
         # Load icons: success, error, info, spinner
         base = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../resources/icons'))
@@ -96,7 +100,7 @@ class ReviewAndUploadPage(QWizardPage):
         card_layout.addWidget(self.spinner, alignment=Qt.AlignCenter)
 
         self.table = QTableWidget()
-        self.table.setStyleSheet("color: #222; background: #fff;")
+        self.table.setObjectName("review-table")
         self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.NoSelection)
@@ -104,19 +108,22 @@ class ReviewAndUploadPage(QWizardPage):
         # Respond to Skip item changes
         self.table.itemChanged.connect(self.on_skip_item_changed)
         self.table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.table.setMinimumHeight(280)
         card_layout.addWidget(self.table)
 
         controls_layout = QHBoxLayout()
         controls_layout.addStretch()
-        self.select_all_btn = QPushButton("Select All")
-        self.deselect_all_btn = QPushButton("Skip All")
+        self.select_all_btn = QPushButton("Select all")
+        self.deselect_all_btn = QPushButton("Deselect all")
+        self.select_all_btn.setObjectName("secondary-btn")
+        self.deselect_all_btn.setObjectName("secondary-btn")
         self.select_all_btn.clicked.connect(lambda: self.apply_selection_to_all(include=True))
         self.deselect_all_btn.clicked.connect(lambda: self.apply_selection_to_all(include=False))
         controls_layout.addWidget(self.select_all_btn)
         controls_layout.addWidget(self.deselect_all_btn)
         card_layout.addLayout(controls_layout)
 
-        self.hide_dup_checkbox = QCheckBox("Hide duplicate records")
+        self.hide_dup_checkbox = QCheckBox("Hide rows flagged as possible duplicates")
         self.hide_dup_checkbox.stateChanged.connect(self.on_hide_duplicates_toggled)
         self.hide_dup_checkbox.setVisible(False)
         card_layout.addWidget(self.hide_dup_checkbox)
@@ -192,6 +199,16 @@ class ReviewAndUploadPage(QWizardPage):
 
         # Branch by mode
         target = getattr(self.controller, 'export_target', 'YNAB')
+        if target == 'FILE':
+            self.label.setText("Review the converted transactions")
+            self.description_label.setText(
+                "Choose the rows to include. The final CSV will be saved beside the source file."
+            )
+        else:
+            self.label.setText("Review your import")
+            self.description_label.setText(
+                "Rows marked as possible duplicates are skipped by default. You can include them if needed."
+            )
         if hasattr(parent, 'file_export_path'):
             parent.file_export_path = None
         if target == 'FILE':
@@ -639,5 +656,5 @@ class ReviewAndUploadPage(QWizardPage):
             self.counts_label.setText("No transactions loaded.")
         else:
             self.counts_label.setText(
-                f"Total: {total} • Duplicates: {dups} • Skipped: {skipped} • Selected: {selected}"
+                f"{selected} of {total} selected  ·  {dups} possible duplicates  ·  {skipped} excluded"
             )

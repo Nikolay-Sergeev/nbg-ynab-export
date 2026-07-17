@@ -17,6 +17,7 @@
 const actual = require('@actual-app/api');
 const fs = require('fs');
 const path = require('path');
+const MAX_COMMAND_BYTES = 25 * 1024 * 1024;
 
 function writeResponse(obj) {
   process.stdout.write(JSON.stringify(obj) + '\n');
@@ -41,10 +42,35 @@ function getErrorInfo(err) {
 }
 
 async function safeInit(opts) {
-  const dataDir = opts.dataDir || path.join(process.cwd(), 'actual-data');
-  fs.mkdirSync(dataDir, { recursive: true });
+  let serverURL;
+  try {
+    serverURL = new URL(opts.serverURL);
+  } catch (_err) {
+    throw new Error('serverURL must be an absolute HTTP(S) URL');
+  }
+  if (!['http:', 'https:'].includes(serverURL.protocol)) {
+    throw new Error('serverURL must use HTTP or HTTPS');
+  }
+  if (serverURL.username || serverURL.password || serverURL.search || serverURL.hash) {
+    throw new Error('serverURL must not include credentials, a query string, or a fragment');
+  }
+  const normalizedHost = serverURL.hostname.replace(/^\[|\]$/g, '').toLowerCase();
+  const isLoopback = normalizedHost === 'localhost'
+    || normalizedHost === '::1'
+    || /^127(?:\.\d{1,3}){3}$/.test(normalizedHost);
+  if (serverURL.protocol === 'http:' && !isLoopback) {
+    throw new Error('Remote Actual servers must use HTTPS');
+  }
+
+  const dataDir = path.resolve(opts.dataDir || path.join(process.cwd(), 'actual-data'));
+  fs.mkdirSync(dataDir, { recursive: true, mode: 0o700 });
+  const dataDirStat = fs.lstatSync(dataDir);
+  if (!dataDirStat.isDirectory() || dataDirStat.isSymbolicLink()) {
+    throw new Error('dataDir must be a real directory, not a symbolic link');
+  }
+  fs.chmodSync(dataDir, 0o700);
   await actual.init({
-    serverURL: opts.serverURL,
+    serverURL: serverURL.toString().replace(/\/$/, ''),
     password: opts.password,
     dataDir,
   });
@@ -54,7 +80,7 @@ async function handleCommand(cmd) {
   try {
     switch (cmd.cmd) {
       case 'init':
-        console.error('[Bridge] init', cmd.serverURL);
+        console.error('[Bridge] init');
         await safeInit(cmd);
         return { ok: true };
       case 'listBudgets': {
@@ -162,7 +188,7 @@ async function handleCommand(cmd) {
     } else {
       console.error('[Bridge] error', info.message);
     }
-    return { ok: false, error: info.message, details: info.stack || undefined };
+    return { ok: false, error: info.message };
   }
 }
 
@@ -171,6 +197,11 @@ async function main() {
   let buffer = '';
   for await (const chunk of process.stdin) {
     buffer += chunk.toString();
+    if (Buffer.byteLength(buffer, 'utf8') > MAX_COMMAND_BYTES) {
+      buffer = '';
+      writeResponse({ ok: false, error: 'Command exceeds the safe size limit' });
+      continue;
+    }
     let idx;
     while ((idx = buffer.indexOf('\n')) >= 0) {
       const line = buffer.slice(0, idx).trim();
