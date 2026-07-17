@@ -2,7 +2,9 @@ from PyQt5.QtWidgets import (
     QFrame, QLabel, QVBoxLayout, QWizardPage, QSizePolicy,
 )
 from PyQt5.QtCore import Qt
-import sys
+from PyQt5.QtSvg import QSvgWidget
+import html
+import os
 import logging
 
 logger = logging.getLogger(__name__)
@@ -13,6 +15,7 @@ class FinishPage(QWizardPage):
         super().__init__(parent)
         self.controller = controller
         self.setTitle("Step 6: Import Complete")
+        self.setObjectName("finish-page")
         self.setMinimumSize(0, 0)
         self.setMaximumSize(16777215, 16777215)
 
@@ -20,16 +23,33 @@ class FinishPage(QWizardPage):
         card.setObjectName("card-panel")
         card.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         card_layout = QVBoxLayout(card)
-        card_layout.setContentsMargins(8, 8, 8, 8)
-        card_layout.setSpacing(16)
+        card_layout.setContentsMargins(48, 48, 48, 48)
+        card_layout.setSpacing(12)
+        card_layout.setAlignment(Qt.AlignCenter)
 
-        # Final message
+        success_path = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "../../resources/icons/success.svg")
+        )
+        self.success_icon = QSvgWidget(success_path)
+        self.success_icon.setFixedSize(56, 56)
+        card_layout.addWidget(self.success_icon, alignment=Qt.AlignHCenter)
+
+        eyebrow = QLabel("ALL DONE")
+        eyebrow.setProperty("role", "eyebrow")
+        eyebrow.setAlignment(Qt.AlignCenter)
+        card_layout.addWidget(eyebrow)
+
+        self.title_label = QLabel("Import complete")
+        self.title_label.setProperty("role", "page-title")
+        self.title_label.setAlignment(Qt.AlignCenter)
+        card_layout.addWidget(self.title_label)
+
         self.label = QLabel()
-        self.label.setProperty('role', 'title')
+        self.label.setObjectName("completion-details")
         self.label.setWordWrap(True)
+        self.label.setAlignment(Qt.AlignCenter)
         self.label.setTextInteractionFlags(Qt.TextSelectableByMouse)
         card_layout.addWidget(self.label)
-        card_layout.addStretch(1)
 
         # Navigation buttons are completely handled by main window
         # No local buttons to avoid duplication
@@ -55,49 +75,50 @@ class FinishPage(QWizardPage):
         actual_path = getattr(parent, 'actual_export_path', None)
 
         if file_export_path:
+            self.title_label.setText("Converted file ready")
             text = (
-                "<b>File converted</b><br><br>"
-                f"<span style='font-family:monospace;'>{file_export_path}</span>"
+                "Your selected transactions were saved beside the source statement.<br><br>"
+                f"<span style='font-family:monospace;'>{html.escape(file_export_path)}</span>"
             )
         elif actual_path:
+            self.title_label.setText("Actual Budget export ready")
             text = (
-                "<b>Export complete!</b><br><br>"
-                f"CSV for <b>Actual Budget</b> saved at:<br>"
-                f"<span style='font-family:monospace;'>{actual_path}</span><br><br>"
+                "Your CSV was created successfully.<br><br>"
+                f"<span style='font-family:monospace;'>{html.escape(actual_path)}</span><br><br>"
                 "Open Actual and import this file via Transactions → Import."
             )
         elif stats and acct:
             uploaded = stats.get('uploaded', 0)
             selected = stats.get('selected')
+            safe_acct = html.escape(str(acct))
             if uploaded == 0:
+                self.title_label.setText("Nothing new to import")
                 text = (
-                    f"<b>No new transactions were uploaded to <b>{acct}</b>.</b>"
-                    "<br><br>You may now close the wizard."
+                    f"No new transactions were added to <b>{safe_acct}</b>. "
+                    "The selected rows may already exist in the account."
                 )
             else:
-                text = "<b>Import complete!</b><br><br>"
+                self.title_label.setText("Import complete")
                 uploaded_text = (
-                    f"<span style='font-size:18px;color:#1976d2;'><b>{uploaded}</b>"
-                    f" transaction{'s' if uploaded != 1 else ''} uploaded to <b>{acct}</b>"
-                    ".</span>"
+                    f"<b>{uploaded}</b> transaction{'s' if uploaded != 1 else ''} "
+                    f"added to <b>{safe_acct}</b>."
                 )
                 if selected is not None:
                     details = (
-                        f"{uploaded_text}<br><span style='color:#555;'>Selected to import: "
-                        f"{selected}</span><br><br>You may now close the wizard."
+                        f"{uploaded_text}<br><br>{selected} selected for import."
                     )
                 else:
-                    details = f"{uploaded_text}<br><br>You may now close the wizard."
-                text += details
+                    details = uploaded_text
+                text = details
         else:
-            text = "<b>Import complete!</b> You may now close the wizard."
+            self.title_label.setText("Import complete")
+            text = "The workflow finished successfully. You can now close the importer."
 
         self.label.setText(text)
 
         # Update parent window next button if possible
         if hasattr(parent, "next_button"):
-            finish_label = "Finish & Quit" if sys.platform.startswith('darwin') else "Finish & Exit"
-            parent.next_button.setText(finish_label)
+            parent.next_button.setText("Close")
 
         # Hide back button on last page if possible
         if hasattr(parent, "back_button"):

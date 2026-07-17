@@ -19,6 +19,7 @@ from PyQt5.QtSvg import QSvgWidget
 import os
 
 from config import SETTINGS_FILE, get_logger
+from ui.components import add_page_header
 
 logger = get_logger(__name__)
 
@@ -32,7 +33,7 @@ class DropZone(QFrame):
         self.setObjectName("drop-zone")
         self.setAcceptDrops(True)
         self.setCursor(QCursor(Qt.PointingHandCursor))
-        self.setMinimumHeight(120)
+        self.setMinimumHeight(220)
         self.setStyleSheet("")
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignCenter)
@@ -44,20 +45,20 @@ class DropZone(QFrame):
         )
         if os.path.exists(icon_path):
             self.upload_icon = QSvgWidget(icon_path)
-            self.upload_icon.setFixedSize(48, 48)
+            self.upload_icon.setFixedSize(44, 44)
             layout.addWidget(self.upload_icon, alignment=Qt.AlignHCenter)
         # Default text
-        self.text_label = QLabel("Drag & drop your file here,\nor click 'Browse files…'")
-        self.text_label.setStyleSheet("color:#333;font-size:13pt;")
+        self.text_label = QLabel("Drag & drop your statement here")
+        self.text_label.setProperty("role", "drop-title")
         self.text_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(self.text_label)
         # Supported formats label
-        self.supported_label = QLabel("Supported formats: .xlsx, .csv")
+        self.supported_label = QLabel("Supported formats: CSV, XLSX, and XLS")
         self.supported_label.setObjectName("supported-label")
         self.supported_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(self.supported_label)
         # Browse button inside drop zone
-        self.browse_button = QPushButton("Browse Files")
+        self.browse_button = QPushButton("Browse file")
         self.browse_button.setObjectName("browse-btn")
         self.browse_button.setCursor(Qt.PointingHandCursor)
         self.browse_button.clicked.connect(self.fileClicked.emit)
@@ -65,7 +66,7 @@ class DropZone(QFrame):
 
     def setText(self, text, color="#333"):
         self.text_label.setText(text)
-        self.text_label.setStyleSheet(f"color:{color};font-size:13pt;")
+        self.text_label.setStyleSheet(f"color:{color};")
 
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():
@@ -125,18 +126,28 @@ class ImportFilePage(QWizardPage):
         card.setObjectName("card-panel")
         card.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         card_layout = QVBoxLayout(card)
-        card_layout.setContentsMargins(20, 20, 20, 20)  # Consistent padding with other pages
-        card_layout.setSpacing(16)
+        card_layout.setContentsMargins(32, 28, 32, 28)
+        card_layout.setSpacing(14)
 
-        title = QLabel("Attach a File")
-        title.setProperty('role', 'title')
-        card_layout.addWidget(title)
+        add_page_header(
+            card_layout,
+            "Step 1",
+            "Import your statement",
+            "Choose where the transactions should go, then add an export from NBG or Revolut.",
+        )
 
         # Upload mode selector (radio buttons)
+        mode_panel = QFrame()
+        mode_panel.setObjectName("mode-panel")
+        mode_panel_layout = QVBoxLayout(mode_panel)
+        mode_panel_layout.setContentsMargins(16, 12, 16, 12)
+        mode_panel_layout.setSpacing(8)
+        mode_label = QLabel("Destination")
+        mode_label.setProperty("role", "field-label")
+        mode_panel_layout.addWidget(mode_label)
+
         mode_row = QHBoxLayout()
-        mode_label = QLabel("Upload mode:")
-        mode_label.setStyleSheet("font-size:14px;color:#333;")
-        mode_row.addWidget(mode_label)
+        mode_row.setSpacing(22)
 
         self.mode_group = QButtonGroup(self)
         self.rb_ynab = QRadioButton("YNAB")
@@ -153,7 +164,8 @@ class ImportFilePage(QWizardPage):
         for rb in (self.rb_ynab, self.rb_actual, self.rb_file):
             mode_row.addWidget(rb)
         mode_row.addStretch(1)
-        card_layout.addLayout(mode_row)
+        mode_panel_layout.addLayout(mode_row)
+        card_layout.addWidget(mode_panel)
 
         # Wire radio buttons to controller target changes
         self.rb_ynab.toggled.connect(lambda checked: checked and self.on_mode_changed('YNAB'))
@@ -164,7 +176,10 @@ class ImportFilePage(QWizardPage):
         self.drop_zone = DropZone()
         self.drop_zone.setObjectName("drop-zone")
         self.drop_zone.browse_button.clicked.connect(self.browse_file)
-        self.drop_zone.help_link = QLabel('<a href="#">Need help?</a>')
+        self.drop_zone.help_link = QLabel(
+            '<a href="#" style="color:#0066cc;text-decoration:none;">'
+            'View file requirements</a>'
+        )
         self.drop_zone.help_link.setObjectName("helper-link")
         self.drop_zone.help_link.setAlignment(Qt.AlignCenter)
         self.drop_zone.help_link.setOpenExternalLinks(False)
@@ -174,9 +189,10 @@ class ImportFilePage(QWizardPage):
 
         # File display (filename and clear button)
         self.file_display_widget = QWidget()
+        self.file_display_widget.setObjectName("selected-file-panel")
         file_display_layout = QHBoxLayout(self.file_display_widget)
-        file_display_layout.setContentsMargins(0, 5, 0, 0)
-        file_display_layout.setSpacing(6)
+        file_display_layout.setContentsMargins(14, 12, 14, 12)
+        file_display_layout.setSpacing(10)
         # File type icon
         self.file_icon_label = QLabel()
         self.file_icon_label.setObjectName("file-icon-label")
@@ -184,14 +200,14 @@ class ImportFilePage(QWizardPage):
         file_display_layout.addWidget(self.file_icon_label)
         self.file_name_label = QLabel("")
         self.file_name_label.setObjectName("file-name-label")
-        self.file_name_label.setAlignment(Qt.AlignCenter)
+        self.file_name_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         self.file_name_label.setCursor(Qt.PointingHandCursor)
         self.file_name_label.mousePressEvent = self.toggle_file_path
         self.showing_full_path = False
         file_display_layout.addWidget(self.file_name_label, 1)
-        self.clear_btn = QPushButton("×")
+        self.clear_btn = QPushButton("Remove")
         self.clear_btn.setObjectName("clear-btn")
-        self.clear_btn.setFixedSize(20, 20)
+        self.clear_btn.setMinimumWidth(70)
         self.clear_btn.setCursor(Qt.PointingHandCursor)
         self.clear_btn.clicked.connect(self.clear_file)
         file_display_layout.addWidget(self.clear_btn)
@@ -201,7 +217,7 @@ class ImportFilePage(QWizardPage):
         # Error label
         self.error_label = QLabel("")
         self.error_label.setObjectName("error-label")
-        self.error_label.setAlignment(Qt.AlignCenter)
+        self.error_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         self.error_label.hide()
         card_layout.addWidget(self.error_label)
 
@@ -287,11 +303,11 @@ class ImportFilePage(QWizardPage):
         if self.file_path:
             self.file_name_label.setText(os.path.basename(self.file_path))
             self.file_display_widget.show()
-            self.drop_zone.setText("File selected:", color="#333")
+            self.drop_zone.setText("Statement selected", color="#24364B")
         else:
             self.file_name_label.setText("")
             self.file_display_widget.hide()
-            self.drop_zone.setText("Drag & drop your file here,\nor click 'Browse files…'", color="#333")
+            self.drop_zone.setText("Drag & drop your statement here", color="#24364B")
 
     def validate_file(self):
         if not self.file_path:
@@ -559,19 +575,16 @@ class ImportFilePage(QWizardPage):
 
     def show_help_modal(self):
         msg = QMessageBox(self)
-        msg.setWindowTitle("How to format your NBG/Revolut export")
-        msg.setText(
-            """
-To import your file, export your transactions from NBG or Revolut as .xlsx or .csv.\n\n
-- The file should have columns like Date, Description, Amount, etc.\n
-- Example (CSV):\n
-Date,Description,Amount\n
-2025-04-01,Supermarket,-20.00\n
-2025-04-02,Coffee,-3.50\n\n
-For more details, see the documentation or contact support.
-"""
+        msg.setWindowTitle("Statement file requirements")
+        msg.setText("Export a transaction statement from NBG or Revolut.")
+        msg.setInformativeText(
+            "Use the original CSV or Excel file—there is no need to edit it first. "
+            "The importer detects the supported column layout automatically.\n\n"
+            "Accepted formats: CSV, XLSX, and XLS.\n"
+            "The file must include a header row and at least one transaction."
         )
         msg.setIcon(QMessageBox.Information)
+        msg.setStandardButtons(QMessageBox.Ok)
         msg.exec_()
 
     def toggle_file_path(self, event):

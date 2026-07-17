@@ -3,14 +3,14 @@
 Quick diagnostic tool for Actual Budget server connectivity.
 
 Usage:
-  python scripts/actual_diag.py --url https://actual.example.com --password YOUR_PASSWORD [--no-verify]
+  python scripts/actual_diag.py --url https://actual.example.com
 """
 import argparse
+import getpass
 import json
 import logging
 import os
 import sys
-from urllib.parse import urlparse
 
 # Ensure project root on path
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -24,27 +24,20 @@ from config import SETTINGS_DIR, ensure_app_dir  # noqa: E402
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--url', required=True, help='Base URL of Actual server, e.g., https://host:port')
-    ap.add_argument('--password', required=True, help='Server password')
-    ap.add_argument('--no-verify', action='store_true', help='Disable SSL verification for self-signed certs')
     ap.add_argument('--debug', action='store_true', help='Enable debug logging')
     args = ap.parse_args()
 
     level = logging.DEBUG if args.debug else logging.INFO
     logging.basicConfig(level=level, format='%(asctime)s %(levelname)s %(name)s: %(message)s')
 
-    if args.no_verify:
-        os.environ['ACTUAL_VERIFY_SSL'] = 'false'
-
-    parsed = urlparse(args.url)
-    if parsed.scheme.lower() == "http":
-        host = (parsed.hostname or "").lower()
-        if host not in ("localhost", "127.0.0.1", "::1"):
-            print("WARNING: Using insecure http:// for a remote server.", file=sys.stderr)
+    password = os.getenv('ACTUAL_PASSWORD') or getpass.getpass('Actual server password: ')
+    if not password:
+        ap.error('A server password is required')
 
     print('== Creating client ==')
     ensure_app_dir()
     data_dir = SETTINGS_DIR / "actual-data"
-    client = ActualClient(args.url, args.password, data_dir=str(data_dir))
+    client = ActualClient(args.url, password, data_dir=str(data_dir))
 
     print('== Fetching budgets ==')
     try:

@@ -1,5 +1,7 @@
 import sys
 import logging
+import os
+import stat
 from pathlib import Path
 from PyQt5.QtCore import QSettings
 from constants import DATE_FMT_ACCOUNT, DATE_FMT_YNAB
@@ -30,8 +32,14 @@ ACTUAL_SETTINGS_FILE = str(SETTINGS_DIR / "actual_settings.txt")
 
 
 def ensure_app_dir() -> None:
-    """Create the application directory if it doesn't exist."""
-    SETTINGS_DIR.mkdir(parents=True, exist_ok=True)
+    """Create the private application directory and enforce owner-only access."""
+    if SETTINGS_DIR.is_symlink():
+        raise OSError(f"Refusing to use symlinked settings directory: {SETTINGS_DIR}")
+    SETTINGS_DIR.mkdir(mode=0o700, parents=True, exist_ok=True)
+    if not SETTINGS_DIR.is_dir() or SETTINGS_DIR.is_symlink():
+        raise OSError(f"Invalid settings directory: {SETTINGS_DIR}")
+    if os.name == 'posix' and stat.S_IMODE(SETTINGS_DIR.stat().st_mode) != 0o700:
+        os.chmod(SETTINGS_DIR, 0o700)
 
 
 def get_settings() -> QSettings:

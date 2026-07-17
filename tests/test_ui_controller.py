@@ -12,7 +12,8 @@ from ui.controller import (
     AccountFetchWorker,
     TransactionFetchWorker,
     DuplicateCheckWorker,
-    UploadWorker
+    UploadWorker,
+    WizardController,
 )
 
 
@@ -75,6 +76,39 @@ class TestBudgetFetchWorker(unittest.TestCase):
         self.assertIsNone(self.finished_signal_data)
         self.assertIn("Failed to fetch budgets", self.error_signal_message)
         self.assertIn("API error", self.error_signal_message)
+
+
+class TestWizardControllerAuthorization(unittest.TestCase):
+    @patch("ui.controller.YnabClient")
+    def test_authorize_verifies_token_and_reuses_fetched_budgets(self, client_cls):
+        budgets = [{"id": "budget-1", "name": "Main"}]
+        client = client_cls.return_value
+        client.get_budgets.return_value = budgets
+        controller = WizardController()
+        received = []
+        controller.budgetsFetched.connect(received.append)
+
+        self.assertTrue(controller.authorize("valid-token", save=False))
+        controller.fetch_budgets()
+
+        client.get_budgets.assert_called_once_with()
+        self.assertEqual(received, [budgets])
+        self.assertIs(controller.ynab, client)
+
+    @patch("ui.controller.YnabClient")
+    def test_authorize_surfaces_rejected_credentials_before_budget_page(self, client_cls):
+        error = Exception("401 Client Error")
+        error.response = MagicMock(status_code=401)
+        client_cls.return_value.get_budgets.side_effect = error
+        controller = WizardController()
+        errors = []
+        controller.errorOccurred.connect(errors.append)
+
+        self.assertFalse(controller.authorize("invalid-token", save=False))
+
+        self.assertIsNone(controller.ynab)
+        self.assertIn("rejected these credentials", controller.last_error_message)
+        self.assertEqual(errors, [controller.last_error_message])
 
 
 class TestAccountFetchWorker(unittest.TestCase):

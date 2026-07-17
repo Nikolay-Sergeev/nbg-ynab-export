@@ -1,4 +1,3 @@
-import csv
 import logging
 import os
 from pathlib import Path
@@ -21,6 +20,8 @@ from converter.utils import (
     convert_amount,
     strip_accents,
     sanitize_csv_formulas,
+    validate_xlsx_archive,
+    write_csv_securely,
 )
 
 __all__ = [
@@ -98,6 +99,7 @@ def generate_output_filename(
 
 
 def load_previous_transactions(csv_file: str) -> pd.DataFrame:
+    _validate_file_size(Path(csv_file), label="Previous transactions file")
     try:
         return pd.read_csv(csv_file)
     except Exception as e:
@@ -134,12 +136,27 @@ def generate_actual_output_filename(input_file: str, is_revolut: bool = False) -
     return str(ynab_path.with_name(actual_name))
 
 
+MAX_INPUT_FILE_BYTES = 50 * 1024 * 1024
+
+
+def _validate_file_size(path: Path, *, label: str) -> None:
+    if not path.exists():
+        raise FileNotFoundError(f"{label} not found: '{path}'")
+    if not path.is_file():
+        raise ValueError(f"{label} is not a regular file: '{path}'")
+    if path.stat().st_size > MAX_INPUT_FILE_BYTES:
+        raise ValueError(f"{label} exceeds the 50 MB safety limit")
+
+
 def validate_input_file(file_path: str) -> None:
-    if not os.path.exists(file_path):
+    path = Path(file_path)
+    if not path.exists():
         raise FileNotFoundError(f"File not found: '{file_path}'")
-    file_ext = os.path.splitext(file_path)[1].lower()
+    _validate_file_size(path, label="Input file")
+    file_ext = path.suffix.lower()
     if file_ext not in SUPPORTED_EXT:
         raise ValueError(f"Unsupported file type: '{file_ext}' (must be .xlsx, .xls, or .csv)")
+    validate_xlsx_archive(path)
 
 
 class ConversionService:
@@ -168,7 +185,7 @@ class ConversionService:
             )
             write_df = ynab_df.drop(columns=['ImportId'], errors='ignore')
             safe_df = sanitize_csv_formulas(write_df, columns=['Payee', 'Memo'])
-            safe_df.to_csv(csv_file, index=False, quoting=csv.QUOTE_MINIMAL)
+            write_csv_securely(safe_df, csv_file)
             logging.info("Conversion complete. The CSV file is saved as: %s", csv_file)
         return ynab_df
 
@@ -202,7 +219,7 @@ class ConversionService:
         safe_df = sanitize_csv_formulas(actual_df, columns=['payee', 'notes'])
         try:
             os.makedirs(os.path.dirname(csv_file), exist_ok=True)
-            safe_df.to_csv(csv_file, index=False, quoting=csv.QUOTE_MINIMAL)
+            write_csv_securely(safe_df, csv_file)
         except Exception:
             try:
                 # Fallback to project-local directory
@@ -211,12 +228,12 @@ class ConversionService:
                 os.makedirs(fallback_dir, exist_ok=True)
                 base = os.path.basename(csv_file)
                 csv_file = os.path.join(fallback_dir, base)
-                safe_df.to_csv(csv_file, index=False, quoting=csv.QUOTE_MINIMAL)
+                write_csv_securely(safe_df, csv_file)
             except Exception:
                 # Final fallback: write next to the input file
                 in_dir = os.path.dirname(os.path.abspath(input_file))
                 base = os.path.basename(csv_file)
                 csv_file = os.path.join(in_dir, base)
-                safe_df.to_csv(csv_file, index=False, quoting=csv.QUOTE_MINIMAL)
+                write_csv_securely(safe_df, csv_file)
         logging.info(f"Actual export complete. The CSV file is saved as: {csv_file}")
         return csv_file

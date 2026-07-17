@@ -1,6 +1,7 @@
 import requests
 import logging
 import os
+import re
 from config import SETTINGS_DIR, ensure_app_dir
 
 # Setup YNAB API logging
@@ -45,6 +46,28 @@ logging.basicConfig(
     format='%(asctime)s %(levelname)s %(message)s',
     filemode='a'
 )
+
+
+def _redact_resource_ids(url: str) -> str:
+    redacted = re.sub(r'(/budgets/)[^/]+', r'\1<budget-id>', url)
+    return re.sub(r'(/accounts/)[^/]+', r'\1<account-id>', redacted)
+
+
+def _payload_shape(payload):
+    """Describe a request without persisting financial transaction contents."""
+    if payload is None:
+        return None
+    if isinstance(payload, dict):
+        shape = {}
+        for key, value in payload.items():
+            if isinstance(value, (list, tuple)):
+                shape[key] = {'type': 'list', 'count': len(value)}
+            elif isinstance(value, dict):
+                shape[key] = {'type': 'object', 'keys': sorted(value.keys())}
+            else:
+                shape[key] = {'type': type(value).__name__}
+        return shape
+    return {'type': type(payload).__name__}
 
 
 class YnabClient:
@@ -130,13 +153,14 @@ class YnabClient:
         try:
             log_entry = {
                 'method': method,
-                'url': url,
+                'url': _redact_resource_ids(url),
                 'status_code': resp.status_code,
                 'params': params,
             }
             if _log_verbose:
-                log_entry['json'] = json
-                log_entry['response'] = resp.text[:10000]  # Avoid logging huge responses
+                log_entry['request_shape'] = _payload_shape(json)
+                response_content = getattr(resp, 'content', b'') or b''
+                log_entry['response_bytes'] = len(response_content)
             if resp.status_code >= 400:
                 api_logger.warning('[YNAB API] %s', log_entry)
             else:

@@ -150,6 +150,44 @@ class TestTokenManager(unittest.TestCase):
             # Restore the original SETTINGS_FILE path
             services.token_manager.SETTINGS_FILE = original_settings_file
 
+    @unittest.skipUnless(hasattr(os, "symlink"), "symlinks are unavailable")
+    def test_save_token_refuses_symlinked_settings_file(self):
+        original_key_file = services.token_manager.KEY_FILE
+        original_settings_file = services.token_manager.SETTINGS_FILE
+        victim_path = os.path.join(self.test_dir, "victim.txt")
+        settings_link = os.path.join(self.test_dir, "settings.txt")
+        key_path = os.path.join(self.test_dir, "settings.key")
+        with open(victim_path, "w", encoding="utf-8") as victim:
+            victim.write("do-not-overwrite")
+        os.symlink(victim_path, settings_link)
+        services.token_manager.KEY_FILE = key_path
+        services.token_manager.SETTINGS_FILE = settings_link
+
+        try:
+            with self.assertRaises(OSError):
+                save_token("a-valid-secret")
+            with open(victim_path, "r", encoding="utf-8") as victim:
+                self.assertEqual(victim.read(), "do-not-overwrite")
+        finally:
+            services.token_manager.KEY_FILE = original_key_file
+            services.token_manager.SETTINGS_FILE = original_settings_file
+
+    @unittest.skipUnless(hasattr(os, "symlink"), "symlinks are unavailable")
+    def test_load_key_refuses_symlink(self):
+        original_key_file = services.token_manager.KEY_FILE
+        victim_path = os.path.join(self.test_dir, "victim.key")
+        key_link = os.path.join(self.test_dir, "settings.key")
+        with open(victim_path, "wb") as victim:
+            victim.write(generate_key())
+        os.symlink(victim_path, key_link)
+        services.token_manager.KEY_FILE = key_link
+
+        try:
+            with self.assertRaises(OSError):
+                load_key()
+        finally:
+            services.token_manager.KEY_FILE = original_key_file
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

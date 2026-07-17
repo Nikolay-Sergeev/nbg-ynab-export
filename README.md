@@ -32,8 +32,8 @@ Format detection is strict: required column names must match the expected header
 ## Installation
 
 Requirements:
-- Python 3.8+
-- Node.js + npm (required for Actual API mode)
+- Python 3.10+
+- Node.js 20+ with npm (required for Actual API mode)
 
 Setup:
 
@@ -41,7 +41,7 @@ Setup:
 python3 -m venv venv
 source venv/bin/activate  # Windows: .\\venv\\Scripts\\activate
 pip install -r requirements.txt
-npm install --save @actual-app/api
+npm ci
 ```
 
 ## CLI Usage
@@ -95,9 +95,9 @@ Flow:
 6. Upload via Node bridge (`scripts/actual_bridge.js`)
 
 Notes:
-- Remote servers must use `https://` (UI rejects insecure `http://` except localhost)
+- Remote servers must use `https://` (the service rejects insecure `http://` except loopback hosts)
 - Optional encryption password is supported for encrypted Actual budgets
-- If bridge/API version mismatch is detected (`out-of-sync-migrations`), client attempts one automatic `npm install --save @actual-app/api` and retries
+- If a bridge/API version mismatch is detected (`out-of-sync-migrations`), update the reviewed dependency lock and run `npm ci`; the app never installs packages at runtime
 
 ### Mode: File Converter
 Flow:
@@ -123,14 +123,17 @@ Local app directory:
 Files:
 - `settings.txt`: encrypted YNAB token (`TOKEN:`), last folder (`FOLDER:`), last mode (`MODE:`)
 - `settings.key`: Fernet key
-- `actual_settings.txt`: encrypted Actual URL/password (+ optional encryption password)
+- `actual_settings.txt`: Actual URL and encrypted passwords (+ optional encryption password)
 - `ynab_api.log`: YNAB API log
 
 Security behavior:
-- Secret files are written with `0600` permissions when possible
+- The app directory uses `0700`; secret files and generated transaction CSVs use `0600` where supported
+- Private files and generated CSVs are written atomically and symlink targets are rejected
+- Remote Actual connections require TLS, and the Node bridge receives only an allowlisted environment
+- Verbose YNAB logs record request shapes and byte counts, not transaction bodies or API responses
 - `YNAB_TOKEN` environment variable overrides saved YNAB token
 - `YNAB_LOG_DIR` overrides YNAB log location
-- `YNAB_API_DEBUG=1` enables verbose YNAB payload logging
+- `YNAB_API_DEBUG=1` enables verbose, redacted request metadata logging
 
 ## Development
 

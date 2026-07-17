@@ -64,8 +64,7 @@ class StepLabel(QLabel):
         super().__init__(text)
         self.setWordWrap(True)
         self.setAlignment(Qt.AlignLeft | Qt.AlignTop)
-        self.setContentsMargins(0, 4, 0, 4)
-        # Show hand cursor for clickable items
+        self.setMinimumHeight(44)
         self.setCursor(Qt.PointingHandCursor)
 
         # Use system font on macOS
@@ -77,26 +76,39 @@ class StepLabel(QLabel):
 
         # Store index for navigation
         self.step_index = -1
+        self.navigation_enabled = True
         self.set_selected(False)
 
     def set_selected(self, selected: bool):
         if selected:
-            # Use more prominent styling for selected step
             self.setStyleSheet(
-                "background-color:#0066cc;color:white;border-radius:6px;"
-                "padding:8px 16px;font-size:13pt;font-weight:bold;"
-                "margin:2px 0px;border-left:4px solid #0066cc;"
+                "background-color:#0066cc;color:white;border-radius:8px;"
+                "padding:10px 12px;font-size:12pt;font-weight:600;"
+            )
+        elif self.navigation_enabled:
+            self.setStyleSheet(
+                "background-color:transparent;color:#333;border-radius:8px;"
+                "padding:10px 12px;font-size:12pt;font-weight:500;"
             )
         else:
             self.setStyleSheet(
-                "color:#333;padding:8px 16px;font-size:13pt;margin:2px 0px;"
-                "border-left:4px solid transparent;"
+                "background-color:transparent;color:#8A96A8;border-radius:8px;"
+                "padding:10px 12px;font-size:12pt;font-weight:500;"
             )
+
+    def set_navigation_enabled(self, enabled: bool):
+        self.navigation_enabled = enabled
+        self.setCursor(Qt.PointingHandCursor if enabled else Qt.ArrowCursor)
+        self.setToolTip("" if enabled else "Complete the previous steps first")
 
     def mousePressEvent(self, event):
         # Notify parent window to navigate to this step
         window = self.window()
-        if hasattr(window, "go_to_page") and self.step_index >= 0:
+        if (
+            self.navigation_enabled
+            and hasattr(window, "go_to_page")
+            and self.step_index >= 0
+        ):
             window.go_to_page(self.step_index)
 
         # Call parent implementation
@@ -179,37 +191,49 @@ class SidebarWizardWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.logger = logging.getLogger(__name__)
-        self.setWindowTitle("NBG/Revolut to YNAB Wizard")
+        self.setWindowTitle("Transaction Importer")
 
-        # Use dimensions that fit content properly while allowing resize
-        self.setMinimumSize(960, 600)
+        self.setMinimumSize(1040, 680)
+        self.resize(1120, 720)
+        self.highest_reached = 0
 
-        # Create single widget with no borders or spacing
         central = QWidget()
-        central.setStyleSheet("QWidget { border: none; }")  # Ensure no borders anywhere
+        central.setObjectName("app-shell")
         main_layout = QHBoxLayout(central)
-        main_layout.setContentsMargins(0, 0, 0, 0)  # No margins
-        main_layout.setSpacing(0)  # No spacing between widgets
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
 
         # Setup sidebar with step indicators
         step_titles = [
-            "Import File",
-            "Authorize",
-            "Select Budget\nand Account",
-            "Transactions",
-            "Review",
-            "Finish",
+            "1   Import file",
+            "2   Connect",
+            "3   Choose account",
+            "4   Check activity",
+            "5   Review import",
+            "6   Complete",
         ]
         self.step_labels = []
         sidebar_layout = QVBoxLayout()
+        sidebar_layout.setContentsMargins(20, 28, 20, 24)
+        sidebar_layout.setSpacing(6)
 
-        # Use macOS-style margins and spacing
-        if sys.platform.startswith('darwin'):
-            sidebar_layout.setContentsMargins(10, 18, 0, 18)
-            sidebar_layout.setSpacing(10)
-        else:
-            sidebar_layout.setContentsMargins(10, 16, 0, 16)
-            sidebar_layout.setSpacing(12)
+        self.product_eyebrow = QLabel("FINANCE TOOLS")
+        self.product_eyebrow.setProperty("role", "sidebar-eyebrow")
+        sidebar_layout.addWidget(self.product_eyebrow)
+
+        self.product_title = QLabel("Transaction\nImporter")
+        self.product_title.setProperty("role", "sidebar-title")
+        sidebar_layout.addWidget(self.product_title)
+
+        self.product_description = QLabel("Move statement data safely into your budget.")
+        self.product_description.setProperty("role", "sidebar-description")
+        self.product_description.setWordWrap(True)
+        sidebar_layout.addWidget(self.product_description)
+        sidebar_layout.addSpacing(18)
+
+        self.steps_heading = QLabel("PROGRESS")
+        self.steps_heading.setProperty("role", "sidebar-eyebrow")
+        sidebar_layout.addWidget(self.steps_heading)
 
         for i, t in enumerate(step_titles):
             lbl = StepLabel(t)
@@ -218,18 +242,23 @@ class SidebarWizardWindow(QMainWindow):
             sidebar_layout.addWidget(lbl)
 
         sidebar_layout.addStretch()
+        self.target_badge = QLabel("Destination: YNAB")
+        self.target_badge.setObjectName("target-badge")
+        self.target_badge.setWordWrap(True)
+        sidebar_layout.addWidget(self.target_badge)
+
         side_widget = QWidget()
+        side_widget.setObjectName("sidebar")
         side_widget.setLayout(sidebar_layout)
 
-        # Use consistent styling for sidebar - fixed width
-        side_widget.setFixedWidth(180)
-        side_widget.setStyleSheet("background-color: #F7F8FA;")  # Light gray background
+        side_widget.setFixedWidth(244)
 
         # Add sidebar to main layout
         main_layout.addWidget(side_widget)
 
         # Create content widget
         content_widget = QWidget()
+        content_widget.setObjectName("content-area")
         content_layout = QVBoxLayout(content_widget)
         content_layout.setContentsMargins(0, 0, 0, 0)  # No margins
 
@@ -238,26 +267,28 @@ class SidebarWizardWindow(QMainWindow):
 
         # Create a container for the pages and navigation buttons
         page_container = QWidget()
+        page_container.setObjectName("page-container")
         page_container_layout = QVBoxLayout(page_container)
         page_container_layout.setContentsMargins(0, 0, 0, 0)  # No margins
         page_container_layout.setSpacing(0)  # No spacing between elements
 
         # Create stacked widget for pages
         self.pages_stack = QStackedWidget()
+        self.pages_stack.setContentsMargins(32, 28, 32, 24)
         page_container_layout.addWidget(self.pages_stack)
 
         # Create navigation buttons
         nav_button_container = QWidget()
         nav_button_container.setObjectName("nav-button-container")
-        nav_button_container.setMinimumHeight(60)  # Ensure consistent height
+        nav_button_container.setMinimumHeight(76)
         nav_button_layout = QHBoxLayout(nav_button_container)
-        nav_button_layout.setContentsMargins(20, 10, 20, 10)  # Add some padding
+        nav_button_layout.setContentsMargins(32, 16, 32, 16)
 
         # Back button
         self.back_button = QPushButton("Back")
         self.back_button.setObjectName("back-btn")
-        self.back_button.setFixedWidth(120)
-        self.back_button.setFixedHeight(40)
+        self.back_button.setMinimumWidth(104)
+        self.back_button.setFixedHeight(42)
         self.back_button.clicked.connect(self.go_back)
         nav_button_layout.addWidget(self.back_button)
 
@@ -267,17 +298,15 @@ class SidebarWizardWindow(QMainWindow):
         # Next/Continue button
         self.next_button = QPushButton("Continue")
         self.next_button.setObjectName("continue-btn")
-        self.next_button.setFixedWidth(120)
-        self.next_button.setFixedHeight(40)
+        self.next_button.setMinimumWidth(144)
+        self.next_button.setFixedHeight(42)
         self.next_button.clicked.connect(self.go_forward)
         nav_button_layout.addWidget(self.next_button)
 
         # Add a separator line above buttons
         separator = QFrame()
         separator.setFrameShape(QFrame.HLine)
-        separator.setFrameShadow(QFrame.Sunken)
         separator.setObjectName("nav-separator")
-        separator.setStyleSheet("background-color: #E1E3E5; max-height: 1px;")
         page_container_layout.addWidget(separator)
 
         # Add buttons to page container layout
@@ -350,37 +379,50 @@ class SidebarWizardWindow(QMainWindow):
         order while still working when labels are remapped for other targets.
         """
         for idx, lbl in enumerate(self.step_labels):
-            if not lbl.isVisible():
+            # ``isVisible`` is false while the window itself is still hidden,
+            # so only skip labels explicitly removed from the active workflow.
+            if lbl.isHidden():
                 continue
-            lbl.set_selected((lbl.step_index == step) or (idx == step))
+            selected = (lbl.step_index == step) or (idx == step)
+            lbl.set_navigation_enabled(lbl.step_index <= self.highest_reached)
+            lbl.set_selected(selected)
 
     def set_steps_for_target(self, target: str):
         target = (target or 'YNAB').upper()
         self.logger.info("[Wizard] set_steps_for_target: %s", target)
+        if hasattr(self, "pages_stack") and self.pages_stack.currentIndex() == 0:
+            self.highest_reached = 0
         # Default mapping for YNAB
         mapping = [
-            (0, "Attach a file"),
-            (1, "Verify token"),
-            (2, "Select Budget and account"),
-            (3, "Check latest transactions"),
-            (4, "Choose what to import or skip"),
-            (5, "Finish"),
+            (0, "1   Import file"),
+            (1, "2   Connect YNAB"),
+            (2, "3   Choose account"),
+            (3, "4   Check activity"),
+            (4, "5   Review import"),
+            (5, "6   Complete"),
         ]
         if target == 'ACTUAL_API':
             mapping = [
-                (0, "Attach a file"),
-                (1, "Verify server URL and password"),
-                (2, "Select Budget and account"),
-                (3, "Check latest transactions"),
-                (4, "Choose what to import or skip"),
-                (5, "Finish"),
+                (0, "1   Import file"),
+                (1, "2   Connect Actual"),
+                (2, "3   Choose account"),
+                (3, "4   Check activity"),
+                (4, "5   Review import"),
+                (5, "6   Complete"),
             ]
         elif target == 'FILE':
             mapping = [
-                (0, "Attach a file"),
-                (4, "Choose what to import or skip"),
-                (5, "Finish"),
+                (0, "1   Import file"),
+                (4, "2   Review export"),
+                (5, "3   Complete"),
             ]
+
+        destination_names = {
+            "YNAB": "YNAB",
+            "ACTUAL_API": "Actual Budget",
+            "FILE": "Converted CSV",
+        }
+        self.target_badge.setText(f"Destination: {destination_names.get(target, 'YNAB')}")
 
         # Apply mapping to labels
         for i, lbl in enumerate(self.step_labels):
@@ -422,6 +464,7 @@ class SidebarWizardWindow(QMainWindow):
                     self.update_sidebar(0)
                     self.update_nav_buttons()
                     return
+            self.highest_reached = max(self.highest_reached, index)
             # Route Authorize step to Actual auth when selected
             if (
                 index == 1
@@ -457,6 +500,12 @@ class SidebarWizardWindow(QMainWindow):
                 # Update navigation button states
                 self.update_nav_buttons()
 
+    def current_logical_index(self):
+        """Return the visible workflow index, including the alternate auth page."""
+        if self.pages_stack.currentWidget() is getattr(self, "actual_auth_page", None):
+            return 1
+        return self.pages_stack.currentIndex()
+
     def go_back(self):
         """Go to the previous page"""
         # Special-case: if on Actual auth page, go back to Import (logical step 0)
@@ -469,67 +518,35 @@ class SidebarWizardWindow(QMainWindow):
 
     def go_forward(self):
         """Go to the next page"""
-        current = self.pages_stack.currentIndex()
-        if current < self.pages_stack.count() - 1:
-            # Get current page
-            page = self.pages_stack.currentWidget()
+        current = self.current_logical_index()
+        page = self.pages_stack.currentWidget()
 
-            # Check if page is complete before proceeding
-            if hasattr(page, 'isComplete') and not page.isComplete():
+        if hasattr(page, 'isComplete') and not page.isComplete():
+            self.logger.info(
+                "[SidebarWizardWindow] Page %s is not complete, cannot proceed",
+                current,
+            )
+            return
+
+        if hasattr(page, 'validate_and_proceed'):
+            self.logger.debug(
+                "[SidebarWizardWindow] Using validate_and_proceed for page %s",
+                current,
+            )
+            result = page.validate_and_proceed()
+            if not result:
                 self.logger.info(
-                    "[SidebarWizardWindow] Page %s is not complete, cannot proceed",
+                    "[SidebarWizardWindow] validate_and_proceed returned False for page %s",
                     current,
                 )
-                return
-
-            # Check if page has a validate_and_proceed method
-            if hasattr(page, 'validate_and_proceed'):
-                self.logger.debug(
-                    "[SidebarWizardWindow] Using validate_and_proceed for page %s",
-                    current,
-                )
-                result = page.validate_and_proceed()
-                if not result:
-                    self.logger.info(
-                        "[SidebarWizardWindow] validate_and_proceed returned False for page %s",
-                        current,
-                    )
-            else:
-                # If no validation needed, proceed to next page, with special handling for Actual export
-                self.logger.debug(
-                    "[SidebarWizardWindow] No validate_and_proceed method for page %s, proceeding",
-                    current,
-                )
-                # If leaving Import page and target is Actual API, go to Actual auth page and keep sidebar on step 1
-                if current == 0 and getattr(self.controller, 'export_target', 'YNAB') == 'ACTUAL_API':
-                    if hasattr(self, 'actual_auth_page') and self.actual_auth_page is not None:
-                        page = self.actual_auth_page
-                        if hasattr(page, 'initializePage'):
-                            page.initializePage()
-                        self.pages_stack.setCurrentWidget(page)
-                        self.update_sidebar(1)
-                        self.update_nav_buttons()
-                    else:
-                        # Fallback to standard auth page if Actual page is unavailable
-                        self.go_to_page(1)
-                elif current == 0 and getattr(self.controller, 'export_target', 'YNAB') == 'FILE':
-                    # Jump directly to review/selection step for File Converter
-                    self.go_to_page(4)
-                else:
-                    self.go_to_page(current + 1)
-        elif current == self.pages_stack.count() - 1:
-            # On the last page, check if we should close the app
-            page = self.pages_stack.currentWidget()
-            if hasattr(page, 'validate_and_proceed'):
-                self.logger.debug("[SidebarWizardWindow] Calling validate_and_proceed on final page")
-                page.validate_and_proceed()
-            else:
-                self.logger.info("[SidebarWizardWindow] Closing application from final page")
-                self.close()
+        elif current < 5:
+            self.go_to_page(current + 1)
+        else:
+            self.close()
 
     def update_nav_buttons(self):
         """Update navigation buttons based on current page"""
-        current = self.pages_stack.currentIndex()
+        current = self.current_logical_index()
 
         # First page has Exit button instead of Back
         if current == 0:
@@ -557,22 +574,27 @@ class SidebarWizardWindow(QMainWindow):
                 pass
             self.back_button.clicked.connect(self.go_back)
 
-        # Hide back button on last page
-        if current == self.pages_stack.count() - 1:
+        page = self.pages_stack.currentWidget()
+        is_finish_page = isinstance(page, FinishPage)
+
+        if is_finish_page:
             self.back_button.hide()
         else:
             self.back_button.show()
 
-        # Next button text: default Continue, Exit only on FinishPage
-        page = self.pages_stack.currentWidget()
-        is_finish_page = hasattr(page, "__class__") and page.__class__.__name__ == "FinishPage"
         if is_finish_page:
-            self.next_button.setText("Exit")
+            self.next_button.setText("Close")
+        elif page is self.auth_page or page is self.actual_auth_page:
+            self.next_button.setText("Connect")
+        elif page is self.transactions_page:
+            self.next_button.setText("Review file")
+        elif page is self.review_page:
+            target = getattr(self.controller, "export_target", "YNAB")
+            self.next_button.setText("Export file" if target == "FILE" else "Import transactions")
         else:
             self.next_button.setText("Continue")
 
         # Check if current page has isComplete method to determine if next is enabled
-        page = self.pages_stack.currentWidget()
         if hasattr(page, 'isComplete'):
             try:
                 is_complete = page.isComplete()

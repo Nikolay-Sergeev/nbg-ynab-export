@@ -149,34 +149,35 @@ class TestConversionServiceCore(unittest.TestCase):
         with self.assertRaises(FileNotFoundError):
             validate_input_file(nonexistent_file)
 
-    @patch('os.path.exists', return_value=True)
-    def test_validate_input_file_unsupported(self, mock_exists):
+    def test_validate_input_file_unsupported(self):
         """Test validating file with unsupported extension."""
-        unsupported_files = [
-            "/path/to/file.txt",
-            "/path/to/file.pdf",
-            "/path/to/file.docx"
-        ]
-        
-        for file_path in unsupported_files:
-            with self.subTest(file_path=file_path):
-                with self.assertRaises(ValueError) as cm:
-                    validate_input_file(file_path)
-                self.assertIn("Unsupported file type", str(cm.exception))
+        with tempfile.TemporaryDirectory() as td:
+            for suffix in (".txt", ".pdf", ".docx"):
+                file_path = Path(td) / f"file{suffix}"
+                file_path.touch()
+                with self.subTest(file_path=file_path):
+                    with self.assertRaises(ValueError) as cm:
+                        validate_input_file(str(file_path))
+                    self.assertIn("Unsupported file type", str(cm.exception))
 
-    @patch('os.path.exists', return_value=True)
-    def test_validate_input_file_supported(self, mock_exists):
+    def test_validate_input_file_supported(self):
         """Test validating file with supported extension."""
-        supported_files = [
-            "/path/to/file.xlsx",
-            "/path/to/file.xls",
-            "/path/to/file.csv"
-        ]
-        
-        for file_path in supported_files:
-            with self.subTest(file_path=file_path):
-                # Should not raise an exception
-                validate_input_file(file_path)
+        with tempfile.TemporaryDirectory() as td:
+            for suffix in (".xlsx", ".xls", ".csv"):
+                file_path = Path(td) / f"file{suffix}"
+                file_path.touch()
+                with self.subTest(file_path=file_path):
+                    validate_input_file(str(file_path))
+
+    def test_validate_input_file_rejects_excessive_size(self):
+        with tempfile.TemporaryDirectory() as td:
+            file_path = Path(td) / "large.csv"
+            with file_path.open("wb") as oversized:
+                oversized.seek(50 * 1024 * 1024)
+                oversized.write(b"x")
+
+            with self.assertRaisesRegex(ValueError, "50 MB safety limit"):
+                validate_input_file(str(file_path))
 
 
 class TestAccountOperations(unittest.TestCase):

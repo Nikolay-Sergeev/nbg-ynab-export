@@ -1,5 +1,5 @@
 from PyQt5.QtWidgets import (
-    QWizardPage, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QCheckBox,
+    QWizardPage, QVBoxLayout, QLabel, QLineEdit, QCheckBox,
     QFrame, QSizePolicy
 )
 from PyQt5.QtCore import Qt
@@ -7,6 +7,7 @@ from urllib.parse import urlparse
 import os
 from config import SETTINGS_FILE, ACTUAL_SETTINGS_FILE, get_logger, ensure_app_dir
 from services import token_manager as _token_manager
+from ui.components import add_page_header
 
 
 class ActualAuthPage(QWizardPage):
@@ -14,6 +15,7 @@ class ActualAuthPage(QWizardPage):
         super().__init__()
         self.controller = controller
         self.setTitle("")
+        self.setObjectName("actual-auth-page")
         self.logger = get_logger(__name__)
 
         outer = QVBoxLayout(self)
@@ -23,41 +25,43 @@ class ActualAuthPage(QWizardPage):
         card.setObjectName("card-panel")
         card.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         layout = QVBoxLayout(card)
-        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setContentsMargins(32, 28, 32, 28)
         layout.setSpacing(12)
 
-        title = QLabel("Connect to Actual Budget Server")
-        title.setProperty('role', 'title')
-        layout.addWidget(title)
+        add_page_header(
+            layout,
+            "Step 2",
+            "Connect to Actual Budget",
+            "Enter the address and credentials for your Actual server.",
+        )
 
         # Server URL
-        url_row = QHBoxLayout()
-        url_label = QLabel("Server URL:")
+        url_label = QLabel("Server URL")
+        url_label.setProperty("role", "field-label")
         self.url_input = QLineEdit()
         self.url_input.setPlaceholderText("https://actual.example.com")
-        url_row.addWidget(url_label)
-        url_row.addWidget(self.url_input)
-        layout.addLayout(url_row)
+        layout.addWidget(url_label)
+        layout.addWidget(self.url_input)
 
         # Password
-        pwd_row = QHBoxLayout()
-        pwd_label = QLabel("Password:")
+        layout.addSpacing(4)
+        pwd_label = QLabel("Server password")
+        pwd_label.setProperty("role", "field-label")
         self.pwd_input = QLineEdit()
         self.pwd_input.setEchoMode(QLineEdit.Password)
         self.pwd_input.setPlaceholderText("Server password")
-        pwd_row.addWidget(pwd_label)
-        pwd_row.addWidget(self.pwd_input)
-        layout.addLayout(pwd_row)
+        layout.addWidget(pwd_label)
+        layout.addWidget(self.pwd_input)
 
         # Encryption password (optional)
-        enc_row = QHBoxLayout()
-        enc_label = QLabel("Encryption Password (optional):")
+        layout.addSpacing(4)
+        enc_label = QLabel("Budget encryption password  ·  Optional")
+        enc_label.setProperty("role", "field-label")
         self.enc_pwd_input = QLineEdit()
         self.enc_pwd_input.setEchoMode(QLineEdit.Password)
-        self.enc_pwd_input.setPlaceholderText("Budget encryption password (if different)")
-        enc_row.addWidget(enc_label)
-        enc_row.addWidget(self.enc_pwd_input)
-        layout.addLayout(enc_row)
+        self.enc_pwd_input.setPlaceholderText("Leave blank to use the server password")
+        layout.addWidget(enc_label)
+        layout.addWidget(self.enc_pwd_input)
 
         # Save checkbox
         self.save_checkbox = QCheckBox("Save credentials securely on this device")
@@ -66,8 +70,7 @@ class ActualAuthPage(QWizardPage):
 
         # Helper and error
         self.helper_label = QLabel(
-            "Credentials are stored locally. "
-            "Leave encryption password blank to reuse the server password."
+            "Saved credentials are encrypted and kept only on this device."
         )
         self.helper_label.setObjectName("helper-label")
         self.error_label = QLabel("")

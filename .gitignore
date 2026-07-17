@@ -16,7 +16,6 @@ venv/
 env/
 .npm/
 node_modules/
-package-lock.json
 .claude/settings.local.json
 .coverage
 actual-data/

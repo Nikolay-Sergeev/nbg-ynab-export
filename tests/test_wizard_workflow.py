@@ -284,6 +284,35 @@ class TestWizardWorkflowTransitions(unittest.TestCase):
                 else:
                     self.assertNotIn("background-color:#0066cc", label.styleSheet())
 
+    def test_future_sidebar_steps_unlock_as_the_workflow_advances(self):
+        """Future steps are visible but cannot be opened before prerequisites."""
+        self.wizard_window.go_to_page(0)
+        self.assertTrue(self.wizard_window.step_labels[0].navigation_enabled)
+        self.assertFalse(self.wizard_window.step_labels[1].navigation_enabled)
+
+        self.wizard_window.import_page.file_path = "/path/to/test.xlsx"
+        self.mock_controller.export_target = "YNAB"
+        self.wizard_window.go_to_page(1)
+
+        self.assertTrue(self.wizard_window.step_labels[1].navigation_enabled)
+        self.assertFalse(self.wizard_window.step_labels[2].navigation_enabled)
+
+    def test_actual_auth_uses_connect_step_navigation_state(self):
+        """The alternate Actual auth widget behaves like logical step two."""
+        self.wizard_window.import_page.file_path = "/path/to/test.xlsx"
+        self.mock_controller.export_target = "ACTUAL_API"
+        self.wizard_window.set_steps_for_target("ACTUAL_API")
+        self.wizard_window.go_to_page(1)
+
+        self.assertIs(
+            self.wizard_window.pages_stack.currentWidget(),
+            self.wizard_window.actual_auth_page,
+        )
+        self.assertEqual(self.wizard_window.current_logical_index(), 1)
+        self.assertEqual(self.wizard_window.back_button.text(), "Back")
+        self.assertEqual(self.wizard_window.next_button.text(), "Connect")
+        self.assertFalse(self.wizard_window.back_button.isHidden())
+
 
 if __name__ == '__main__':
     unittest.main()

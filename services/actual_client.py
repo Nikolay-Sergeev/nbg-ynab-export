@@ -1,13 +1,46 @@
-from typing import Optional
-from urllib.parse import urlparse
+import ipaddress
 from pathlib import Path
-import subprocess
-import threading
+from typing import Optional
+from urllib.parse import urlsplit
+
 from config import get_logger
 from services.actual_bridge_runner import ActualBridgeRunner
 
 
 logger = get_logger(__name__)
+
+
+def _is_loopback_host(hostname: str) -> bool:
+    if hostname.lower() == 'localhost':
+        return True
+    try:
+        return ipaddress.ip_address(hostname).is_loopback
+    except ValueError:
+        return False
+
+
+def validate_actual_server_url(base_url: str) -> str:
+    """Return a normalized Actual URL after enforcing safe transport rules."""
+    if not isinstance(base_url, str) or not base_url or base_url != base_url.strip():
+        raise ValueError("Actual server URL must be a non-empty URL without surrounding whitespace")
+    if any(ord(character) < 32 for character in base_url):
+        raise ValueError("Actual server URL contains invalid control characters")
+
+    parsed = urlsplit(base_url)
+    scheme = parsed.scheme.lower()
+    if scheme not in ('http', 'https') or not parsed.hostname:
+        raise ValueError("Actual server URL must be an absolute http:// or https:// URL")
+    if parsed.username is not None or parsed.password is not None:
+        raise ValueError("Actual server URL must not contain embedded credentials")
+    if parsed.query or parsed.fragment:
+        raise ValueError("Actual server URL must not contain a query string or fragment")
+    try:
+        parsed.port
+    except ValueError as exc:
+        raise ValueError("Actual server URL contains an invalid port") from exc
+    if scheme == 'http' and not _is_loopback_host(parsed.hostname):
+        raise ValueError("Remote Actual servers must use HTTPS")
+    return base_url.rstrip('/')
 
 
 class ActualClient:
@@ -29,110 +62,40 @@ class ActualClient:
     ):
         self._project_root = Path(__file__).resolve().parent.parent
         # Bridge-based client using @actual-app/api via Node
-        self.base_url = base_url.rstrip('/')
-        self.password = password
+        self.base_url = validate_actual_server_url(base_url)
+        if not isinstance(password, str) or not password:
+            raise ValueError("Actual server password is required")
         # Use explicit encryption password when provided; otherwise fall back to server password.
         self.download_password = encryption_password or password
         self.data_dir = data_dir
-        self._npm_install_attempts = set()
-        self._npm_install_lock = threading.Lock()
-        parsed = urlparse(self.base_url)
-        if parsed.scheme.lower() == "http":
-            host = (parsed.hostname or "").lower()
-            if host not in ("localhost", "127.0.0.1", "::1"):
-                logger.warning("[ActualClient] Insecure HTTP URL for remote server: %s", self.base_url)
-        elif parsed.scheme and parsed.scheme.lower() != "https":
-            logger.warning("[ActualClient] Unrecognized URL scheme for Actual server: %s", self.base_url)
         # Bridge can be injected for testing
         self.bridge = bridge or ActualBridgeRunner(
             project_root=self._project_root
         )
-        init_resp = self.bridge.init(self.base_url, self.password, self.data_dir)
+        init_resp = self.bridge.init(self.base_url, password, self.data_dir)
         if not init_resp.get("ok"):
             raise RuntimeError(init_resp.get("error") or "Failed to init Actual bridge")
 
-    def _restart_bridge(self) -> bool:
-        try:
-            if self.bridge:
-                self.bridge.close()
-        except Exception:
-            pass
-        try:
-            self.bridge = ActualBridgeRunner(project_root=self._project_root)
-            init_resp = self.bridge.init(self.base_url, self.password, self.data_dir)
-            if not init_resp.get("ok"):
-                logger.error("[ActualClient] Bridge re-init failed: %s", init_resp.get("error"))
-                return False
-            return True
-        except Exception as exc:
-            logger.error("[ActualClient] Failed to restart Actual bridge: %s", exc)
-            return False
-
-    def _attempt_npm_install(self) -> bool:
-        spec_key = "latest_actual_api"
-        with self._npm_install_lock:
-            if spec_key in self._npm_install_attempts:
-                return False
-            self._npm_install_attempts.add(spec_key)
-        package_json = self._project_root / "package.json"
-        if not package_json.exists():
-            logger.error("[ActualClient] package.json not found; cannot run npm install")
-            return False
-        try:
-            logger.warning(
-                "[ActualClient] Running npm install --save @actual-app/api to update Actual API client"
-            )
-            cmd = ["npm", "install", "--save", "@actual-app/api"]
-            result = subprocess.run(
-                cmd,
-                cwd=str(self._project_root),
-                capture_output=True,
-                text=True,
-            )
-        except Exception as exc:
-            logger.error("[ActualClient] npm install failed: %s", exc)
-            return False
-        if result.returncode != 0:
-            stderr = (result.stderr or "").strip()
-            stdout = (result.stdout or "").strip()
-            if stderr:
-                logger.error("[ActualClient] npm install stderr: %s", stderr)
-            if stdout:
-                logger.error("[ActualClient] npm install stdout: %s", stdout)
-            return False
-        if not self._restart_bridge():
-            return False
-        logger.info("[ActualClient] npm install completed; bridge restarted")
-        return True
-
     def _log_bridge_error(self, resp: dict, context: str) -> bool:
-        out_of_sync = False
-        detail = resp.get("details")
-        if detail:
-            logger.error("[ActualClient] Bridge error detail during %s: %s", context, detail)
-            if "out-of-sync-migrations" in detail:
-                out_of_sync = True
-                logger.error(
-                    "[ActualClient] Actual server appears newer than the API client. "
-                    "Update @actual-app/api (npm install --save @actual-app/api) and retry."
-                )
-            return out_of_sync
-        recent = None
+        error = str(resp.get("error") or "Unknown bridge error")
+        detail = str(resp.get("details") or "")
+        logger.error(
+            "[ActualClient] Bridge error during %s: %s",
+            context,
+            error.replace('\n', ' ')[:500],
+        )
+        recent = ""
         if self.bridge and hasattr(self.bridge, "recent_stderr"):
             try:
-                recent = self.bridge.recent_stderr()
+                recent = self.bridge.recent_stderr() or ""
             except Exception:
-                recent = None
-        if recent:
-            logger.error("[ActualClient] Bridge stderr during %s: %s", context, recent)
-            if "out-of-sync-migrations" in recent:
-                out_of_sync = True
-                logger.error(
-                    "[ActualClient] Actual server appears newer than the API client. "
-                    "Update @actual-app/api (npm install --save @actual-app/api) and retry."
-                )
-        if "out-of-sync-migrations" in (resp.get("error") or ""):
-            out_of_sync = True
+                recent = ""
+        out_of_sync = "out-of-sync-migrations" in "\n".join((error, detail, recent))
+        if out_of_sync:
+            logger.error(
+                "[ActualClient] Actual server appears newer than the installed API client. "
+                "Install the reviewed dependencies with npm ci and retry."
+            )
         return out_of_sync
 
     def get_budgets(self) -> list:
@@ -140,17 +103,14 @@ class ActualClient:
         logger.info("[ActualClient] Fetching budgets via bridge")
         return self._get_budgets()
 
-    def _get_budgets(self, retry_stage: int = 0) -> list:
+    def _get_budgets(self) -> list:
         resp = self.bridge.list_budgets()
         if not resp.get("ok"):
             out_of_sync = self._log_bridge_error(resp, "list budgets")
-            if out_of_sync and retry_stage < 1 and self._attempt_npm_install():
-                logger.info("[ActualClient] Retrying list budgets after npm install")
-                return self._get_budgets(retry_stage=1)
             if out_of_sync:
                 raise RuntimeError(
                     "Actual server appears newer than the API client. "
-                    "Automatic npm update failed; update the server or install a matching @actual-app/api build."
+                    "Run npm ci from a reviewed checkout or install a matching @actual-app/api build."
                 )
             raise RuntimeError(resp.get("error") or "Failed to list budgets")
         budgets = resp.get("budgets") or []
@@ -194,17 +154,14 @@ class ActualClient:
         logger.info("[ActualClient] Fetching accounts for budget=%s via bridge", budget_id)
         return self._get_accounts(budget_id)
 
-    def _get_accounts(self, budget_id: str, retry_stage: int = 0) -> list:
+    def _get_accounts(self, budget_id: str) -> list:
         resp = self.bridge.list_accounts(budget_id, self.download_password)
         if not resp.get("ok"):
             out_of_sync = self._log_bridge_error(resp, "list accounts")
-            if out_of_sync and retry_stage < 1 and self._attempt_npm_install():
-                logger.info("[ActualClient] Retrying list accounts after npm install")
-                return self._get_accounts(budget_id, retry_stage=1)
             if out_of_sync:
                 raise RuntimeError(
                     "Actual server appears newer than the API client. "
-                    "Automatic npm update failed; update the server or install a matching @actual-app/api build."
+                    "Run npm ci from a reviewed checkout or install a matching @actual-app/api build."
                 )
             raise RuntimeError(resp.get("error") or "Failed to list accounts")
         return resp.get("accounts") or []
@@ -231,7 +188,6 @@ class ActualClient:
         account_id: str,
         count: int = None,
         since_date: str = None,
-        retry_stage: int = 0,
     ) -> list:
         resp = self.bridge.list_transactions(
             budget_id,
@@ -241,19 +197,10 @@ class ActualClient:
         )
         if not resp.get("ok"):
             out_of_sync = self._log_bridge_error(resp, "list transactions")
-            if out_of_sync and retry_stage < 1 and self._attempt_npm_install():
-                logger.info("[ActualClient] Retrying list transactions after npm install")
-                return self._get_transactions(
-                    budget_id,
-                    account_id,
-                    count=count,
-                    since_date=since_date,
-                    retry_stage=1,
-                )
             if out_of_sync:
                 raise RuntimeError(
                     "Actual server appears newer than the API client. "
-                    "Automatic npm update failed; update the server or install a matching @actual-app/api build."
+                    "Run npm ci from a reviewed checkout or install a matching @actual-app/api build."
                 )
             raise RuntimeError(resp.get("error") or "Failed to list transactions")
         txs = resp.get("transactions") or []
@@ -281,7 +228,6 @@ class ActualClient:
         budget_id: str,
         account_id: str,
         transactions: list,
-        retry_stage: int = 0,
     ) -> dict:
         resp = self.bridge.upload_transactions(
             budget_id,
@@ -291,18 +237,10 @@ class ActualClient:
         )
         if not resp.get("ok"):
             out_of_sync = self._log_bridge_error(resp, "upload transactions")
-            if out_of_sync and retry_stage < 1 and self._attempt_npm_install():
-                logger.info("[ActualClient] Retrying upload after npm install")
-                return self._upload_transactions(
-                    budget_id,
-                    account_id,
-                    transactions,
-                    retry_stage=1,
-                )
             if out_of_sync:
                 raise RuntimeError(
                     "Actual server appears newer than the API client. "
-                    "Automatic npm update failed; update the server or install a matching @actual-app/api build."
+                    "Run npm ci from a reviewed checkout or install a matching @actual-app/api build."
                 )
             raise RuntimeError(resp.get("error") or "Failed to upload transactions")
         return resp
