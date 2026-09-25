@@ -521,6 +521,10 @@ class SidebarWizardWindow(QMainWindow):
         current = self.current_logical_index()
         page = self.pages_stack.currentWidget()
 
+        if page is self.finish_page:
+            self.start_new_import()
+            return
+
         if hasattr(page, 'isComplete') and not page.isComplete():
             self.logger.info(
                 "[SidebarWizardWindow] Page %s is not complete, cannot proceed",
@@ -544,12 +548,34 @@ class SidebarWizardWindow(QMainWindow):
         else:
             self.close()
 
+    def start_new_import(self):
+        """Open a fresh workflow without carrying over the completed import."""
+        if getattr(self.controller, 'client_update_busy', False):
+            return
+        new_window = type(self)()
+        new_window.setGeometry(self.geometry())
+        # Keep a Python reference after this window closes. Showing the new
+        # window first also prevents Qt from quitting on the last window close.
+        QApplication.instance()._importer_window = new_window
+        new_window.show()
+        self.close()
+
     def update_nav_buttons(self):
         """Update navigation buttons based on current page"""
         current = self.current_logical_index()
+        page = self.pages_stack.currentWidget()
+        is_finish_page = page is self.finish_page
 
         # First page has Exit button instead of Back
-        if current == 0:
+        if is_finish_page:
+            self.back_button.setText("Close")
+            self.back_button.setEnabled(True)
+            try:
+                self.back_button.clicked.disconnect()
+            except TypeError:
+                pass
+            self.back_button.clicked.connect(self.close)
+        elif current == 0:
             self.back_button.setText("Exit")
             self.back_button.setEnabled(True)
             try:
@@ -574,16 +600,10 @@ class SidebarWizardWindow(QMainWindow):
                 pass
             self.back_button.clicked.connect(self.go_back)
 
-        page = self.pages_stack.currentWidget()
-        is_finish_page = isinstance(page, FinishPage)
+        self.back_button.show()
 
         if is_finish_page:
-            self.back_button.hide()
-        else:
-            self.back_button.show()
-
-        if is_finish_page:
-            self.next_button.setText("Close")
+            self.next_button.setText("New import")
         elif page is self.auth_page or page is self.actual_auth_page:
             self.next_button.setText("Connect")
         elif page is self.transactions_page:

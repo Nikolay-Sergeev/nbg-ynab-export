@@ -112,16 +112,6 @@ class FinishPage(QWizardPage):
                 text = details
         else:
             self.title_label.setText("Import complete")
-            text = "The workflow finished successfully. You can now close the importer."
+            text = "The workflow finished successfully. You can start another import or close the importer."
 
         self.label.setText(text)
-
-        # Update parent window next button if possible
-        if hasattr(parent, "next_button"):
-            parent.next_button.setText("Close")
-
-        # Hide back button on last page if possible
-        if hasattr(parent, "back_button"):
-            parent.back_button.hide()
-
-        # No mode chooser when finishing

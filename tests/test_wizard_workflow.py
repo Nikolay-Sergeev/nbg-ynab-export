@@ -178,6 +178,7 @@ class TestWizardWorkflowTransitions(unittest.TestCase):
     def setUp(self):
         """Set up test fixtures."""
         self.mock_controller = MagicMock()
+        self.mock_controller.client_update_busy = False
         
         # Create the wizard window with controller
         with patch('ui.wizard.WizardController', return_value=self.mock_controller):
@@ -312,6 +313,43 @@ class TestWizardWorkflowTransitions(unittest.TestCase):
         self.assertEqual(self.wizard_window.back_button.text(), "Back")
         self.assertEqual(self.wizard_window.next_button.text(), "Connect")
         self.assertFalse(self.wizard_window.back_button.isHidden())
+
+    def test_finish_page_can_start_a_fresh_import(self):
+        self.wizard_window.show()
+        self.wizard_window.import_page.file_path = "/path/to/first.csv"
+        self.wizard_window.upload_stats = {"uploaded": 2}
+        self.wizard_window.file_export_path = "/path/to/first-export.csv"
+        self.wizard_window.go_to_page(5)
+
+        self.assertEqual(self.wizard_window.back_button.text(), "Close")
+        self.assertEqual(self.wizard_window.next_button.text(), "New import")
+        self.assertFalse(self.wizard_window.back_button.isHidden())
+
+        fresh_controller = MagicMock()
+        fresh_controller.client_update_busy = False
+        with patch('ui.wizard.WizardController', return_value=fresh_controller):
+            self.wizard_window.next_button.click()
+
+        new_window = QApplication.instance()._importer_window
+        self.assertIsNot(new_window, self.wizard_window)
+        self.assertFalse(self.wizard_window.isVisible())
+        self.assertTrue(new_window.isVisible())
+        self.assertIs(new_window.controller, fresh_controller)
+        self.assertEqual(new_window.pages_stack.currentIndex(), 0)
+        self.assertIsNone(new_window.import_page.file_path)
+        self.assertFalse(hasattr(new_window, "upload_stats"))
+        self.assertFalse(hasattr(new_window, "file_export_path"))
+        self.assertEqual(new_window.highest_reached, 0)
+        self.assertFalse(new_window.next_button.isEnabled())
+        new_window.close()
+        del QApplication.instance()._importer_window
+
+    def test_finish_page_close_still_exits(self):
+        self.wizard_window.import_page.file_path = "/path/to/first.csv"
+        self.wizard_window.go_to_page(5)
+        self.wizard_window.show()
+        self.wizard_window.back_button.click()
+        self.assertFalse(self.wizard_window.isVisible())
 
 
 if __name__ == '__main__':
